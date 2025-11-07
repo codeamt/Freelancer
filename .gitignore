@@ -98,6 +98,7 @@ ipython_config.py
 #   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
 #   commonly ignored for libraries.
+uv/
 uv.lock
 
 # poetry
@@ -129,6 +130,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env*
 .venv
 env/
 venv/
@@ -179,3 +181,20 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Editor and system files
+.vscode/
+.idea/
+.DS_Store
+*.log
+
+# Freelancer App specific
+/app/db//migrations/versions/__pycache__/
+/app/db/migrations/versions/
+/app/db/migrations/versions/*.pyc
+/app/db/migrations/versions/*.pyo
+/app/ui/static/js/__pycache__/
+/app/__pycache__/
+
+# AWS
+
