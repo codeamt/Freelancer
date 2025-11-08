@@ -187,6 +187,7 @@ cython_debug/
 .idea/
 .DS_Store
 *.log
+.sesskey
 
 # Freelancer App specific
 /app/db//migrations/versions/__pycache__/

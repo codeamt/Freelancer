@@ -13,6 +13,6 @@ strawberry-graphql[fastapi]
 argon2-cffi
 boto3
 htmx
-fasthtml
-monsterui
+fasthtml[oauth]
+MonsterUI
 stripe

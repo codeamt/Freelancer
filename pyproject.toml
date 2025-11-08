@@ -1,0 +1,37 @@
+[project]
+name = "freelancer"
+version = "1.0.0"
+description = "Modular FastAPI + FastHTML + MonsterUI app with GraphQL and Stripe"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "sqlalchemy[asyncio]",
+  "asyncpg",
+  "pymongo",
+  "redis",
+  "boto3",
+  "aiobotocore",
+  "argon2-cffi",
+  "python-dotenv",
+  "strawberry-graphql[fastapi]",
+  "alembic",
+  "python-fasthtml",
+  "MonsterUI",
+  "htmx",
+  "stripe",
+  "PyJWT",
+  "cryptography",
+  "celery",
+  "prometheus_client",
+  "duckdb",
+  "watchtower"
+]
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "config*", "infrastructure*", "scripts*"]
