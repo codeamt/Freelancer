@@ -1,5 +1,5 @@
 from fasthtml.common import *
-from app.core.routes import auth, ui, media, admin, webhooks, graphql
+from app.core.routes import auth, ui, media, admin, webhooks, graphql, main
 from app.core.middleware import security, session_middleware
 from app.core.services.oauth import GoogleOAuthService
 from app.core.utils.logger import get_logger
@@ -34,7 +34,8 @@ def init_app():
     
     # Include all routes
     app.mount("/auth", auth.router_auth)
-    app.mount("/", ui.router)
+    app.mount("/", main.router_main)
+    app.mount("/theme", ui.router)
     app.mount("/media", media.router_media)
     app.mount("/admin", admin.router_admin)
     app.mount("/webhooks", webhooks.router_webhooks)
@@ -54,9 +55,8 @@ def init_app():
     
     return app
 
-# Initialize the app
-init_app()
-
 if __name__ == "__main__":
+    # Initialize the app only when running as main module
+    init_app()
     import uvicorn
-    uvicorn.run("app.core.app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.core.app:app", host="0.0.0.0", port=8002, reload=True)

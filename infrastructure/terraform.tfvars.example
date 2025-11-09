@@ -1,0 +1,21 @@
+project    = "freelancer"
+env        = "prod"
+aws_region = "us-east-1"
+
+# Optional: custom bucket name
+app_bucket = ""
+
+# Lightsail image config
+container_image = "app:latest"
+lightsail_power = "nano"
+lightsail_scale = 1
+
+# Environment variables
+redis_url   = "redis://redis.example.com:6379/0"
+database_url = "postgresql+asyncpg://postgres:***@db.example.com:5432/fastapp"
+mongo_url    = "mongodb://mongo.example.com:27017"
+duckdb_path  = "/data/analytics.duckdb"
+
+# Secrets
+stripe_api_key = "sk_live_***"
+smtp_password  = "smtp_live_***"

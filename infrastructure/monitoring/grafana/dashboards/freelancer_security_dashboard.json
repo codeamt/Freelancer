@@ -1,0 +1,82 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "FastApp Security & Performance Dashboard",
+    "timezone": "browser",
+    "panels": [
+      {
+        "type": "graph",
+        "title": "Request Volume (Prometheus)",
+        "targets": [
+          {
+            "expr": "sum(rate(fastapp_requests_total[5m])) by (endpoint)",
+            "legendFormat": "{{endpoint}}"
+          }
+        ],
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+      },
+      {
+        "type": "graph",
+        "title": "Suspicious Inputs & Sanitization Failures (Prometheus)",
+        "targets": [
+          { "expr": "rate(fastapp_suspicious_inputs_total[5m])", "legendFormat": "Suspicious Inputs" },
+          { "expr": "rate(fastapp_sanitization_failures_total[5m])", "legendFormat": "Sanitization Failures" }
+        ],
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+      },
+      {
+        "type": "stat",
+        "title": "4xx Response Rate (CloudWatch)",
+        "targets": [
+          {
+            "namespace": "FastApp/Security",
+            "metricName": "Response4xx",
+            "region": "us-east-1",
+            "statistic": "Sum",
+            "period": "60",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "x": 0, "y": 8, "w": 6, "h": 6 }
+      },
+      {
+        "type": "stat",
+        "title": "5xx Response Rate (CloudWatch)",
+        "targets": [
+          {
+            "namespace": "FastApp/Security",
+            "metricName": "Response5xx",
+            "region": "us-east-1",
+            "statistic": "Sum",
+            "period": "60",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "x": 6, "y": 8, "w": 6, "h": 6 }
+      },
+      {
+        "type": "gauge",
+        "title": "Security Score",
+        "options": {
+          "fieldOptions": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "(1 - ((rate(fastapp_suspicious_inputs_total[5m]) + rate(fastapp_sanitization_failures_total[5m])) / rate(fastapp_requests_total[5m]))) * 100",
+            "legendFormat": "Security Score"
+          }
+        ],
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 6 }
+      }
+    ],
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s"
+  }
+}

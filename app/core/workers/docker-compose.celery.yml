@@ -1,0 +1,56 @@
+# Celery Worker + Beat + Prometheus Metrics
+version: '3.9'
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  worker:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    container_name: media-worker
+    command: uv run celery -A app.workers.media_tasks worker --loglevel=INFO -Q media
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - S3_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - APP_BUCKET=fastapp-dev-assets
+      - APP_MEDIA_KEY=supersecretfernetkey1234567890==
+    ports:
+      - "9100:9100"  # Prometheus metrics endpoint
+    depends_on:
+      - redis
+      - minio
+
+  beat:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    container_name: media-beat
+    command: uv run celery -A app.workers.media_tasks beat --loglevel=INFO
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./data/minio:/data
+
+networks:
+  default:
+    name: fastapp-net
+    external: true

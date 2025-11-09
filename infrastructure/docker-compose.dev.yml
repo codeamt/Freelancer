@@ -1,0 +1,111 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: freelancer-dev
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/workspace:cached
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - mongo
+      - minio
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/fastapp
+      - MONGO_URL=mongodb://mongo:27017
+      - REDIS_URL=redis://redis:6379/0
+      - AWS_REGION=us-east-1
+      - APP_BUCKET=freelancer-dev-assets
+      - AWS_BUCKET_URL=http://minio:9000/freelancer-dev-assets
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - DUCKDB_PATH=/workspace/analytics/duckdb/data.duckdb
+    networks:
+      - freelancer-net
+
+  db:
+    image: postgres:15-alpine
+    container_name: freelancer-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: freelancer
+    volumes:
+      - freelancer_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - freelancer-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: freelancer-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - freelancer_redis:/data
+    networks:
+      - freelancer-net
+
+  mongo:
+    image: mongo:6
+    container_name: freelancer-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - freelancer_mongo:/data/db
+    networks:
+      - freelancer-net
+
+  duckdb:
+    image: ghcr.io/duckdb/duckdb:latest
+    container_name: freelancer-duckdb
+    command: ["/bin/sh", "-c", "tail -f /dev/null"]
+    volumes:
+      - ./analytics/duckdb:/data
+    networks:
+      - freelancer-net
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: freelancer-mailhog
+    ports:
+      - "8025:8025"
+    networks:
+      - freelancer-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: freelancer-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - freelancer_minio:/data
+    networks:
+      - freelancer-net
+
+volumes:
+  freelancer_pgdata:
+  freelancer_redis:
+  freelancer_mongo:
+  freelancer_minio:
+
+networks:
+  freelancer-net:
+    driver: bridge

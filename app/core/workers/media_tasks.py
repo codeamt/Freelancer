@@ -21,7 +21,7 @@ tasks_succeeded = Counter("fastapp_tasks_succeeded_total", "Total tasks succeede
 tasks_failed = Counter("fastapp_tasks_failed_total", "Total tasks failed", ["task"])
 tasks_duration = Histogram("fastapp_task_duration_seconds", "Task execution duration in seconds", ["task"])
 
-def start_metrics_server(port=9100):
+def start_metrics_server(port=9102):
     def run():
         logger.info(f"📊 Starting Prometheus metrics server on port {port}")
         start_http_server(port)

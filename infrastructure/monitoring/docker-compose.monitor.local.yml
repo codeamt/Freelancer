@@ -1,0 +1,54 @@
+version: "3.9"
+
+services:
+  # --------------------------------------------------------------------------
+  # Prometheus — Local metrics collection from FastApp
+  # --------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fastapp-prometheus-local
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - fastapp_local_net
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=3d"
+
+  # --------------------------------------------------------------------------
+  # Grafana — Local monitoring UI (no SMTP, no CloudWatch)
+  # --------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: freelancer-grafana-local
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=true
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    volumes:
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - fastapp_local_net
+    depends_on:
+      - prometheus
+
+# --------------------------------------------------------------------------
+# Networks & Volumes
+# --------------------------------------------------------------------------
+networks:
+  fastapp_local_net:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
