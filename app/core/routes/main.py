@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 from app.core.ui.layout import Layout
-from app.core.ui.pages import HomePage, AboutPage, ContactPage
+from app.core.ui.pages import HomePage, AboutPage, ContactPage, ExamplePage
 
 router_main = APIRouter(tags=["main"])
 
@@ -18,3 +18,9 @@ async def about_page():
 async def contact_page():
     content = ContactPage()
     return Layout(content, title="Contact | FastApp")
+
+@router_main.get("/doodle-example")
+async def doodle_example_page():
+    """Example landing page demonstrating Phase 1 components"""
+    content = DoodleSummerCampPage()
+    return Layout(content, title="Summer Doodle Camp 2026 | Doodle Institute")

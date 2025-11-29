@@ -3,6 +3,7 @@ from app.core.routes import auth, ui, media, admin, webhooks, graphql, main
 from app.core.middleware import security, session_middleware
 from app.core.services.oauth import GoogleOAuthService
 from app.core.utils.logger import get_logger
+from app.add_ons.lms import router_lms
 import os
 
 logger = get_logger(__name__)
@@ -40,6 +41,10 @@ def init_app():
     app.mount("/admin", admin.router_admin)
     app.mount("/webhooks", webhooks.router_webhooks)
     app.mount("/graphql", graphql.router_graphql)
+    
+    # Mount LMS add-on
+    app.mount("/lms", router_lms)
+    logger.info("LMS add-on mounted successfully")
     
     # Initialize Google OAuth service
     try:

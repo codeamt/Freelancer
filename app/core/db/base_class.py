@@ -1,4 +1,5 @@
 # SQLAlchemy Async Engine & Session
+import os
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker

@@ -6,5 +6,15 @@ from .login import LoginPage
 from .register import RegisterPage
 from .profile import ProfilePage
 from .admin import AdminDashboardPage
+from .example_landing import ExamplePage
 
-__all__ = ['HomePage', 'AboutPage', 'ContactPage', 'LoginPage', 'RegisterPage', 'ProfilePage', 'AdminDashboardPage']
+__all__ = [
+    'HomePage', 
+    'AboutPage', 
+    'ContactPage', 
+    'LoginPage', 
+    'RegisterPage', 
+    'ProfilePage', 
+    'AdminDashboardPage',
+    'DoodleSummerCampPage'
+]
