@@ -1,36 +1,39 @@
+"""Register Page"""
 from fasthtml.common import *
-from app.core.ui.components import Container, Card, Input, Button
+from monsterui.all import *
 
 def RegisterPage():
     return Container(
-        Card(
-            H1("Create an Account", cls="text-3xl font-bold text-center mb-6"),
-            Form(
-                Div(
-                    Label("Email", fr="email", cls="block text-sm font-medium mb-1"),
-                    Input(type="email", id="email", name="email", placeholder="your@email.com", 
-                          cls="w-full px-3 py-2 border border-gray-300 rounded-md"),
-                    cls="mb-4"
+        Div(
+            Card(
+                CardBody(
+                    H1("Create an Account", cls="text-center mb-4"),
+                    Form(
+                        Div(
+                            Label("Email", fr="email", cls="form-label"),
+                            Input(type="email", id="email", name="email", placeholder="your@email.com", 
+                                  cls="form-control", required=True),
+                            cls="mb-3"
+                        ),
+                        Div(
+                            Label("Password", fr="password", cls="form-label"),
+                            Input(type="password", id="password", name="password", placeholder="••••••••", 
+                                  cls="form-control", required=True),
+                            cls="mb-3"
+                        ),
+                        Button("Register", type="submit", cls="btn btn-success w-100 mb-3"),
+                        Div(
+                            P(A("Already have an account? Login here", href="/auth/login", cls="text-decoration-none"), 
+                              cls="text-center mb-0"),
+                        ),
+                        hx_post="/auth/register",
+                        hx_target="#register-result"
+                    ),
+                    Div(id="register-result", cls="mt-3")
                 ),
-                Div(
-                    Label("Password", fr="password", cls="block text-sm font-medium mb-1"),
-                    Input(type="password", id="password", name="password", placeholder="••••••••", 
-                          cls="w-full px-3 py-2 border border-gray-300 rounded-md"),
-                    cls="mb-6"
-                ),
-                Button("Register", type="submit", 
-                       cls="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"),
-                Div(
-                    P(A("Already have an account? Login here", href="/auth/login", cls="text-green-600 hover:underline"), 
-                      cls="text-center mt-4"),
-                    cls="mt-6"
-                ),
-                hx_post="/auth/register",
-                hx_target="#register-result",
-                cls="space-y-4"
+                cls="shadow"
             ),
-            Div(id="register-result", cls="mt-4"),
-            cls="max-w-md w-full"
+            cls="col-md-6 col-lg-4 mx-auto"
         ),
-        cls="min-h-screen flex items-center justify-center py-12"
+        cls="min-vh-100 d-flex align-items-center py-5"
     )

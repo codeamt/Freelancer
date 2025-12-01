@@ -4,8 +4,8 @@ import os
 from datetime import datetime, timedelta
 from fastapi import HTTPException, Depends, Request
 from functools import wraps
-from app.core.utils.security import generate_token
-from app.core.utils.logger import get_logger
+from core.utils.security import generate_token
+from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

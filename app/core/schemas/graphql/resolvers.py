@@ -1,6 +1,6 @@
 import strawberry
-from app.core.services.db import DBService
-from app.core.services.recommender import Recommender
+from core.services.db import DBService
+from core.services.recommender import Recommender
 from typing import List
 
 @strawberry.type

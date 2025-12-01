@@ -1,6 +1,6 @@
 # Routes Package Initialization
 from .auth import router_auth
-from .ui import router as router_ui
+from .ui import router_ui
 from .media import router_media
 from .admin import router_admin
 from .webhooks import router_webhooks

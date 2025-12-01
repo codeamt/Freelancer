@@ -4,7 +4,7 @@ from bson import ObjectId
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 import os
-from app.core.db.models import *
+from core.db.models import *
 
 
 class DBService:

@@ -5,4 +5,4 @@ from .pages import *
 from .theme.context import ThemeContext
 from .utils.security import SecurityWrapper
 
-__all__ = ['Layout', 'ThemeContext', 'SecurityWrapper', 'HomePage', 'AboutPage', 'ContactPage', 'LoginPage', 'RegisterPage', 'ProfilePage', 'AdminDashboardPage']
+__all__ = ['Layout', 'ThemeContext', 'SecurityWrapper', 'HomePage', 'AboutPage', 'ContactPage', 'LoginPage', 'RegisterPage', 'ProfilePage', 'AdminDashboardPage', 'ExamplePage']

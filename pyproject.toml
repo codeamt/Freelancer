@@ -9,6 +9,7 @@ dependencies = [
   "sqlalchemy[asyncio]",
   "asyncpg",
   "pymongo",
+  "motor",
   "redis",
   "boto3",
   "aiobotocore",

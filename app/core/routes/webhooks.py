@@ -1,5 +1,5 @@
-from fastapi import APIRouter
+from fasthtml.common import *
 
-router_webhooks = APIRouter(prefix="/webhooks", tags=["webhooks"])
+router_webhooks = APIRouter()
 
 # Add webhook routes here as needed

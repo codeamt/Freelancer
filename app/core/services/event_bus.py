@@ -2,7 +2,7 @@
 import os
 import json
 from typing import Awaitable, Callable, Any, Optional
-from app.core.utils.logger import get_logger
+from core.utils.logger import get_logger
 
 # Use redis-py asyncio client
 import redis.asyncio as redis

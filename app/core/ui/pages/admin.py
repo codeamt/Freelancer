@@ -1,30 +1,44 @@
+"""Admin Dashboard Page"""
 from fasthtml.common import *
-from app.core.ui.components import Container, AnalyticsWidget
+from monsterui.all import *
 
 def AdminDashboardPage(metrics: dict):
+    if not metrics:
+        metrics = {}
+    
     return Container(
         Div(
-            H1("Admin Dashboard", cls="text-3xl font-bold mb-2"),
-            P("System analytics and metrics overview", cls="text-gray-600 mb-6"),
-            cls="mb-8"
-        ),
-        Div(
+            H1("Admin Dashboard", cls="mb-4"),
+            P("System analytics and metrics overview", cls="text-muted mb-5"),
+            
+            # Metrics Cards
             Div(
-                AnalyticsWidget(metrics),
-                cls="mb-8"
+                *[Div(
+                    Card(
+                        CardBody(
+                            H5(key.replace('_', ' ').title(), cls="card-title text-muted"),
+                            H2(str(value), cls="mb-0")
+                        )
+                    ),
+                    cls="col-md-4 mb-4"
+                ) for key, value in metrics.items()],
+                cls="row"
+            ) if metrics else Div(
+                P("No metrics available yet.", cls="text-muted text-center"),
+                cls="alert alert-info"
             ),
+            
+            # Quick Actions
             Div(
-                H2("Quick Actions", cls="text-2xl font-bold mb-4"),
+                H2("Quick Actions", cls="mb-3"),
                 Div(
-                    A("View Detailed Analytics", href="/admin/analytics", 
-                      cls="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 mr-4"),
-                    A("System Settings", href="/admin/settings", 
-                      cls="inline-block bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"),
-                    cls="mb-6"
+                    A("View Detailed Analytics", href="/admin/analytics", cls="btn btn-primary me-2"),
+                    A("System Settings", href="/admin/settings", cls="btn btn-secondary"),
+                    cls="mb-4"
                 ),
-                cls="mb-8"
+                cls="mt-5"
             ),
-            cls="max-w-6xl mx-auto"
-        ),
-        cls="py-8"
+            
+            cls="py-5"
+        )
     )

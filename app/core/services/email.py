@@ -3,7 +3,7 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from app.core.utils.logger import get_logger
+from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

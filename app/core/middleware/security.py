@@ -14,8 +14,8 @@ from fastapi import HTTPException, FastAPI # , Request
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.middleware.base import BaseHTTPMiddleware
-from app.core.ui.utils.security import sanitize_html, sanitize_sql_input
-from app.core.utils.logger import get_logger
+from core.ui.utils.security import sanitize_html, sanitize_sql_input
+from core.utils.logger import get_logger
 
 JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_hex(32))
 JWT_ALGO = "HS256"

@@ -1,59 +1,29 @@
-# Hardened Layout with SecurityWrapper and Safe FastHTML Components
+"""Clean Layout using FastHTML and MonsterUI"""
 from fasthtml.common import *
-from app.core.ui.theme.context import ThemeContext
-from app.core.ui.components import NavBar, Footer
-from app.core.ui.utils.security import SecurityWrapper
+from monsterui.all import *
 
-# Initialize theme and security contexts
-theme_context = ThemeContext()
-security = SecurityWrapper(theme_context)
-
-# ------------------------------------------------------------------------------
-# Secure Layout Component
-# ------------------------------------------------------------------------------
-
-def Layout(page_content, title: str = "FastApp"):
-    """Global layout wrapper that sanitizes content and theme tokens before render."""
-
-    # Sanitize all FastHTML components in the page body
-    safe_content = security.render_safe(page_content)
-
-    # Sanitize theme tokens for safe CSS injection
-    safe_colors, safe_aesthetic = security.safe_theme_tokens()
-    css = theme_context.export_css()
-
-    # Construct secure document tree using FastHTML primitives
-    return Div([
-        Head([
-            Title(security.safe_input(title)),
-            # Safe CSS injection using FastHTML Style() (not raw HTML)
-            Style(css)
-        ]),
-        Body([
-            NavBar([
-                ("Home", "/"),
-                ("LMS", "/lms"),
-                ("Shop", "/commerce"),
-                ("Social", "/social"),
-            ]),
-            safe_content,
-            Footer()
-        ])
-    ])
-
-# ------------------------------------------------------------------------------
-# Example Usage (inside a FastAPI route)
-# ------------------------------------------------------------------------------
-
-"""
-from fasthtml.common import *
-from app.ui.layout import Layout
-
-@app.get("/")
-def homepage():
-    content = Div([
-        P("Welcome to FastApp!"),
-        P("This content is fully sanitized and reactive."),
-    ])
-    return Layout(content, title="Home | FastApp")
-"""
+def Layout(page_content, title: str = "FastApp", current_path: str = "/"):
+    """Global layout with MonsterUI components"""
+    
+    # Return Title and body content - FastHTML will wrap in proper structure
+    return (
+        Title(title),
+        NavBar(
+            A("Home", href='/'),
+            A("About", href='/about'),
+            A("Contact", href='/contact'),
+            brand=H3('FastApp')
+        ),
+        Div(
+            page_content, 
+            cls="container mx-auto px-4 py-8"
+        ),
+        # Footer
+        Footer(
+            Div(
+                P("© 2025 FastApp. Built with FastHTML + MonsterUI.", cls=TextT.muted),
+                cls="text-center py-4"
+            ),
+            cls="mt-auto border-t"
+        )
+    )

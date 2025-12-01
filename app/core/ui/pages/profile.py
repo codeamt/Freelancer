@@ -1,35 +1,37 @@
+"""Profile Page"""
 from fasthtml.common import *
-from app.core.ui.components import Container, Card, Button
-from app.core.ui.layout import Layout
+from monsterui.all import *
 
 def ProfilePage(user):
     return Container(
-        Card(
-            H1(f"Welcome, {user['sub']}", cls="text-3xl font-bold mb-2"),
-            Div(
-                Span("Role: ", cls="font-semibold"),
-                Span(user['role'], cls="text-gray-700"),
-                cls="mb-4"
+        Div(
+            Card(
+                CardBody(
+                    H1(f"Welcome, {user.get('sub', 'User')}", cls="mb-4"),
+                    Div(
+                        Strong("Role: "),
+                        Span(user.get('role', 'user'), cls="text-muted"),
+                        cls="mb-3"
+                    ),
+                    Div(
+                        Strong("Email: "),
+                        Span(user.get('sub', 'N/A'), cls="text-muted"),
+                        cls="mb-3"
+                    ),
+                    Div(
+                        Strong("Scopes: "),
+                        Span(", ".join(user.get('scopes', [])), cls="text-muted"),
+                        cls="mb-4"
+                    ),
+                    Button("Logout", 
+                           hx_post="/auth/logout", 
+                           hx_target="body", 
+                           hx_swap="outerHTML",
+                           cls="btn btn-danger")
+                ),
+                cls="shadow"
             ),
-            Div(
-                Span("Email: ", cls="font-semibold"),
-                Span(user['sub'], cls="text-gray-700"),
-                cls="mb-4"
-            ),
-            Div(
-                Span("Scopes: ", cls="font-semibold"),
-                Span(", ".join(user.get('scopes', [])), cls="text-gray-700"),
-                cls="mb-6"
-            ),
-            Div(
-                Button("Logout", 
-                       hx_post="/auth/logout", 
-                       hx_target="body", 
-                       hx_swap="outerHTML",
-                       cls="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors"),
-                cls="mt-6"
-            ),
-            cls="max-w-2xl w-full"
+            cls="col-md-8 col-lg-6 mx-auto"
         ),
-        cls="min-h-screen flex items-center justify-center py-12"
+        cls="min-vh-100 d-flex align-items-center py-5"
     )

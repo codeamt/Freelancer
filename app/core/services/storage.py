@@ -7,7 +7,7 @@ from botocore.client import Config
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict
 from cryptography.fernet import Fernet
-from app.core.utils.logger import get_logger
+from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 logger.setLevel(logging.INFO)
