@@ -10,8 +10,37 @@ def Layout(page_content, title: str = "FastApp", current_path: str = "/"):
         Title(title),
         NavBar(
             A("Home", href='/'),
-            A("About", href='/about'),
-            A("Contact", href='/contact'),
+            # Docs link with book icon
+            A(
+                UkIcon("book", cls="mr-1"),
+                "Docs",
+                href='/docs',
+                cls="flex items-center gap-1"
+            ),
+            # GitHub repo link with icon
+            A(
+                UkIcon("github", cls="mr-1"),
+                "Repo",
+                href='https://github.com/codeamt/freelancer',
+                target="_blank",
+                cls="flex items-center gap-1"
+            ),
+            # Dropdown for example add-on apps
+            Details(
+                Summary(
+                    UkIcon("grid", cls="mr-1"),
+                    "Add-ons",
+                    cls="flex items-center gap-1 cursor-pointer"
+                ),
+                Ul(
+                    Li(A("🛍️ E-Shop", href='/eshop-example', cls="block px-4 py-2 hover:bg-base-200")),
+                    Li(A("📚 LMS", href='/lms-example', cls="block px-4 py-2 hover:bg-base-200")),
+                    Li(A("🌐 Social Network", href='/social-example', cls="block px-4 py-2 hover:bg-base-200")),
+                    Li(A("📺 Streaming", href='/streaming-example', cls="block px-4 py-2 hover:bg-base-200")),
+                    cls="menu bg-base-100 rounded-box shadow-lg absolute mt-2 w-56 z-50"
+                ),
+                cls="dropdown dropdown-end"
+            ),
             brand=H3('FastApp')
         ),
         Div(

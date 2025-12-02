@@ -1,164 +1,200 @@
-# Freelancer Platform
+# FastApp - Modular Web Application Platform
 
-A comprehensive platform with multiple add-ons for building modern web applications.
+A modern, modular FastHTML platform with authentication, role-based access control, and ready-to-use example applications. Perfect for freelance developers building custom solutions for clients.
 
 ## 🚀 Quick Start
 
 ```bash
 # Install dependencies
-pip install -r requirements.txt
-
-# Run migrations
-cd app/core/migrations
-alembic upgrade head
+uv pip install -e .
 
 # Start the application
-python -m app.core.app
+cd app
+python app.py
 ```
 
-Visit: `http://localhost:8002`
+Visit: `http://localhost:5001`
 
-## 🎨 Landing Page System (NEW! - Phase 1 Complete)
+**No database required!** The app runs in demo mode with in-memory storage by default.
 
-Core now includes **10 production-ready landing page components** for creating marketing pages like Doodle Institute!
+## ✨ Features
 
-### Components Available
-- ✅ Hero sections (with image/video backgrounds)
-- ✅ Pricing cards with promotional badges
-- ✅ Testimonial carousels
-- ✅ FAQ accordions
-- ✅ Countdown timers
-- ✅ Feature grids
-- ✅ Email capture forms
-- ✅ CTA banners
+### 🔐 Authentication System
+- **JWT-based authentication** with bcrypt password hashing
+- **Role-based access control** (user, student, instructor, admin)
+- **User registration** with role selection
+- **Smart redirects** - returns users to their original page after login
+- **Demo mode** - works without database connection
 
-**Example**: Visit `/doodle-example` to see all components in action!
+### 🎯 Example Applications
 
-See **[PHASE_1_COMPLETE.md](docs/PHASE_1_COMPLETE.md)** for full documentation.
+Four fully-functional example apps to showcase different use cases:
 
----
+#### 1. 🛍️ E-Shop (`/eshop-example`)
+- Product catalog with search and filtering
+- Shopping cart system
+- Checkout flow
+- **FREE product** for testing
+- Product detail pages with features
+- Auth-protected cart and checkout
 
-## 🎓 LMS Add-on
+#### 2. 📚 LMS (`/lms-example`)
+- Course catalog with ratings and stats
+- Student enrollment system
+- "My Courses" dashboard
+- **FREE orientation course**
+- Course detail pages with syllabus
+- Progress tracking
 
-The Learning Management System add-on is now **fully implemented and production-ready**!
+#### 3. 🌐 Social Network (`/social-example`)
+- Coming soon page with feature preview
+- Professional network templates
+- Community platform examples
+- Tech stack overview
 
-### Features
-- ✅ Course creation and management
-- ✅ Student enrollment system
-- ✅ Real-time progress tracking
-- ✅ Assessments and grading
-- ✅ Certificate generation
-- ✅ Instructor dashboard
-- ✅ Student dashboard
+#### 4. 📺 Streaming Platform (`/streaming-example`)
+- Coming soon page with feature preview
+- Live streaming templates
+- VOD platform examples
+- Multiple use case scenarios
 
-### Documentation
-- **[LMS_INDEX.md](add_ons/lms/docs/LMS_INDEX.md)** - Documentation index
-- **[LMS_COMPLETE.md](add_ons/lms/docs/LMS_COMPLETE.md)** - Overview
-- **[LMS_QUICKSTART.md](add_ons/lms/docs/LMS_QUICKSTART.md)** - 5-minute setup
-- **[LMS_API_REFERENCE.md](add_ons/lms/docs/LMS_API_REFERENCE.md)** - API docs
-- **[LMS_DEPLOYMENT_CHECKLIST.md](add_ons/lms/docs/LMS_DEPLOYMENT_CHECKLIST.md)** - Deployment guide
-
-### Quick LMS Setup
-```bash
-# Run LMS migration
-cd app/core/migrations
-alembic upgrade head
-
-# Test LMS setup
-python test_lms_setup.py
-
-# Create sample courses (optional)
-python seed_lms_data.py
-
-# Start app
-python -m app.core.app
-```
-
-Visit LMS: `http://localhost:8002/lms/courses`
-
-## 📦 Add-ons
-
-### Available
-- **LMS** 🎓 - Learning Management System (100% complete)
-- **Stream** 🎥 - Video streaming (structure in place)
-- **Commerce** 💰 - E-commerce (planned)
-- **Social** 👥 - Social networking (planned)
-
-See **[ADD_ONS_TODO.md](ADD_ONS_TODO.md)** for the complete roadmap.
+### 🎨 UI Components
+- **MonsterUI** - Beautiful, accessible components
+- **DaisyUI** - Tailwind CSS component library
+- **UIcons** - Icon system
+- **Responsive design** - Mobile-first approach
+- **Dark mode ready** - Theme support built-in
 
 ## 🛠️ Tech Stack
 
-- **FastHTML** - Modern Python web framework
-- **SQLAlchemy** - Async ORM
-- **PostgreSQL** - Primary database
-- **MongoDB** - Analytics and dynamic data
-- **Redis** - Session management
-- **Pydantic** - Data validation
-- **Alembic** - Database migrations
+### Core
+- **FastHTML** - Modern Python web framework with HTMX
+- **MonsterUI** - Component library built on DaisyUI
+- **Tailwind CSS** - Utility-first CSS framework
+- **Python 3.11+** - Modern Python features
+
+### Authentication & Security
+- **JWT** - Token-based authentication
+- **bcrypt** - Password hashing
+- **Role-based access control** - Flexible permission system
+
+### Optional (for production)
+- **MongoDB** - User data and content storage
+- **PostgreSQL** - Relational data (if needed)
+- **Redis** - Session management and caching
 
 ## 📚 Documentation
 
-- [LMS Documentation Index](add_ons/lms/docs/LMS_INDEX.md)
-- [Add-ons Roadmap](add_ons/lms/docs/ADD_ONS_TODO.md)
-- [Environment Setup](docs/ENV_TEMPLATE.md)
-- [Google OAuth Setup](docs/GOOGLE_OAUTH_SETUP.md)
+### Core Documentation
+- [Role System](ROLE_SYSTEM.md) - Role-based access control explained
+- [E-Shop Auth Flow](ESHOP_AUTH_FLOW.md) - Authentication flow details
+- [LMS Example README](app/examples/lms/README.md) - LMS features and usage
+- [E-Shop Example README](app/examples/eshop/README.md) - E-Shop features and usage
+
+### Architecture
+- [App Integration Guide](APP_INTEGRATION_GUIDE.md) - Add-on system
+- [Mount Examples](MOUNT_EXAMPLES.md) - How to mount example apps
+- [Startup Checklist](STARTUP_CHECKLIST.md) - Troubleshooting guide
 
 ## 🔧 Configuration
 
-Copy environment template:
+### Demo Mode (Default)
+No configuration needed! Just run `python app.py` and everything works with in-memory storage.
+
+### Production Mode (Optional)
+Create a `.env` file:
 ```bash
-# See ENV_TEMPLATE.md for all variables
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/fastapp
+# MongoDB (optional)
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB_NAME=fastapp
+
+# JWT Secret
+JWT_SECRET=your-secret-key-here
+
+# Other services (optional)
 REDIS_URL=redis://localhost:6379/0
-```
-
-## 🧪 Testing
-
-```bash
-# Test LMS setup
-python app/tests/test_lms_setup.py
-
-# Run all tests (when implemented)
-pytest
 ```
 
 ## 📊 Project Structure
 
 ```
-Freelancer/
+FastApp/
 ├── app/
-│   ├── core/              # Core application
-│   │   ├── routes/        # Main routes
-│   │   ├── services/      # Core services
-│   │   ├── db/            # Database models
-│   │   └── migrations/    # Alembic migrations
-│   └── add_ons/           # Add-on modules
-│       ├── lms/           # ✅ Learning Management System
-│       ├── stream/        # Video streaming
-│       ├── commerce/      # E-commerce
-│       └── social/        # Social features
-├── tests/                 # Test suite
-└── docs/                  # Documentation
+│   ├── app.py                 # Main application entry point
+│   ├── core/                  # Core application
+│   │   ├── routes/            # Main routes
+│   │   ├── services/          # Core services (DB, etc.)
+│   │   ├── ui/                # UI components and layouts
+│   │   │   ├── layout.py      # Main layout with navigation
+│   │   │   ├── components.py  # Reusable UI components
+│   │   │   └── pages/         # Core pages (home, etc.)
+│   │   └── utils/             # Utilities (security, logger)
+│   ├── add_ons/               # Add-on modules
+│   │   └── auth/              # ✅ Authentication system
+│   │       ├── routes/        # Auth routes (login, register)
+│   │       ├── services/      # Auth service (JWT, bcrypt)
+│   │       └── ui/            # Auth UI pages
+│   └── examples/              # Example applications
+│       ├── eshop/             # ✅ E-commerce example
+│       ├── lms/               # ✅ Learning platform example
+│       ├── social/            # 🚧 Social network (coming soon)
+│       └── streaming/         # 🚧 Streaming platform (coming soon)
+├── pyproject.toml             # Dependencies
+└── README.md                  # This file
 ```
 
 ## 🎯 Getting Started
 
-1. **Install dependencies**: `pip install -r requirements.txt`
-2. **Configure environment**: Copy `docs/ENV_TEMPLATE.md` to `.env`
-3. **Run migrations**: `alembic upgrade head`
-4. **Start application**: `python -m app.core.app`
-5. **Visit LMS**: `http://localhost:8002/lms/courses`
+### 1. Install Dependencies
+```bash
+uv pip install -e .
+# or
+pip install -e .
+```
 
-## 📖 Learn More
+### 2. Start the Application
+```bash
+cd app
+python app.py
+```
 
-- [LMS Complete Guide](app/add_ons/lms/docs/LMS_COMPLETE.md) - Everything about the LMS
-- [Quick Start Guide](app/add_ons/lms/docs/LMS_QUICKSTART.md) - Get running in 5 minutes
-- [API Reference](app/add_ons/lms/docs/LMS_API_REFERENCE.md) - Complete API documentation
-- [Deployment Guide](app/add_ons/lms/docs/LMS_DEPLOYMENT_CHECKLIST.md) - Production deployment
+### 3. Explore the Examples
+- **Home**: `http://localhost:5001/`
+- **E-Shop**: `http://localhost:5001/eshop-example`
+- **LMS**: `http://localhost:5001/lms-example`
+- **Social**: `http://localhost:5001/social-example`
+- **Streaming**: `http://localhost:5001/streaming-example`
+
+### 4. Test Authentication
+1. Click "Register" in the navigation
+2. Choose a role (Customer, Student, or Instructor)
+3. Complete registration
+4. Login and explore role-based redirects
+5. Try the free product/course in E-Shop or LMS
+
+## 🚀 Use Cases
+
+### For Freelance Developers
+- **Quick prototypes** - Show clients working demos in minutes
+- **Template library** - Start projects with proven patterns
+- **Modular architecture** - Mix and match features
+- **Client presentations** - Professional examples ready to go
+
+### For Clients
+- **E-commerce sites** - Online stores with cart and checkout
+- **Learning platforms** - Course management and enrollment
+- **Social networks** - Community platforms with profiles
+- **Streaming services** - Video platforms with live and VOD
 
 ## 🤝 Contributing
 
-The platform is modular and extensible. Each add-on is self-contained in `app/add_ons/`.
+The platform is modular and extensible. Each example app is self-contained in `app/examples/`.
+
+To create a new example:
+1. Create a new directory in `app/examples/`
+2. Add `__init__.py` and `app.py`
+3. Mount it in `app/app.py`
+4. Add to navigation in `app/core/ui/layout.py`
 
 ## 📄 License
 
@@ -166,5 +202,5 @@ Apache 2.0
 
 ---
 
-**Status**: LMS add-on is production-ready! 🎓
+**Status**: Auth system complete! Four example apps ready! �
 

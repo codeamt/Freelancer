@@ -25,12 +25,15 @@ def FeatureCard(icon: str, title: str, description: str):
     """Feature card with icon, title, and description"""
     return Card(
         Div(
-            I(cls=f"bi bi-{icon} text-4xl text-blue-600 mb-4"),
-            H5(title, cls="text-xl font-semibold mb-2"),
-            P(description, cls="text-gray-600"),
-            cls="text-center p-6"
+            Div(
+                UkIcon(icon, width="64", height="64", cls="text-blue-600"),
+                cls="flex justify-center mb-6"
+            ),
+            H5(title, cls="text-xl font-semibold mb-3"),
+            P(description, cls="text-gray-400 text-sm"),
+            cls="text-center p-8"
         ),
-        cls="shadow-sm hover:shadow-md transition-shadow"
+        cls="shadow-sm hover:shadow-md transition-shadow h-full"
     )
 
 def FeatureGrid(features: list):
@@ -48,6 +51,59 @@ def FeatureGrid(features: list):
             cls="flex flex-wrap -mx-4"
         ),
         cls="container mx-auto px-4 py-12"
+    )
+
+def FeatureCarousel(features: list, autoplay: bool = True):
+    """Carousel/slider of feature cards with autoplay
+    
+    Args:
+        features: List of dicts with keys: icon, title, description
+        autoplay: Whether to autoplay the carousel
+    """
+    carousel_id = "addon-carousel"
+    
+    return Div(
+        # Carousel container with DaisyUI carousel
+        Div(
+            *[Div(
+                Card(
+                    Div(
+                        Div(
+                            UkIcon(f["icon"], width="64", height="64", cls="text-blue-600"),
+                            cls="flex justify-center mb-6"
+                        ),
+                        H5(f["title"], cls="text-xl font-semibold mb-3"),
+                        P(f["description"], cls="text-gray-400 text-sm"),
+                        cls="text-center p-8"
+                    ),
+                    cls="shadow-lg hover:shadow-xl transition-shadow bg-base-200 min-h-[300px] flex items-center"
+                ),
+                id=f"slide{i}",
+                cls="carousel-item relative w-full md:w-1/3 px-2"
+            ) for i, f in enumerate(features)],
+            id=carousel_id,
+            cls="carousel carousel-center w-full space-x-4 p-4 bg-base-100 rounded-box"
+        ),
+        # Navigation dots
+        Div(
+            *[A(f"❯", href=f"#slide{i}", cls="btn btn-xs") for i in range(len(features))],
+            cls="flex justify-center gap-2 py-4"
+        ),
+        # Auto-scroll script
+        Script(f"""
+            let currentSlide = 0;
+            const totalSlides = {len(features)};
+            
+            setInterval(() => {{
+                currentSlide = (currentSlide + 1) % totalSlides;
+                document.getElementById('slide' + currentSlide).scrollIntoView({{
+                    behavior: 'smooth',
+                    block: 'nearest',
+                    inline: 'center'
+                }});
+            }}, 4000); // Change slide every 4 seconds
+        """) if autoplay else None,
+        cls="container mx-auto px-4 py-8"
     )
 
 def PricingCard(title: str, price: str, features: list, cta_text: str = "Choose Plan", cta_href: str = "#", highlighted: bool = False):
@@ -133,54 +189,34 @@ def TestimonialCarousel(testimonials: list):
         cls="py-5"
     )
 
-def FAQItem(question: str, answer: str, item_id: str):
-    """Single FAQ accordion item"""
-    return Div(
-        H2(
-            Button(
-                question,
-                cls="accordion-button collapsed",
-                type="button",
-                data_bs_toggle="collapse",
-                data_bs_target=f"#collapse{item_id}"
-            ),
-            cls="accordion-header"
-        ),
-        Div(
-            Div(P(answer), cls="accordion-body"),
-            id=f"collapse{item_id}",
-            cls="accordion-collapse collapse"
-        ),
-        cls="accordion-item"
-    )
-
 def FAQAccordion(faqs: list):
-    """FAQ accordion
+    """FAQ accordion using MonsterUI
     
     Args:
         faqs: List of dicts with keys: question, answer
     """
-    return Container(
-        Div(
-            *[FAQItem(faq["question"], faq["answer"], f"faq{i}") 
-              for i, faq in enumerate(faqs)],
-            cls="accordion"
+    return Div(
+        Accordion(
+            *[AccordionItem(
+                faq["question"],
+                P(faq["answer"], cls="text-gray-400")
+            ) for faq in faqs],
+            multiple=False,
+            animation=True,
         ),
-        cls="py-5"
+        cls="max-w-4xl mx-auto py-8"
     )
 
 def CTABanner(title: str, subtitle: str, cta_text: str = "Get Started", cta_href: str = "#"):
     """Call-to-action banner"""
     return Div(
-        Container(
-            Div(
-                H2(title, cls="text-white mb-3"),
-                P(subtitle, cls="text-white-50 mb-4"),
-                A(cta_text, href=cta_href, cls="btn btn-light btn-lg"),
-                cls="text-center py-5"
-            )
+        Div(
+            H2(title, cls="text-white text-3xl font-bold mb-4"),
+            P(subtitle, cls="text-blue-100 text-lg mb-6"),
+            A(cta_text, href=cta_href, cls="btn btn-lg bg-white text-blue-600 hover:bg-gray-100"),
+            cls="text-center py-16"
         ),
-        cls="bg-primary"
+        cls="bg-blue-600 w-full"
     )
 
 def EmailCaptureForm(action: str = "/subscribe", placeholder: str = "Enter your email"):

@@ -8,6 +8,7 @@ from .profile import ProfilePage
 from .admin import AdminDashboardPage
 from .example_landing import ExamplePage
 from .test import TestPage
+from .docs import DocsPage
 
 __all__ = [
     "HomePage",
@@ -18,5 +19,6 @@ __all__ = [
     "ProfilePage",
     "AdminDashboardPage",
     "ExamplePage",
-    "TestPage"
+    "TestPage",
+    "DocsPage"
 ]

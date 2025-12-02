@@ -4,12 +4,33 @@
 import os
 import duckdb
 from core.utils.logger import get_logger
+from abc import ABC, abstractmethod
 
 logger = get_logger(__name__)
 
 DUCKDB_PATH = os.getenv("DUCKDB_PATH", "analytics.db")
 
-class AnalyticsService:
+
+class AnalyticsServiceBase(ABC):
+    """Base class for analytics service implementations"""
+
+    @abstractmethod
+    def init_db(self):
+        """Initialize the analytics database"""
+        pass
+
+    @abstractmethod
+    def log_metric(self, metric: str, value: float):
+        """Log a metric"""
+        pass
+
+    @abstractmethod
+    def summarize_metrics(self):
+        """Summarize metrics"""
+        pass
+
+
+class AnalyticsService(AnalyticsServiceBase):
     @staticmethod
     def init_db():
         logger.info("Initializing DuckDB analytics store")

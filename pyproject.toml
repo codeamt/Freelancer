@@ -14,6 +14,7 @@ dependencies = [
   "boto3",
   "aiobotocore",
   "argon2-cffi",
+  "bcrypt",
   "python-dotenv",
   "strawberry-graphql[fastapi]",
   "alembic",

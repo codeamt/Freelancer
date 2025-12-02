@@ -2,7 +2,7 @@
 from fasthtml.common import *
 from monsterui.all import *
 from core.ui.components import (
-    HeroSection, FeatureGrid, CTABanner, TestimonialCarousel, FAQAccordion
+    HeroSection, FeatureGrid, FeatureCarousel, CTABanner, TestimonialCarousel, FAQAccordion
 )
 
 def HomePage():
@@ -16,34 +16,30 @@ def HomePage():
             "description": "Create and manage online courses, track student progress, issue certificates, and build a complete e-learning platform."
         },
         {
-            "icon": "cart",
+            "icon": "shopping-cart",
             "title": "Commerce - Online Store",
             "description": "Sell products and services with built-in payment processing, inventory management, and order fulfillment."
         },
         {
-            "icon": "people",
+            "icon": "users",
             "title": "Social - Community Platform",
             "description": "Build engaged communities with user profiles, posts, comments, likes, and real-time messaging."
+        },
+        {
+            "icon": "play-circle",
+            "title": "Streaming - Live & VOD",
+            "description": "Stream live video, host webinars, and deliver on-demand video content with built-in player and analytics."
         }
     ]
     
-    # Core features
-    core_features = [
-        {
-            "icon": "lightning",
-            "title": "Lightning Fast",
-            "description": "Built with FastHTML for maximum performance and minimal complexity."
-        },
-        {
-            "icon": "shield-check",
-            "title": "Secure by Default",
-            "description": "Built-in security features including authentication, authorization, and input sanitization."
-        },
-        {
-            "icon": "puzzle",
-            "title": "Modular Architecture",
-            "description": "Mix and match add-ons to create exactly the platform you need."
-        }
+    # Core features - now using Steps component
+    core_features_steps = [
+        {"title": "Lightning Fast", "icon": "zap"},
+        {"title": "Secure by Default", "icon": "shield"},
+        {"title": "Open Source", "icon": "github"},
+        {"title": "AWS & Mailgun Ready", "icon": "cloud"},
+        {"title": "Fully Customizable", "icon": "cog"},
+        {"title": "Modular Architecture", "icon": "grid"},
     ]
     
     # Testimonials
@@ -94,27 +90,31 @@ def HomePage():
             cta_href="/about"
         ),
         
-        # Add-ons Section
-        Container(
-            H2("Powerful Add-ons", cls="text-center mb-5 display-5"),
-            FeatureGrid(addons),
-            cls="py-5"
-        ),
-        
-        # Core Features Section
+        # Add-ons Section with Carousel
         Div(
-            Container(
-                H2("Core Features", cls="text-center mb-5 display-5 text-white"),
-                FeatureGrid(core_features)
-            ),
-            cls="bg-dark text-white py-5"
+            H2("Powerful Add-ons", cls="text-center mb-8 text-4xl font-bold"),
+            FeatureCarousel(addons, autoplay=True),
+            cls="py-12"
         ),
         
-        # Testimonials Section
-        Container(
-            H2("What People Are Saying", cls="text-center mb-5 display-5"),
-            TestimonialCarousel(testimonials),
-            cls="py-5"
+        # Core Features Section with Steps
+        Div(
+            H2("Core Features", cls="text-center mb-12 text-4xl font-bold"),
+            Div(
+                Steps(
+                    *[LiStep(
+                        Div(
+                            UkIcon(feature["icon"], width="24", height="24", cls="text-blue-600"),
+                            Span(feature["title"], cls="ml-3 text-lg"),
+                            cls="flex items-center"
+                        ),
+                        cls="step-neutral"
+                    ) for feature in core_features_steps],
+                    cls=(StepsT.vertical, "min-h-[400px]")
+                ),
+                cls="flex justify-center"
+            ),
+            cls="container mx-auto px-4 py-16"
         ),
         
         # FAQ Section

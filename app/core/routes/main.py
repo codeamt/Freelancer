@@ -1,6 +1,6 @@
 from fasthtml.common import *
 from core.ui.layout import Layout
-from core.ui.pages import HomePage, AboutPage, ContactPage, ExamplePage, TestPage
+from core.ui.pages import HomePage, AboutPage, ContactPage, ExamplePage, TestPage, DocsPage
 
 router_main = APIRouter()
 
@@ -9,6 +9,12 @@ router_main = APIRouter()
 def home_page():
     content = HomePage()
     return Layout(content, title="Home | FastApp")
+
+@router_main.get("/docs")
+def docs_page():
+    """Documentation page"""
+    content = DocsPage()
+    return Layout(content, title="Documentation | FastApp")
 
 @router_main.get("/test")
 def test_page():
