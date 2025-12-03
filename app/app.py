@@ -17,6 +17,9 @@ from examples.lms import create_lms_app
 from examples.social import create_social_app
 from examples.streaming import create_streaming_app
 
+from dotenv import load_dotenv
+load_dotenv('app.config.env')
+
 logger = get_logger(__name__)
 
 # Initialize FastHTML app with MonsterUI theme
