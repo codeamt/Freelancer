@@ -11,6 +11,7 @@ if str(app_dir) not in sys.path:
 
 from core.routes.main import router_main
 from core.utils.logger import get_logger
+from core.middleware import apply_security, RedisSessionMiddleware
 from examples.eshop import create_eshop_app
 from examples.lms import create_lms_app
 from examples.social import create_social_app
@@ -26,16 +27,46 @@ app, rt = fast_app(
     ],
 )
 
+# Apply security middlewares (CSP removed from SecurityHeaders for FastHTML compatibility)
+try:
+    from core.middleware.security import SecurityHeaders, RateLimitMiddleware, SecurityMiddleware
+    
+    # Apply security middlewares
+    app.add_middleware(SecurityMiddleware)  # Input sanitization & logging
+    app.add_middleware(RateLimitMiddleware)  # Rate limiting (60 req/min per IP)
+    app.add_middleware(SecurityHeaders)  # Security headers (no CSP - FastHTML incompatible)
+    # CSRFMiddleware disabled - breaks HTMX forms without proper token handling
+    
+    logger.info("✓ Security middlewares applied (Headers, Rate Limit, Sanitization)")
+    logger.info("ℹ️  CSP disabled (FastHTML uses inline styles), CSRF disabled (needs HTMX integration)")
+except Exception as e:
+    logger.warning(f"⚠️ Failed to apply security middlewares: {e}")
+
+# Apply Redis session middleware (for chat features in social/streaming)
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+if redis_url and redis_url != "redis://localhost:6379":
+    try:
+        app.add_middleware(
+            RedisSessionMiddleware,
+            redis_url=redis_url,
+            cookie_name="session_id",
+            ttl_seconds=60 * 60 * 24 * 7,  # 7 days
+            cookie_secure=os.getenv("ENVIRONMENT") == "production",
+            cookie_samesite="lax"
+        )
+        logger.info(f"✓ Redis session middleware applied (URL: {redis_url})")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to apply Redis session middleware: {e}")
+        logger.info("  → Chat features in social/streaming may not work without Redis")
+else:
+    logger.info("ℹ️  Redis not configured - using in-memory sessions")
+    logger.info("  → Set REDIS_URL environment variable for persistent sessions")
+
 # Mount core routes (landing pages only)
 router_main.to_app(app)
 
-# Mount auth add-on
-try:
-    from add_ons.auth import router_auth
-    router_auth.to_app(app)
-    logger.info("✓ Auth add-on mounted at /auth")
-except Exception as e:
-    logger.error(f"Failed to mount auth add-on: {e}")
+# Note: Auth is now a service (add_ons/services/auth.py), not a mounted add-on
+# Each example implements its own auth UI/routes using the auth service
 
 # Mount e-shop example
 try:
@@ -73,12 +104,12 @@ logger.info("FastApp started successfully")
 logger.info("Available routes:")
 logger.info("  - / (Home)")
 logger.info("  - /docs (Documentation)")
-logger.info("  - /auth/login (Login)")
-logger.info("  - /auth/register (Register)")
-logger.info("  - /eshop-example (E-Shop Demo)")
-logger.info("  - /lms-example (LMS Demo)")
+logger.info("  - /eshop-example (E-Shop Demo with auth)")
+logger.info("  - /lms-example (LMS Demo with auth)")
 logger.info("  - /social-example (Social Network Demo)")
 logger.info("  - /streaming-example (Streaming Platform Demo)")
+logger.info("")
+logger.info("Note: Auth is now a service - each example has its own login/register UI")
 
 
 

@@ -8,6 +8,7 @@ A complete example of a learning platform with:
 - Course management
 - Progress tracking
 
+Refactored to use shared domain data and services - no duplication!
 Perfect template for freelance education/training projects.
 """
 from .app import create_lms_app

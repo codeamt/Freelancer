@@ -38,16 +38,29 @@ def verify_jwt(token: str) -> dict:
 # --- Security headers --------------------------------------------------------
 
 class SecurityHeaders(BaseHTTPMiddleware):
+    """
+    Security headers middleware with FastHTML/MonsterUI compatibility
+    
+    Note: CSP is intentionally permissive for development with CDN resources.
+    Tighten in production if needed.
+    """
     async def dispatch(self, request: Request, call_next: Callable):
         resp = await call_next(request)
+        
+        # Only add security headers, skip CSP entirely
+        # CSP is incompatible with FastHTML's inline styles and CDN usage
         resp.headers.update({
-            "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-            "X-Frame-Options": "DENY",
+            "X-Frame-Options": "SAMEORIGIN",  # Changed from DENY to allow iframes if needed
             "X-Content-Type-Options": "nosniff",
             "Referrer-Policy": "no-referrer-when-downgrade",
             "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-            "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'",
+            # CSP removed - incompatible with FastHTML/MonsterUI
         })
+        
+        # Only add HSTS in production
+        if os.getenv("ENVIRONMENT") == "production":
+            resp.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+        
         return resp
 
 # --- CSRF --------------------------------------------------------------------
