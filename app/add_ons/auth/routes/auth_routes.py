@@ -220,20 +220,47 @@ async def register(request: Request):
         
         logger.info(f"User {email} registered successfully")
         
+        # Auto-login: Generate token for the new user
+        token_data = {
+            "sub": str(user.get("_id")),
+            "email": email,
+            "username": user.get("username"),
+            "roles": user.get("roles", ["user"])
+        }
+        token = auth_service.create_token(token_data)
+        
         # Check for redirect parameter
         redirect_param = request.query_params.get("redirect", "")
-        login_url = f"/auth/login?redirect={redirect_param}" if redirect_param else "/auth/login"
         
-        # Return success with redirect to login
+        # Determine redirect URL based on role or redirect param
+        if redirect_param:
+            redirect_url = redirect_param
+        else:
+            # Default redirect based on role
+            user_roles = user.get("roles", [])
+            if "admin" in user_roles:
+                redirect_url = "/admin/dashboard"
+            elif "instructor" in user_roles:
+                redirect_url = "/lms/instructor/dashboard"
+            elif "student" in user_roles:
+                redirect_url = "/lms/student/dashboard"
+            else:
+                redirect_url = "/"
+        
+        logger.info(f"User {email} auto-logged in after registration, redirecting to {redirect_url}")
+        
+        # Return success with auto-login and redirect
         return Div(
             Div(
-                P("✓ Registration successful! Redirecting to login...", cls="text-success"),
+                P("✓ Registration successful! Logging you in...", cls="text-success"),
                 cls="alert alert-success mb-4"
             ),
             Script(f"""
+                localStorage.setItem('auth_token', '{token}');
+                document.cookie = 'auth_token={token}; path=/; max-age=86400';
                 setTimeout(() => {{
-                    window.location.href = '{login_url}';
-                }}, 2000);
+                    window.location.href = '{redirect_url}';
+                }}, 1000);
             """)
         )
         

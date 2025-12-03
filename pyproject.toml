@@ -27,7 +27,9 @@ dependencies = [
   "celery",
   "prometheus_client",
   "duckdb",
-  "watchtower"
+  "watchtower",
+  "pillow>=12.0.0",
+  "reportlab>=4.4.5",
 ]
 
 [build-system]

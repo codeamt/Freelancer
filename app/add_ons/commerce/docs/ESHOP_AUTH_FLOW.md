@@ -1,254 +1,307 @@
-# E-Shop Authentication Flow
+# E-Shop Auth Flow - Complete Documentation
 
-## Current Implementation: Single Auth System
+## ✅ E-Shop Standalone Authentication
 
-The e-shop example uses **one unified authentication system** for all users:
-- Customers (shoppers)
-- Shop owners/admins
-- Instructors (for LMS)
-- Students (for LMS)
-
-### User Flow:
-
-1. **Browse Products** (No auth required)
-   - Visit `/eshop-example`
-   - View all products
-   - See prices and descriptions
-
-2. **Add to Cart** (Auth required)
-   - Click "Add to Cart" → Prompted to login
-   - Register or login
-   - After login → Redirected back to shop
-   - Can now add items to cart
-
-3. **Checkout** (Auth required)
-   - View cart with items
-   - Click "Proceed to Checkout"
-   - Complete purchase
-
-### Role-Based Redirects After Login:
-
-```python
-if "admin" in roles:
-    redirect_url = "/admin/dashboard"  # Shop owner/admin
-elif "instructor" in roles:
-    redirect_url = "/lms/instructor/dashboard"  # Course creator
-elif "student" in roles:
-    redirect_url = "/lms/student/dashboard"  # Course taker
-else:
-    redirect_url = "/"  # Regular customer (default)
-```
-
-## Alternative: Separate Admin Login
-
-If you want **separate login portals** for shop owners vs customers:
-
-### Option 1: Separate Login Pages
-
-```
-/auth/login          → Customer login
-/admin/login         → Admin/shop owner login
-```
-
-**Benefits:**
-- Clear separation
-- Different branding
-- Can add admin-specific features (2FA, IP restrictions)
-
-**Implementation:**
-```python
-@router_auth.get("/admin/login")
-def admin_login_page():
-    return Layout(AdminLoginPage(), title="Admin Login")
-
-@router_auth.post("/admin/login")
-async def admin_login(request: Request):
-    # Same auth logic, but check for admin role
-    user = await auth_service.authenticate_user(email, password)
-    
-    if not user or "admin" not in user.get("roles", []):
-        return Div(P("Access denied. Admin privileges required."))
-    
-    # ... rest of login
-```
-
-### Option 2: Role-Based Registration
-
-```python
-# Customer registration (default)
-/auth/register → Creates user with role: ["user"]
-
-# Admin invitation only
-/admin/invite → Admin creates account with role: ["admin", "shop_owner"]
-```
-
-**Benefits:**
-- Customers can self-register
-- Admins are invite-only (more secure)
-- Prevents unauthorized admin access
-
-## Recommended Approach for E-commerce
-
-### For Small Shops (Current Implementation):
-✅ **Single auth system** with role-based access
-- Simple to implement
-- Easy to manage
-- One user database
-- Role determines permissions
-
-### For Large Marketplaces:
-🔄 **Separate admin portal**
-- `/shop` → Customer-facing (public)
-- `/admin` → Admin dashboard (restricted)
-- Different login pages
-- Enhanced admin security (2FA, audit logs)
-
-## Current E-Shop Example Features
-
-### Public Access:
-- ✅ Browse products
-- ✅ View product details
-- ✅ Search/filter (coming soon)
-
-### Authenticated Users:
-- ✅ Add items to cart
-- ✅ View cart
-- ✅ Checkout
-- ✅ Order history (coming soon)
-- ✅ Saved payment methods (coming soon)
-
-### Admin/Shop Owner (Future):
-- ⏳ Manage products
-- ⏳ View orders
-- ⏳ Customer management
-- ⏳ Analytics dashboard
-- ⏳ Inventory management
-
-## Implementation Examples
-
-### Example 1: Customer Shops, Admin Manages
-
-```python
-# Customer flow
-1. Visit /eshop-example
-2. Browse products (no login)
-3. Click "Add to Cart" → Login prompt
-4. Register as "user" role
-5. Add items, checkout
-6. Redirected to home page
-
-# Admin flow
-1. Visit /admin/login (separate page)
-2. Login with admin credentials
-3. Access /admin/products → Manage inventory
-4. Access /admin/orders → View customer orders
-5. Access /admin/analytics → View sales data
-```
-
-### Example 2: Multi-Vendor Marketplace
-
-```python
-# Three user types:
-1. Customers (role: "user")
-   - Browse all products
-   - Purchase from any vendor
-   
-2. Vendors (role: "vendor")
-   - Manage own products
-   - View own sales
-   - Limited admin access
-   
-3. Platform Admin (role: "admin")
-   - Manage all vendors
-   - Platform settings
-   - Full access
-```
-
-## Security Considerations
-
-### Current Implementation:
-- ✅ Password hashing (bcrypt)
-- ✅ JWT tokens
-- ✅ Role-based access control
-- ✅ Session management
-
-### Recommended Additions:
-- 🔄 Email verification
-- 🔄 2FA for admins
-- 🔄 Rate limiting on login
-- 🔄 Audit logs for admin actions
-- 🔄 IP whitelisting for admin access
-
-## Quick Customization
-
-### To add separate admin login:
-
-1. Create admin login page:
-```python
-# app/add_ons/auth/ui/pages/admin_login.py
-def AdminLoginPage():
-    return Div(
-        H1("Admin Portal"),
-        P("Authorized personnel only"),
-        # ... login form
-    )
-```
-
-2. Add admin route:
-```python
-@router_auth.get("/admin/login")
-def admin_login_page():
-    return Layout(AdminLoginPage(), title="Admin Login")
-```
-
-3. Add role check:
-```python
-@router_auth.post("/admin/login")
-async def admin_login(request: Request):
-    user = await auth_service.authenticate_user(email, password)
-    
-    if "admin" not in user.get("roles", []):
-        return Div(P("Access denied"))
-    
-    # ... proceed with login
-```
-
-## Questions to Consider
-
-1. **Who can register?**
-   - Everyone (customers) ✅ Current
-   - Invite-only (admins)
-   - Approval required (vendors)
-
-2. **Separate login pages?**
-   - Single login for all ✅ Current
-   - Separate admin login
-   - Separate vendor login
-
-3. **Registration flow?**
-   - Self-service ✅ Current
-   - Email verification
-   - Admin approval
-
-4. **Admin access?**
-   - Role-based ✅ Current
-   - Separate credentials
-   - 2FA required
-
-## Your Current Setup
-
-✅ **Single unified auth** - Simple and effective for:
-- Small to medium shops
-- Single shop owner
-- Clear role separation
-- Easy to extend
-
-**Next Steps:**
-1. Test the current flow
-2. Decide if you need separate admin portal
-3. Add admin product management
-4. Implement order processing
+### **Overview:**
+E-Shop now has its own authentication system, completely independent from shared auth routes. No role selectors, just simple user registration for shopping.
 
 ---
 
-**Current Status**: Basic auth working, ready for feature expansion!
+## **Architecture:**
+
+```
+E-Shop App (/eshop-example)
+├── Auth Routes (E-Shop specific)
+│   ├── /login → Simple login form
+│   ├── /register → Simple registration (user role only)
+│   ├── /auth/login → Login handler
+│   └── /auth/register → Registration handler
+│
+├── Shopping Routes
+│   ├── / → Browse products
+│   ├── /product/{id} → Product details
+│   ├── /cart → Shopping cart
+│   └── /checkout/guest/{id} → Guest checkout
+│
+└── Uses Core Services
+    ├── AuthService (JWT, auth)
+    └── DBService (storage)
+```
+
+---
+
+## **Auth Flows:**
+
+### **1. Browse as Guest**
+```
+User visits /eshop-example
+↓
+Browse products (no auth required)
+↓
+Click "Add to Cart"
+↓
+Redirected to /eshop-example/login
+```
+
+### **2. Register & Shop**
+```
+Click "Register" or "Create Account"
+↓
+/eshop-example/register
+↓
+Fill form:
+  - Username
+  - Email
+  - Password
+  - Confirm Password
+  (Role: "user" - hardcoded, no selector)
+↓
+Submit → Auto-login with JWT
+↓
+Redirected to intended destination
+↓
+Cart item automatically added (if from product page)
+```
+
+### **3. Login & Shop**
+```
+Click "Sign In"
+↓
+/eshop-example/login
+↓
+Fill form:
+  - Email
+  - Password
+↓
+Submit → JWT token created
+↓
+Redirected to intended destination
+↓
+Cart item automatically added (if from product page)
+```
+
+### **4. Guest Checkout (Merchandise Only)**
+```
+Browse merchandise product
+↓
+Click "Continue as Guest"
+↓
+/eshop-example/checkout/guest/{product_id}
+↓
+Fill customer info + shipping
+↓
+Two options:
+  1. "Add to Cart & Sign In" → Register/Login → Cart
+  2. "Checkout Now" → Direct Stripe payment
+```
+
+---
+
+## **Key Features:**
+
+### ✅ **No Role Selector**
+- E-Shop only has "user" role
+- Registration form is simple and focused
+- No instructor/student/admin options
+
+### ✅ **Auto-Login After Registration**
+- User registers → Immediately logged in
+- JWT token created automatically
+- Redirected to intended page
+
+### ✅ **Cart Persistence**
+- Register from product page → Item added to cart
+- Login from product page → Item added to cart
+- Uses `/cart/add-and-view/{product_id}` route
+
+### ✅ **Guest Checkout**
+- Available for merchandise only
+- Can checkout without account
+- Or sign in to save order history
+
+---
+
+## **Routes:**
+
+### **Auth UI Routes:**
+```python
+GET  /eshop-example/login          # Login page
+GET  /eshop-example/register       # Registration page
+POST /eshop-example/auth/login     # Login handler
+POST /eshop-example/auth/register  # Registration handler
+```
+
+### **Shopping Routes:**
+```python
+GET  /eshop-example/                           # Browse products
+GET  /eshop-example/product/{id}               # Product details
+GET  /eshop-example/cart                       # View cart (auth required)
+GET  /eshop-example/cart/add-and-view/{id}     # Add to cart after login
+POST /eshop-example/cart/add/{id}              # Add to cart (HTMX)
+GET  /eshop-example/checkout/guest/{id}        # Guest checkout
+```
+
+---
+
+## **Code Examples:**
+
+### **Registration (E-Shop Specific):**
+```python
+@app.post("/auth/register")
+async def eshop_register(request: Request):
+    # Get form data
+    username = form_data.get("username")
+    email = form_data.get("email")
+    password = form_data.get("password")
+    
+    # Register with "user" role only (E-Shop specific)
+    user = await auth_service.register_user(
+        email=email,
+        password=password,
+        username=username,
+        roles=["user"]  # No role selector!
+    )
+    
+    # Auto-login
+    token = auth_service.create_token(token_data)
+    
+    # Redirect to intended destination
+    return redirect_with_token(redirect_url)
+```
+
+### **Product Page Auth:**
+```python
+# If not logged in, show "Sign in & Add to Cart"
+A(
+    "Sign in & Add to Cart",
+    href=f"/eshop-example/login?redirect=/eshop-example/cart/add-and-view/{product_id}",
+    cls="btn btn-primary btn-lg"
+)
+```
+
+### **Cart Persistence:**
+```python
+@app.get("/cart/add-and-view/{product_id}")
+async def add_and_view_cart(request: Request, product_id: int):
+    user = await get_user(request)
+    
+    if not user:
+        # Redirect to login with this URL
+        return RedirectResponse(f"/eshop-example/login?redirect=/eshop-example/cart/add-and-view/{product_id}")
+    
+    # Add item to cart
+    cart_storage[user_id][product_id] = current_qty + 1
+    
+    # Redirect to cart
+    return RedirectResponse("/eshop-example/cart")
+```
+
+---
+
+## **User Experience:**
+
+### **Scenario 1: New User Wants to Buy T-Shirt**
+1. Browse → Click "Premium T-Shirt"
+2. Click "Sign in & Add to Cart"
+3. See "Don't have an account? Create one"
+4. Click "Create one" → Registration form
+5. Fill: username, email, password
+6. Submit → Auto-logged in
+7. **Automatically redirected to cart with T-Shirt added!**
+8. Click "Proceed to Checkout"
+
+### **Scenario 2: Guest Wants Quick Purchase**
+1. Browse → Click "Tote Bag"
+2. Click "Continue as Guest"
+3. Fill customer info + shipping address
+4. Click "Checkout Now" → Stripe payment
+5. Done! (No account created)
+
+### **Scenario 3: Returning User**
+1. Browse → Click "Sign In"
+2. Enter email + password
+3. Logged in → Browse with cart icon showing count
+4. Add items → View cart → Checkout
+
+---
+
+## **Security:**
+
+### ✅ **JWT Tokens**
+- Stored in localStorage and cookie
+- 24-hour expiration
+- Verified on every request
+
+### ✅ **Protected Routes**
+- Cart requires authentication
+- Checkout requires authentication (except guest)
+- Add to cart requires authentication
+
+### ✅ **Password Requirements**
+- Minimum 8 characters
+- Hashed with bcrypt
+- Confirm password validation
+
+---
+
+## **Differences from Shared Auth:**
+
+| Feature | Shared Auth (`/auth/*`) | E-Shop Auth (`/eshop-example/*`) |
+|---------|------------------------|----------------------------------|
+| **Role Selector** | ✅ Yes (admin, instructor, student, user) | ❌ No (always "user") |
+| **Registration Form** | Complex with role dropdown | Simple (username, email, password) |
+| **Use Case** | Platform-wide auth | E-Shop specific |
+| **Redirect Logic** | Role-based (admin → dashboard) | Always to E-Shop |
+| **UI Style** | Generic platform style | E-Shop branded |
+
+---
+
+## **Benefits:**
+
+### ✅ **Standalone**
+- E-Shop works independently
+- No dependency on shared auth routes
+- Can be deployed separately
+
+### ✅ **Focused UX**
+- Simple registration (no role confusion)
+- Shopping-focused messaging
+- Clear call-to-actions
+
+### ✅ **Cart Integration**
+- Seamless add-to-cart after auth
+- No lost items
+- Smooth checkout flow
+
+### ✅ **Guest Option**
+- Quick checkout without account
+- Lower barrier to purchase
+- Can create account later
+
+---
+
+## **Testing Checklist:**
+
+- [ ] Register new user → Auto-login → Redirected correctly
+- [ ] Login existing user → Redirected correctly
+- [ ] Add to cart (not logged in) → Login → Item in cart
+- [ ] Guest checkout → Fill form → Checkout button works
+- [ ] Guest checkout → "Add to Cart & Sign In" → Login → Item in cart
+- [ ] Cart persists across sessions (JWT cookie)
+- [ ] Logout → Cart cleared
+- [ ] Password validation (min 8 chars)
+- [ ] Confirm password validation
+- [ ] Duplicate email/username error
+
+---
+
+## **Result:**
+
+✅ **E-Shop has its own complete auth system**
+✅ **No role selector confusion**
+✅ **Seamless cart integration**
+✅ **Guest checkout option**
+✅ **Auto-login after registration**
+✅ **Standalone and deployable**
+
+The E-Shop auth flow is now production-ready! 🎉

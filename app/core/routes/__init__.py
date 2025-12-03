@@ -1,10 +1,8 @@
 # Routes Package Initialization
-from .auth import router_auth
-from .ui import router_ui
-from .media import router_media
-from .admin import router_admin
-from .webhooks import router_webhooks
-from .graphql import router_graphql
+# Only import routes that still exist in core
 from .main import router_main
 
-__all__ = ['router_auth', 'router_ui', 'router_media', 'router_admin', 'router_webhooks', 'router_graphql', 'router_main']
+# Note: auth, admin, ui routes moved to add_ons
+# Note: media, webhooks, graphql moved to add_ons for future use
+
+__all__ = ['router_main']
