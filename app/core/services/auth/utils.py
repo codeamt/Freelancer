@@ -1,39 +1,43 @@
-"""Auth utility functions"""
-from fasthtml.common import Request
-from typing import Optional, Dict
+# app/core/services/auth/utils.py
+from functools import wraps
+from fasthtml.common import Request, HTTPException
+from typing import Callable, Optional
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-
-async def get_current_user(request: Request, auth_service) -> Optional[Dict]:
+def auth_required(roles: list = None):
     """
-    Get current authenticated user from request.
+    Decorator for route authentication and authorization
     
     Args:
-        request: FastHTML Request object
-        auth_service: AuthService instance
-        
-    Returns:
-        User data dict if authenticated, None otherwise
+        roles: List of required roles (None for any authenticated user)
     """
-    try:
-        # Try Authorization header first
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
-            user_data = auth_service.verify_token(token)
-            if user_data:
-                return await auth_service.get_user_by_id(user_data.get("sub"))
-        
-        # Try cookie
-        token = request.cookies.get("auth_token")
-        if token:
-            user_data = auth_service.verify_token(token)
-            if user_data:
-                return await auth_service.get_user_by_id(user_data.get("sub"))
-        
-        return None
-    except Exception as e:
-        logger.error(f"Error getting current user: {e}")
-        return None
+    def decorator(func: Callable):
+        @wraps(func)
+        async def wrapper(request: Request, *args, **kwargs):
+            # Get token from header or cookie
+            token = (
+                request.headers.get("Authorization", "").split(" ")[1] 
+                if request.headers.get("Authorization", "").startswith("Bearer ") 
+                else request.cookies.get("auth_token")
+            )
+            
+            if not token:
+                raise HTTPException(401, "Missing authentication token")
+            
+            # Verify token and get user
+            user = await request.app.state.user_service.authenticate_token(token)
+            if not user:
+                raise HTTPException(401, "Invalid token")
+            
+            # Check roles if specified
+            if roles and not any(role in user.get('roles', []) for role in roles):
+                raise HTTPException(403, "Insufficient permissions")
+            
+            # Inject user into request context
+            request.state.user = user
+            return await func(request, *args, **kwargs)
+            
+        return wrapper
+    return decorator

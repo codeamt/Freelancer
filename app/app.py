@@ -10,6 +10,7 @@ if str(app_dir) not in sys.path:
     sys.path.insert(0, str(app_dir))
 
 from core.routes.main import router_main
+from core.routes.oauth import router_oauth
 from core.utils.logger import get_logger
 from core.middleware import apply_security, RedisSessionMiddleware
 from examples.eshop import create_eshop_app
@@ -67,6 +68,7 @@ else:
 
 # Mount core routes (landing pages only)
 router_main.to_app(app)
+router_oauth.to_app(app)
 
 # Note: Auth is now a service (add_ons/services/auth.py), not a mounted add-on
 # Each example implements its own auth UI/routes using the auth service

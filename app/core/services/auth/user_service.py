@@ -1,6 +1,8 @@
 """User Service - User management functionality"""
 from core.utils.logger import get_logger
-from typing import Dict, List, Optional
+from typing import Dict, Optional
+from core.services.auth.security import security
+from core.services.auth.providers.jwt import JWTProvider
 
 logger = get_logger(__name__)
 
@@ -19,6 +21,33 @@ class UserService:
             db_service: Database service instance (injected)
         """
         self.db = db_service
+        self.jwt = JWTProvider()
+
+    async def authenticate(self, email: str, password: str) -> Optional[Dict]:
+        """Authenticate user and return JWT"""
+        user = await self.get_user_by_email(email)
+        if not user or not security.verify_password(password, user.get('password_hash', '')):
+            return None
+            
+        token = self.jwt.create({
+            "user_id": user["_id"],
+            "roles": user.get("roles", [])
+        })
+        return {"user": user, "token": token}
+
+    async def register(self, email: str, password: str, **extra) -> Optional[Dict]:
+        """Register new user with hashed password"""
+        if await self.get_user_by_email(email):
+            return None
+            
+        user_data = {
+            **extra,
+            "email": email,
+            "password_hash": security.hash_password(password),
+            "created_at": datetime.utcnow()
+        }
+        # Save to DB
+        return await self._create_user(user_data)
     
     async def get_user_by_email(self, email: str) -> Optional[Dict]:
         """
