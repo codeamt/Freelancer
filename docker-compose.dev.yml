@@ -8,7 +8,28 @@ services:
       - redis_data:/data
     networks:
       - app_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
     restart: unless-stopped
+
+  migrator:
+    image: postgres:13-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./app/add_ons/services/postgres/migrations:/migrations
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/app_db
+    command: >
+      bash -c "
+      echo 'Waiting for PostgreSQL...';
+      while ! pg_isready -h postgres -U postgres -d app_db; do sleep 2; done;
+      echo 'Running migrations...';
+      alembic upgrade head;
+      echo 'Migrations complete'"
 
   postgres:
     image: postgres:latest
@@ -24,6 +45,11 @@ services:
       - postgres_data:/var/lib/postgresql
     networks:
       - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
 
   mongodb:
@@ -39,6 +65,23 @@ services:
       - mongo_data:/data/db
     networks:
       - app_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+    restart: unless-stopped
+
+  duckdb:
+    image: ghcr.io/duckdb/duckdb:latest
+    container_name: duckdb
+    volumes:
+      - duckdb_data:/var/lib/duckdb
+      - ./data:/data:ro  # Mount directory for CSV/Parquet files
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "duckdb", "-c", "SELECT 1"]
+      interval: 10s
+      timeout: 3s
     restart: unless-stopped
 
   minio:
@@ -65,4 +108,5 @@ volumes:
   redis_data:
   postgres_data:
   mongo_data:
+  duckdb_data:
   minio_data:

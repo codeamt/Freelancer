@@ -4,6 +4,35 @@ DOCKER_COMPOSE := docker compose -f infrastructure/compose/docker-compose.yml
 PYTHON := uv run python
 UV := uv
 
+# Makefile
+.PHONY: dc-reset dc-validate dc-clean
+
+# Full reset command
+dc-reset: dc-down dc-clean dc-up
+
+# Validate compose config
+dc-validate:
+	docker-compose -f docker-compose.dev.yml config --quiet
+
+# Clean resources
+dc-clean:
+	docker-compose -f docker-compose.dev.yml down --volumes --remove-orphans
+	docker volume prune -f
+
+# Standard commands
+dc-up:
+	docker-compose -f docker-compose.dev.yml up -d --build
+
+dc-down:
+	docker-compose -f docker-compose.dev.yml down
+
+# Health checks
+dc-health:
+	@echo "Checking services..."
+	@docker-compose -f docker-compose.dev.yml ps
+	@curl -s http://localhost:9000/minio/health/live | jq .status || echo "MinIO not ready"
+	@pg_isready -h localhost -p 5432 -d app_db || echo "Postgres not ready"
+
 # --- Environment Setup ---
 .PHONY: bootstrap
 bootstrap:
