@@ -10,7 +10,7 @@ Provides comprehensive theme editing capabilities with:
 - Custom CSS
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 from dataclasses import dataclass, field
 from core.state.actions import Action, ActionResult
 from core.state.state import State

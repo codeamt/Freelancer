@@ -43,8 +43,7 @@ from .components.content import (
 
 # Form Components
 from .components.forms import (
-    EmailCaptureForm,
-    ContactForm,
+    EmailCaptureForm
 )
 
 # =============================================================================
@@ -54,18 +53,18 @@ from .components.forms import (
 from .layout import Layout
 
 # =============================================================================
-# Component Library (State Integration)
+# Component State (State Integration)
 # =============================================================================
 
 # Component Configuration
-from .library.config import (
+from .state.config import (
     ComponentConfig,
     ComponentType,
     VisibilityCondition,
 )
 
 # Component Factory
-from .library.factory import (
+from .state.factory import (
     EnhancedComponentLibrary,
     ComponentRenderer,
     SectionRenderer,
@@ -74,7 +73,7 @@ from .library.factory import (
 )
 
 # Component Actions
-from .library.actions import (
+from .state.actions import (
     AddComponentAction,
     RemoveComponentAction,
     UpdateComponentAction,
