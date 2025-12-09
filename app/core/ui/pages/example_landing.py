@@ -1,8 +1,8 @@
 """Example Landing Page - Doodle Institute Style"""
 from fasthtml.common import *
 from monsterui.all import *
-from core.ui.components import (
-    HeroSection, PricingCard, PricingTable, TestimonialCarousel,
+from core.ui import (
+    HeroSection, PricingTable, TestimonialCarousel,
     FAQAccordion, CTABanner, EmailCaptureForm, FeatureGrid
 )
 

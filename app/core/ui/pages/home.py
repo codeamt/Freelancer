@@ -1,8 +1,8 @@
 """Home Page - Showcasing FastApp Add-ons"""
 from fasthtml.common import *
 from monsterui.all import *
-from core.ui.components import (
-    HeroSection, FeatureGrid, FeatureCarousel, CTABanner, TestimonialCarousel, FAQAccordion
+from core.ui import (
+    HeroSection, FeatureCarousel, CTABanner, FAQAccordion
 )
 
 def HomePage():
