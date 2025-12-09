@@ -1,7 +1,5 @@
 """
-Admin routes for site management workflow.
-
-Provides web interface for managing sites using the state machine workflow.
+Enhanced admin routes with component management, theme editing, and preview.
 """
 
 from fasthtml.common import *
@@ -9,13 +7,15 @@ from monsterui.all import *
 from core.services.admin.decorators import require_admin
 from core.state.persistence import InMemoryPersister, MongoPersister
 from core.workflows.admin import SiteWorkflowManager
+from core.components.library import ComponentLibrary, ComponentType, VisibilityCondition
+from core.components.actions import AddComponentAction, RemoveComponentAction, ToggleComponentAction
+from core.theme.editor import ThemeEditorManager, ThemePresets
+from core.preview.manager import PreviewPublishManager
 from core.utils.logger import get_logger
-import os
 
 logger = get_logger(__name__)
 
-# Initialize workflow manager
-# Use MongoDB if available, otherwise in-memory
+# Initialize managers
 try:
     from core.services.base.mongo_service import get_db
     db = get_db()
@@ -24,336 +24,92 @@ except:
     persister = InMemoryPersister()
 
 workflow_manager = SiteWorkflowManager(persister=persister)
+theme_manager = ThemeEditorManager(persister=persister)
+preview_manager = PreviewPublishManager(persister=persister)
 
-# Create router
 router_admin_sites = Router()
 
 
 # ============================================================================
-# Site Management Dashboard
+# Component Management Routes
 # ============================================================================
 
-@router_admin_sites.get("/admin/sites")
+@router_admin_sites.get("/admin/sites/{site_id}/components")
 @require_admin
-async def admin_sites_dashboard(request):
-    """Admin dashboard for site management."""
-    
-    # Get current user
-    user = request.state.user if hasattr(request.state, 'user') else None
-    user_id = user.get("id") if user else None
-    
-    # List user's sites
-    sites_result = await workflow_manager.list_user_sites(user_id) if user_id else {"success": True, "sites": []}
-    sites = sites_result.get("sites", [])
-    
-    return Card(
-        Div(
-            H1("Site Management", cls="text-3xl font-bold mb-6"),
-            
-            # Create new site button
-            ButtonPrimary(
-                "Create New Site",
-                hx_get="/admin/sites/new",
-                hx_target="#site-content",
-                cls="mb-6"
-            ),
-            
-            # Sites list
-            Div(
-                H2("Your Sites", cls="text-2xl font-bold mb-4"),
-                
-                Div(
-                    *[
-                        Card(
-                            Div(
-                                H3(site["site_name"], cls="text-xl font-bold"),
-                                P(f"Status: {site['status']}", cls="text-sm text-gray-600"),
-                                P(f"Sections: {site['section_count']}", cls="text-sm text-gray-600"),
-                                P(f"Created: {site['created_at']}", cls="text-sm text-gray-600"),
-                                
-                                Div(
-                                    ButtonSecondary(
-                                        "Edit",
-                                        hx_get=f"/admin/sites/{site['site_id']}/edit",
-                                        hx_target="#site-content"
-                                    ),
-                                    ButtonSecondary(
-                                        "View",
-                                        hx_get=f"/admin/sites/{site['site_id']}/view",
-                                        hx_target="#site-content"
-                                    ),
-                                    ButtonPrimary(
-                                        "Publish" if site["status"] == "draft" else "Published",
-                                        hx_post=f"/admin/sites/{site['site_id']}/publish",
-                                        hx_target="#site-content",
-                                        disabled=site["status"] == "published"
-                                    ),
-                                    cls="flex gap-2 mt-4"
-                                ),
-                                
-                                cls="p-4"
-                            ),
-                            cls="mb-4"
-                        )
-                        for site in sites
-                    ] if sites else [
-                        P("No sites yet. Create your first site!", cls="text-gray-600")
-                    ],
-                    id="sites-list"
-                )
-            ),
-            
-            # Content area for forms/details
-            Div(id="site-content", cls="mt-8"),
-            
-            cls="max-w-6xl mx-auto p-6"
-        )
-    )
-
-
-# ============================================================================
-# Create New Site
-# ============================================================================
-
-@router_admin_sites.get("/admin/sites/new")
-@require_admin
-async def new_site_form(request):
-    """Form for creating a new site."""
-    
-    return Card(
-        Form(
-            H2("Create New Site", cls="text-2xl font-bold mb-4"),
-            
-            # Site name
-            Div(
-                Label("Site Name", cls="block text-sm font-bold mb-2"),
-                Input(
-                    type="text",
-                    name="site_name",
-                    placeholder="My Awesome Site",
-                    required=True,
-                    cls="w-full p-2 border rounded"
-                ),
-                cls="mb-4"
-            ),
-            
-            # Theme selection
-            Div(
-                Label("Theme", cls="block text-sm font-bold mb-2"),
-                Select(
-                    Option("Slate", value="slate"),
-                    Option("Light", value="light"),
-                    Option("Dark", value="dark"),
-                    Option("Cupcake", value="cupcake"),
-                    name="theme",
-                    cls="w-full p-2 border rounded"
-                ),
-                cls="mb-4"
-            ),
-            
-            # Initial sections
-            Div(
-                H3("Initial Sections", cls="text-lg font-bold mb-2"),
-                P("Add sections after creation", cls="text-sm text-gray-600 mb-2"),
-                cls="mb-4"
-            ),
-            
-            # Actions
-            Div(
-                ButtonPrimary(
-                    "Create Site",
-                    type="submit",
-                    cls="mr-2"
-                ),
-                ButtonSecondary(
-                    "Cancel",
-                    hx_get="/admin/sites",
-                    hx_target="#site-content"
-                ),
-                cls="flex gap-2"
-            ),
-            
-            hx_post="/admin/sites/create",
-            hx_target="#site-content",
-            cls="p-4"
-        )
-    )
-
-
-@router_admin_sites.post("/admin/sites/create")
-@require_admin
-async def create_site(request, site_name: str, theme: str = "slate"):
-    """Create a new site."""
-    
-    user = request.state.user if hasattr(request.state, 'user') else None
-    user_id = user.get("id") if user else None
-    
-    # Create site
-    result = await workflow_manager.create_new_site(
-        site_name=site_name,
-        theme={"theme": theme},
-        user_id=user_id
-    )
-    
-    if result["success"]:
-        site_id = result["site_id"]
-        
-        return Div(
-            Alert(
-                f"Site '{site_name}' created successfully!",
-                cls="alert-success mb-4"
-            ),
-            ButtonPrimary(
-                "Edit Site",
-                hx_get=f"/admin/sites/{site_id}/edit",
-                hx_target="#site-content"
-            ),
-            ButtonSecondary(
-                "Back to Dashboard",
-                hx_get="/admin/sites",
-                hx_target="body",
-                cls="ml-2"
-            )
-        )
-    else:
-        return Alert(
-            f"Error creating site: {result.get('error')}",
-            cls="alert-error"
-        )
-
-
-# ============================================================================
-# Edit Site
-# ============================================================================
-
-@router_admin_sites.get("/admin/sites/{site_id}/edit")
-@require_admin
-async def edit_site(request, site_id: str):
-    """Edit site configuration."""
-    
+async def manage_components(request, site_id: str):
+    """Component management interface."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
     # Load site
     site_result = await workflow_manager.load_site(site_id, user_id)
-    
     if not site_result["success"]:
-        return Alert(f"Error loading site: {site_result.get('error')}", cls="alert-error")
+        return Alert(f"Error: {site_result.get('error')}", cls="alert-error")
     
     state = site_result["state"]
     site_graph = state.get("site_graph", {})
     sections = site_graph.get("sections", [])
-    theme_state = state.get("theme_state", {})
     
     return Card(
         Div(
-            H2(f"Edit Site: {state.get('site_name')}", cls="text-2xl font-bold mb-6"),
+            H2("Component Management", cls="text-2xl font-bold mb-6"),
             
-            # Site status
-            Alert(
-                f"Status: {state.get('status', 'draft').upper()}",
+            # Section selector
+            Select(
+                *[Option(f"{s['id']} ({s['type']})", value=s['id']) for s in sections],
+                name="section_id",
+                id="section-selector",
+                hx_get=f"/admin/sites/{site_id}/components/section",
+                hx_target="#component-list",
+                hx_trigger="change",
+                cls="select select-bordered w-full mb-4"
+            ),
+            
+            # Component list for selected section
+            Div(id="component-list", cls="mb-6"),
+            
+            # Component library
+            Details(
+                Summary("Add Component from Library", cls="font-bold cursor-pointer mb-2"),
+                Div(
+                    H3("Pre-built Components", cls="text-lg font-bold mb-4"),
+                    
+                    Div(
+                        *[
+                            Card(
+                                Div(
+                                    H4(comp_name, cls="font-bold"),
+                                    P(comp_desc, cls="text-sm text-gray-600 mb-2"),
+                                    ButtonPrimary(
+                                        "Add to Section",
+                                        hx_post=f"/admin/sites/{site_id}/components/add-preset",
+                                        hx_vals=f'{{"preset": "{comp_id}"}}',
+                                        hx_include="#section-selector",
+                                        hx_target="#component-list"
+                                    ),
+                                    cls="p-3"
+                                ),
+                                cls="mb-2"
+                            )
+                            for comp_id, comp_name, comp_desc in [
+                                ("signup_cta", "Sign Up CTA", "Call-to-action for new users (hidden for members)"),
+                                ("dashboard_cta", "Dashboard CTA", "Link to dashboard (members only)"),
+                                ("contact_form", "Contact Form", "Standard contact form"),
+                                ("hero_banner", "Hero Banner", "Large hero section with CTA"),
+                                ("admin_nav", "Admin Navigation", "Admin-only navigation menu")
+                            ]
+                        ],
+                        cls="grid grid-cols-1 md:grid-cols-2 gap-4"
+                    )
+                ),
                 cls="mb-4"
             ),
             
-            # Sections management
-            Div(
-                H3("Sections", cls="text-xl font-bold mb-4"),
-                
-                Div(
-                    *[
-                        Card(
-                            Div(
-                                Span(f"#{section['order'] + 1}", cls="font-bold mr-2"),
-                                Span(section['id'], cls="text-lg"),
-                                Span(f"({section['type']})", cls="text-sm text-gray-600 ml-2"),
-                                
-                                ButtonDanger(
-                                    "Remove",
-                                    hx_post=f"/admin/sites/{site_id}/sections/remove",
-                                    hx_vals=f'{{"section_id": "{section["id"]}"}}',
-                                    hx_target="#site-content",
-                                    cls="ml-auto"
-                                ),
-                                
-                                cls="flex items-center justify-between p-3"
-                            ),
-                            cls="mb-2"
-                        )
-                        for section in sections
-                    ],
-                    id="sections-list",
-                    cls="mb-4"
-                ),
-                
-                # Add section form
-                Form(
-                    H4("Add Section", cls="text-lg font-bold mb-2"),
-                    
-                    Div(
-                        Input(
-                            type="text",
-                            name="section_id",
-                            placeholder="section-id",
-                            required=True,
-                            cls="p-2 border rounded mr-2"
-                        ),
-                        Select(
-                            Option("Hero", value="hero"),
-                            Option("Features", value="features"),
-                            Option("About", value="about"),
-                            Option("Contact", value="contact"),
-                            Option("Gallery", value="gallery"),
-                            name="section_type",
-                            cls="p-2 border rounded mr-2"
-                        ),
-                        ButtonPrimary("Add", type="submit"),
-                        cls="flex items-center gap-2"
-                    ),
-                    
-                    hx_post=f"/admin/sites/{site_id}/sections/add",
-                    hx_target="#site-content",
-                    cls="p-4 bg-gray-50 rounded"
-                ),
-                
-                cls="mb-6"
-            ),
-            
-            # Theme settings
-            Div(
-                H3("Theme", cls="text-xl font-bold mb-4"),
-                
-                Form(
-                    Select(
-                        Option("Slate", value="slate", selected=theme_state.get("theme") == "slate"),
-                        Option("Light", value="light", selected=theme_state.get("theme") == "light"),
-                        Option("Dark", value="dark", selected=theme_state.get("theme") == "dark"),
-                        name="theme",
-                        cls="p-2 border rounded mr-2"
-                    ),
-                    ButtonPrimary("Update Theme", type="submit"),
-                    
-                    hx_post=f"/admin/sites/{site_id}/theme/update",
-                    hx_target="#site-content",
-                    cls="flex items-center gap-2"
-                ),
-                
-                cls="mb-6"
-            ),
-            
-            # Actions
-            Div(
-                ButtonPrimary(
-                    "Publish Site",
-                    hx_post=f"/admin/sites/{site_id}/publish",
-                    hx_target="#site-content",
-                    cls="mr-2"
-                ),
-                ButtonSecondary(
-                    "Back to Dashboard",
-                    hx_get="/admin/sites",
-                    hx_target="body"
-                ),
-                cls="flex gap-2"
+            # Back button
+            ButtonSecondary(
+                "Back to Site Editor",
+                hx_get=f"/admin/sites/{site_id}/edit",
+                hx_target="#site-content"
             ),
             
             cls="p-4"
@@ -361,114 +117,438 @@ async def edit_site(request, site_id: str):
     )
 
 
-# ============================================================================
-# Section Operations
-# ============================================================================
-
-@router_admin_sites.post("/admin/sites/{site_id}/sections/add")
+@router_admin_sites.get("/admin/sites/{site_id}/components/section")
 @require_admin
-async def add_section(request, site_id: str, section_id: str, section_type: str):
-    """Add a section to the site."""
-    
+async def get_section_components(request, site_id: str, section_id: str):
+    """Get components for a specific section."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    result = await workflow_manager.update_site_sections(
-        site_id=site_id,
-        operations=[
-            {
-                "action": "add",
-                "data": {
-                    "section_id": section_id,
-                    "section_type": section_type
-                }
-            }
+    site_result = await workflow_manager.load_site(site_id, user_id)
+    if not site_result["success"]:
+        return Alert(f"Error: {site_result.get('error')}", cls="alert-error")
+    
+    state = site_result["state"]
+    site_graph = state.get("site_graph", {})
+    
+    # Find section
+    section = None
+    for s in site_graph.get("sections", []):
+        if s["id"] == section_id:
+            section = s
+            break
+    
+    if not section:
+        return P("Section not found", cls="text-gray-600")
+    
+    components = section.get("components", [])
+    
+    if not components:
+        return P("No components in this section", cls="text-gray-600")
+    
+    return Div(
+        H3(f"Components in {section_id}", cls="text-lg font-bold mb-4"),
+        *[
+            Card(
+                Div(
+                    Div(
+                        H4(comp["name"], cls="font-bold"),
+                        Badge(comp["type"], cls="badge-primary"),
+                        Badge("Enabled" if comp.get("enabled", True) else "Disabled",
+                              cls="badge-success" if comp.get("enabled", True) else "badge-error"),
+                        cls="flex items-center gap-2 mb-2"
+                    ),
+                    
+                    P(f"Visibility: {comp.get('visibility', 'always')}", cls="text-sm text-gray-600 mb-2"),
+                    
+                    # Content preview
+                    Details(
+                        Summary("View Content", cls="text-sm cursor-pointer"),
+                        Pre(str(comp.get("content", {})), cls="text-xs bg-gray-100 p-2 rounded"),
+                        cls="mb-2"
+                    ),
+                    
+                    # Actions
+                    Div(
+                        ButtonSecondary(
+                            "Toggle",
+                            hx_post=f"/admin/sites/{site_id}/components/toggle",
+                            hx_vals=f'{{"section_id": "{section_id}", "component_id": "{comp["id"]}"}}',
+                            hx_target="#component-list",
+                            cls="btn-sm"
+                        ),
+                        ButtonSecondary(
+                            "Edit Visibility",
+                            hx_get=f"/admin/sites/{site_id}/components/{comp['id']}/visibility",
+                            hx_vals=f'{{"section_id": "{section_id}"}}',
+                            hx_target="#visibility-modal",
+                            cls="btn-sm"
+                        ),
+                        ButtonDanger(
+                            "Remove",
+                            hx_post=f"/admin/sites/{site_id}/components/remove",
+                            hx_vals=f'{{"section_id": "{section_id}", "component_id": "{comp["id"]}"}}',
+                            hx_target="#component-list",
+                            hx_confirm="Remove this component?",
+                            cls="btn-sm"
+                        ),
+                        cls="flex gap-2"
+                    ),
+                    
+                    cls="p-3"
+                ),
+                cls="mb-2"
+            )
+            for comp in components
         ],
-        user_id=user_id
+        
+        # Modal container
+        Div(id="visibility-modal")
     )
-    
-    if result["success"]:
-        # Return to edit page
-        return RedirectResponse(url=f"/admin/sites/{site_id}/edit")
-    else:
-        return Alert(f"Error adding section: {result.get('error')}", cls="alert-error")
 
 
-@router_admin_sites.post("/admin/sites/{site_id}/sections/remove")
+@router_admin_sites.post("/admin/sites/{site_id}/components/add-preset")
 @require_admin
-async def remove_section(request, site_id: str, section_id: str):
-    """Remove a section from the site."""
-    
+async def add_preset_component(request, site_id: str, preset: str, section_id: str):
+    """Add a preset component to a section."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    result = await workflow_manager.update_site_sections(
-        site_id=site_id,
-        operations=[
-            {
-                "action": "remove",
-                "data": {"section_id": section_id}
-            }
-        ],
-        user_id=user_id
-    )
+    # Get preset component
+    library = ComponentLibrary()
+    component_map = {
+        "signup_cta": library.create_signup_cta,
+        "dashboard_cta": library.create_member_dashboard_cta,
+        "admin_nav": library.create_admin_only_nav,
+        "contact_form": library.create_contact_form,
+        "hero_banner": library.create_hero_banner
+    }
     
-    if result["success"]:
-        return RedirectResponse(url=f"/admin/sites/{site_id}/edit")
-    else:
-        return Alert(f"Error removing section: {result.get('error')}", cls="alert-error")
-
-
-# ============================================================================
-# Theme Operations
-# ============================================================================
-
-@router_admin_sites.post("/admin/sites/{site_id}/theme/update")
-@require_admin
-async def update_theme(request, site_id: str, theme: str):
-    """Update site theme."""
+    if preset not in component_map:
+        return Alert("Invalid preset", cls="alert-error")
     
-    user = request.state.user if hasattr(request.state, 'user') else None
-    user_id = user.get("id") if user else None
+    component_config = component_map[preset]()
     
-    # Load and update
+    # Load state and add component
     site_result = await workflow_manager.load_site(site_id, user_id)
     if not site_result["success"]:
         return Alert(f"Error: {site_result.get('error')}", cls="alert-error")
     
     from core.state.state import State
-    from core.state.actions import UpdateThemeAction
-    
     state = State(site_result["state"])
-    action = UpdateThemeAction()
-    new_state, result = await action.execute(state, theme_updates={"theme": theme})
     
-    # Save
-    if persister:
+    action = AddComponentAction()
+    new_state, result = await action.execute(
+        state,
+        section_id=section_id,
+        component_config=component_config.to_dict()
+    )
+    
+    if result.success and persister:
         partition_key = f"user:{user_id}" if user_id else None
         await persister.save(site_id, new_state, partition_key)
     
-    return RedirectResponse(url=f"/admin/sites/{site_id}/edit")
+    # Reload component list
+    return RedirectResponse(url=f"/admin/sites/{site_id}/components/section?section_id={section_id}")
 
 
-# ============================================================================
-# Publish Operations
-# ============================================================================
-
-@router_admin_sites.post("/admin/sites/{site_id}/publish")
+@router_admin_sites.post("/admin/sites/{site_id}/components/toggle")
 @require_admin
-async def publish_site(request, site_id: str):
-    """Publish a site."""
-    
+async def toggle_component(request, site_id: str, section_id: str, component_id: str):
+    """Toggle component enabled state."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    result = await workflow_manager.publish_site(site_id, user_id)
+    site_result = await workflow_manager.load_site(site_id, user_id)
+    from core.state.state import State
+    state = State(site_result["state"])
+    
+    action = ToggleComponentAction()
+    new_state, result = await action.execute(
+        state,
+        section_id=section_id,
+        component_id=component_id
+    )
+    
+    if result.success and persister:
+        partition_key = f"user:{user_id}" if user_id else None
+        await persister.save(site_id, new_state, partition_key)
+    
+    return RedirectResponse(url=f"/admin/sites/{site_id}/components/section?section_id={section_id}")
+
+
+# ============================================================================
+# Theme Editor Routes
+# ============================================================================
+
+@router_admin_sites.get("/admin/sites/{site_id}/theme")
+@require_admin
+async def theme_editor(request, site_id: str):
+    """Theme editor interface."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    # Load current theme
+    partition_key = f"user:{user_id}" if user_id else None
+    theme_state = await persister.load(f"theme_{site_id}", partition_key)
+    
+    current_theme = theme_state.get("theme_state", {}) if theme_state else {}
+    
+    return Card(
+        Div(
+            H2("Theme Editor", cls="text-2xl font-bold mb-6"),
+            
+            # Theme presets
+            Div(
+                H3("Theme Presets", cls="text-lg font-bold mb-4"),
+                Div(
+                    *[
+                        Card(
+                            Div(
+                                H4(preset_name.title(), cls="font-bold mb-2"),
+                                ButtonPrimary(
+                                    "Apply",
+                                    hx_post=f"/admin/sites/{site_id}/theme/preset",
+                                    hx_vals=f'{{"preset": "{preset_name}"}}',
+                                    hx_target="#theme-editor",
+                                    cls="btn-sm"
+                                ),
+                                cls="p-3"
+                            ),
+                            cls="text-center"
+                        )
+                        for preset_name in ["modern", "minimal", "bold", "dark", "warm", "cool"]
+                    ],
+                    cls="grid grid-cols-3 md:grid-cols-6 gap-4 mb-6"
+                )
+            ),
+            
+            # Color scheme editor
+            Div(
+                H3("Colors", cls="text-lg font-bold mb-4"),
+                Form(
+                    Div(
+                        *[
+                            Div(
+                                Label(color_name.replace("_", " ").title(), cls="block text-sm font-bold mb-1"),
+                                Input(
+                                    type="color",
+                                    name=color_name,
+                                    value=current_theme.get("colors", {}).get(color_name, "#000000"),
+                                    cls="w-full h-10"
+                                ),
+                                cls="mb-2"
+                            )
+                            for color_name in ["primary", "secondary", "accent", "neutral"]
+                        ],
+                        cls="grid grid-cols-2 md:grid-cols-4 gap-4"
+                    ),
+                    ButtonPrimary("Update Colors", type="submit", cls="mt-4"),
+                    hx_post=f"/admin/sites/{site_id}/theme/colors",
+                    hx_target="#theme-editor"
+                ),
+                cls="mb-6"
+            ),
+            
+            # Typography editor
+            Div(
+                H3("Typography", cls="text-lg font-bold mb-4"),
+                Form(
+                    Div(
+                        Label("Primary Font", cls="block text-sm font-bold mb-1"),
+                        Input(
+                            type="text",
+                            name="font_family_primary",
+                            value=current_theme.get("typography", {}).get("font_family_primary", "Inter, sans-serif"),
+                            placeholder="Inter, sans-serif",
+                            cls="input input-bordered w-full mb-2"
+                        )
+                    ),
+                    Div(
+                        Label("Base Font Size", cls="block text-sm font-bold mb-1"),
+                        Input(
+                            type="text",
+                            name="font_size_base",
+                            value=current_theme.get("typography", {}).get("font_size_base", "16px"),
+                            placeholder="16px",
+                            cls="input input-bordered w-full mb-2"
+                        )
+                    ),
+                    ButtonPrimary("Update Typography", type="submit", cls="mt-4"),
+                    hx_post=f"/admin/sites/{site_id}/theme/typography",
+                    hx_target="#theme-editor"
+                ),
+                cls="mb-6"
+            ),
+            
+            # Custom CSS editor
+            Div(
+                H3("Custom CSS", cls="text-lg font-bold mb-4"),
+                Form(
+                    Textarea(
+                        current_theme.get("custom_css", ""),
+                        name="custom_css",
+                        rows=10,
+                        placeholder="/* Add your custom CSS here */",
+                        cls="textarea textarea-bordered w-full font-mono text-sm"
+                    ),
+                    ButtonPrimary("Update CSS", type="submit", cls="mt-4"),
+                    hx_post=f"/admin/sites/{site_id}/theme/css",
+                    hx_target="#theme-editor"
+                ),
+                cls="mb-6"
+            ),
+            
+            # Preview & Actions
+            Div(
+                ButtonPrimary(
+                    "Preview Theme",
+                    hx_get=f"/admin/sites/{site_id}/preview",
+                    hx_target="#preview-window",
+                    cls="mr-2"
+                ),
+                ButtonSecondary(
+                    "Back to Site Editor",
+                    hx_get=f"/admin/sites/{site_id}/edit",
+                    hx_target="#site-content"
+                ),
+                cls="flex gap-2"
+            ),
+            
+            Div(id="preview-window", cls="mt-6"),
+            
+            cls="p-4",
+            id="theme-editor"
+        )
+    )
+
+
+@router_admin_sites.post("/admin/sites/{site_id}/theme/preset")
+@require_admin
+async def apply_theme_preset(request, site_id: str, preset: str):
+    """Apply a theme preset."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    result = await theme_manager.apply_preset(site_id, preset, user_id=user_id)
+    
+    if result["success"]:
+        return RedirectResponse(url=f"/admin/sites/{site_id}/theme")
+    
+    return Alert(f"Error: {result.get('error')}", cls="alert-error")
+
+
+@router_admin_sites.post("/admin/sites/{site_id}/theme/colors")
+@require_admin
+async def update_theme_colors(request, site_id: str, **colors):
+    """Update theme colors."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    result = await theme_manager.update_theme_colors(site_id, colors, user_id)
+    
+    if result["success"]:
+        return RedirectResponse(url=f"/admin/sites/{site_id}/theme")
+    
+    return Alert(f"Error: {result.get('error')}", cls="alert-error")
+
+
+# ============================================================================
+# Preview and Publishing Routes
+# ============================================================================
+
+@router_admin_sites.get("/admin/sites/{site_id}/preview")
+@require_admin
+async def preview_site(request, site_id: str):
+    """Preview site from draft version."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    # Generate preview
+    result = await preview_manager.generate_preview(site_id, user_context=user, user_id=user_id)
+    
+    if not result["success"]:
+        return Alert(f"Error: {result.get('error')}", cls="alert-error")
+    
+    preview_data = result["preview_data"]
+    
+    return Card(
+        Div(
+            Div(
+                H2("Site Preview", cls="text-2xl font-bold"),
+                Badge("Preview Mode", cls="badge-warning"),
+                cls="flex items-center justify-between mb-4"
+            ),
+            
+            # Preview iframe or content
+            Div(
+                H3(preview_data.get("site_name"), cls="text-3xl font-bold mb-4"),
+                
+                *[
+                    Div(
+                        H4(f"Section: {section['id']}", cls="text-xl font-bold mb-2"),
+                        Badge(f"Type: {section['type']}", cls="badge-primary mb-2"),
+                        
+                        P(f"{len(section['components'])} components", cls="text-sm text-gray-600"),
+                        
+                        # Show which components are visible
+                        Ul(
+                            *[
+                                Li(f"✓ {comp['name']}", cls="text-sm")
+                                for comp in section['components']
+                            ],
+                            cls="list-disc list-inside ml-4"
+                        ) if section['components'] else P("No visible components", cls="text-sm text-gray-600"),
+                        
+                        cls="p-4 border rounded mb-4"
+                    )
+                    for section in preview_data.get("sections", [])
+                ],
+                
+                cls="bg-white p-6 rounded shadow"
+            ),
+            
+            # Actions
+            Div(
+                ButtonPrimary(
+                    "Publish This Version",
+                    hx_post=f"/admin/sites/{site_id}/publish-draft",
+                    hx_target="#site-content",
+                    hx_confirm="Publish this version?",
+                    cls="mr-2"
+                ),
+                ButtonSecondary(
+                    "Compare with Published",
+                    hx_get=f"/admin/sites/{site_id}/compare",
+                    hx_target="#site-content"
+                ),
+                ButtonSecondary(
+                    "Back to Editor",
+                    hx_get=f"/admin/sites/{site_id}/edit",
+                    hx_target="#site-content",
+                    cls="ml-2"
+                ),
+                cls="flex gap-2 mt-6"
+            ),
+            
+            cls="p-4"
+        )
+    )
+
+
+@router_admin_sites.post("/admin/sites/{site_id}/publish-draft")
+@require_admin
+async def publish_draft_version(request, site_id: str):
+    """Publish the current draft version."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    result = await preview_manager.publish_draft(site_id, user_id)
     
     if result["success"]:
         return Div(
             Alert(
-                f"Site published successfully at {result.get('published_at')}!",
+                f"✓ Published version {result['version_number']}!",
                 cls="alert-success mb-4"
             ),
             ButtonSecondary(
@@ -477,23 +557,85 @@ async def publish_site(request, site_id: str):
                 hx_target="body"
             )
         )
-    else:
-        validation_errors = result.get("validation_errors", [])
-        return Div(
+    
+    return Alert(f"Error: {result.get('error')}", cls="alert-error")
+
+
+@router_admin_sites.get("/admin/sites/{site_id}/compare")
+@require_admin
+async def compare_versions(request, site_id: str):
+    """Compare draft and published versions."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    result = await preview_manager.compare_versions(site_id, user_id)
+    
+    if not result["success"]:
+        return Alert(f"Error: {result.get('error')}", cls="alert-error")
+    
+    comparison = result["comparison"]
+    
+    return Card(
+        Div(
+            H2("Version Comparison", cls="text-2xl font-bold mb-6"),
+            
             Alert(
-                f"Cannot publish site: {result.get('error')}",
-                cls="alert-error mb-4"
+                "Changes detected!" if comparison["has_changes"] else "No changes",
+                cls="alert-info mb-4" if comparison["has_changes"] else "alert-success mb-4"
             ),
-            Ul(
-                *[Li(error) for error in validation_errors],
-                cls="list-disc list-inside mb-4"
-            ) if validation_errors else None,
-            ButtonSecondary(
-                "Back to Edit",
-                hx_get=f"/admin/sites/{site_id}/edit",
-                hx_target="#site-content"
-            )
+            
+            # Section changes
+            Div(
+                H3("Section Changes", cls="text-lg font-bold mb-2"),
+                
+                Div(
+                    H4("Added Sections", cls="font-bold mb-1"),
+                    Ul(
+                        *[Li(section_id, cls="text-green-600") for section_id in comparison["sections"]["added"]],
+                        cls="list-disc list-inside ml-4 mb-2"
+                    ) if comparison["sections"]["added"] else P("None", cls="text-gray-600 ml-4 mb-2")
+                ),
+                
+                Div(
+                    H4("Removed Sections", cls="font-bold mb-1"),
+                    Ul(
+                        *[Li(section_id, cls="text-red-600") for section_id in comparison["sections"]["removed"]],
+                        cls="list-disc list-inside ml-4 mb-2"
+                    ) if comparison["sections"]["removed"] else P("None", cls="text-gray-600 ml-4 mb-2")
+                ),
+                
+                cls="mb-6"
+            ),
+            
+            # Theme changes
+            Div(
+                H3("Theme Changes", cls="text-lg font-bold mb-2"),
+                P("Theme modified" if comparison["theme_changed"] else "No theme changes",
+                  cls="text-orange-600" if comparison["theme_changed"] else "text-gray-600"),
+                cls="mb-6"
+            ),
+            
+            # Actions
+            Div(
+                ButtonPrimary(
+                    "Publish Changes",
+                    hx_post=f"/admin/sites/{site_id}/publish-draft",
+                    hx_target="#site-content",
+                    hx_confirm="Publish these changes?",
+                    disabled=not comparison["has_changes"]
+                ),
+                ButtonSecondary(
+                    "Back to Editor",
+                    hx_get=f"/admin/sites/{site_id}/edit",
+                    hx_target="#site-content",
+                    cls="ml-2"
+                ),
+                cls="flex gap-2"
+            ),
+            
+            cls="p-4"
         )
+    )
 
 
 # Export router
