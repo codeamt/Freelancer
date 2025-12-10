@@ -1,43 +1,71 @@
 # app/core/services/auth/utils.py
-from functools import wraps
-from fasthtml.common import Request, HTTPException
-from typing import Callable, Optional
+"""Auth Utilities"""
+from typing import Optional
+from starlette.requests import Request
+from core.services.auth.auth_service import AuthService, AnonymousUser
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-def auth_required(roles: list = None):
+
+async def get_current_user_from_request(
+    request: Request,
+    auth_service: AuthService
+):
     """
-    Decorator for route authentication and authorization
+    Extract and verify user from request.
+    
+    Checks (in order):
+    1. Authorization header (Bearer token)
+    2. Cookie (auth_token)
     
     Args:
-        roles: List of required roles (None for any authenticated user)
+        request: Starlette request
+        auth_service: AuthService instance
+        
+    Returns:
+        User entity or AnonymousUser if not authenticated
     """
-    def decorator(func: Callable):
-        @wraps(func)
-        async def wrapper(request: Request, *args, **kwargs):
-            # Get token from header or cookie
-            token = (
-                request.headers.get("Authorization", "").split(" ")[1] 
-                if request.headers.get("Authorization", "").startswith("Bearer ") 
-                else request.cookies.get("auth_token")
-            )
-            
-            if not token:
-                raise HTTPException(401, "Missing authentication token")
-            
-            # Verify token and get user
-            user = await request.app.state.user_service.authenticate_token(token)
-            if not user:
-                raise HTTPException(401, "Invalid token")
-            
-            # Check roles if specified
-            if roles and not any(role in user.get('roles', []) for role in roles):
-                raise HTTPException(403, "Insufficient permissions")
-            
-            # Inject user into request context
-            request.state.user = user
-            return await func(request, *args, **kwargs)
-            
-        return wrapper
-    return decorator
+    token = None
+    
+    # Try Authorization header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    
+    # Try cookie
+    if not token:
+        token = request.cookies.get("auth_token")
+    
+    # No token found
+    if not token:
+        return AnonymousUser()
+    
+    # Verify token and get user
+    try:
+        user = await auth_service.get_current_user(token)
+        if user:
+            return user
+    except Exception as e:
+        logger.warning(f"Failed to get current user: {e}")
+    
+    return AnonymousUser()
+
+
+def extract_token_from_request(request: Request) -> Optional[str]:
+    """
+    Extract token from request.
+    
+    Args:
+        request: Starlette request
+        
+    Returns:
+        Token string or None
+    """
+    # Try Authorization header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]
+    
+    # Try cookie
+    return request.cookies.get("auth_token")

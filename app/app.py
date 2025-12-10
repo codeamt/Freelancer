@@ -1,24 +1,32 @@
+"""Main Application Setup"""
 from fasthtml.common import *
 from monsterui.all import *
-import sys
 import os
-from pathlib import Path
 
-# Add app directory to path if not already there
-app_dir = Path(__file__).parent
-if str(app_dir) not in sys.path:
-    sys.path.insert(0, str(app_dir))
+# Middleware 
+from core.middleware import apply_security, RedisSessionMiddleware
 
-from core.routes import *
+# Database adapters
+from core.db.adapters.postgres_adapter import PostgresAdapter
+from core.db.adapters.mongodb_adapter import MongoDBAdapter
+from core.db.adapters.redis_adapter import RedisAdapter
+
+# Repositories
+from core.db.repositories.user_repository import UserRepository
+
+# Services
+from core.services.auth import AuthService, UserService
+from core.services.auth.providers.jwt import JWTProvider
 from core.services.settings import (
     initialize_settings_service,
     initialize_session_manager
 )
-from core.utils.logger import get_logger
-from core.middleware import apply_security, RedisSessionMiddleware
 
-from core.services.base.mongo_service import get_db
+# Routes
+from core.routes import *
 
+
+# Examples
 from examples.eshop import create_eshop_app
 from examples.lms import create_lms_app
 from examples.social import create_social_app
@@ -27,64 +35,132 @@ from examples.streaming import create_streaming_app
 from dotenv import load_dotenv
 load_dotenv('app.config.env')
 
-logger = get_logger(__name__)
+# ============================================================================
+# Database Setup
+# ============================================================================
 
-# Initialize FastHTML app with MonsterUI theme
+# Initialize adapters
+postgres = PostgresAdapter(
+    connection_string=os.getenv("POSTGRES_URL"),
+    min_size=10,
+    max_size=20
+)
+
+mongodb = MongoDBAdapter(
+    connection_string=os.getenv("MONGO_URL"),
+    database=os.getenv("MONGO_DB", "app_db")
+)
+
+redis = RedisAdapter(
+    connection_string=os.getenv("REDIS_URL")
+)
+
+# ============================================================================
+# Repository Setup
+# ============================================================================
+
+# User repository (core)
+user_repo = UserRepository(postgres, mongodb, redis)
+
+# ============================================================================
+# Service Setup
+# ============================================================================
+
+# JWT provider
+jwt_provider = JWTProvider()
+
+# Auth service (authentication/authorization)
+auth_service = AuthService(user_repo, jwt_provider)
+
+# User service (user management)
+user_service = UserService(user_repo)
+
+# ============================================================================
+# FastHTML App
+# ============================================================================
+
 app, rt = fast_app(
     hdrs=[
         *Theme.slate.headers(),
-        Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"),
+        Link(
+            rel="stylesheet",
+            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
+        ),
     ],
 )
 
-# Apply security middlewares (CSP removed from SecurityHeaders for FastHTML compatibility)
+# Attach services to app state (for access in routes/decorators)
+app.state.auth_service = auth_service
+app.state.user_service = user_service
+# app.state.jwt_provider = jwt_provider
+# app.state.settimngs_service = initialize_settings_service(db)
+# app.state.session_manager = initialize_session_manager(db)
+app.state.user_repo = user_repo
+
+ # Apply security middlewares (CSP removed from SecurityHeaders for FastHTML compatibility)
 try:
     from core.middleware.security import SecurityHeaders, RateLimitMiddleware, SecurityMiddleware
-    
+            
     # Apply security middlewares
     app.add_middleware(SecurityMiddleware)  # Input sanitization & logging
     app.add_middleware(RateLimitMiddleware)  # Rate limiting (60 req/min per IP)
     app.add_middleware(SecurityHeaders)  # Security headers (no CSP - FastHTML incompatible)
     # CSRFMiddleware disabled - breaks HTMX forms without proper token handling
     
+
     logger.info("✓ Security middlewares applied (Headers, Rate Limit, Sanitization)")
     logger.info("ℹ️  CSP disabled (FastHTML uses inline styles), CSRF disabled (needs HTMX integration)")
 except Exception as e:
     logger.warning(f"⚠️ Failed to apply security middlewares: {e}")
+# ============================================================================
+# Startup/Shutdown
+# ============================================================================
 
-# Apply Redis session middleware (for chat features in social/streaming)
-redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-if redis_url and redis_url != "redis://localhost:6379":
-    try:
-        app.add_middleware(
-            RedisSessionMiddleware,
-            redis_url=redis_url,
-            cookie_name="session_id",
-            ttl_seconds=60 * 60 * 24 * 7,  # 7 days
-            cookie_secure=os.getenv("ENVIRONMENT") == "production",
-            cookie_samesite="lax"
-        )
-        logger.info(f"✓ Redis session middleware applied (URL: {redis_url})")
-    except Exception as e:
-        logger.warning(f"⚠️ Failed to apply Redis session middleware: {e}")
-        logger.info("  → Chat features in social/streaming may not work without Redis")
-else:
-    logger.info("ℹ️  Redis not configured - using in-memory sessions")
-    logger.info("  → Set REDIS_URL environment variable for persistent sessions")
+@app.on_event("startup")
+async def startup():
+    """Initialize database connections"""
+    await postgres.connect()
+    await mongodb.connect()
+    await redis.connect()
+    logger.info("✓ Database adapters connected")
 
-db = get_db()
+@app.on_event("shutdown")
+async def shutdown():
+    """Close database connections"""
+    await postgres.disconnect()
+    await mongodb.disconnect()
+    await redis.disconnect()
+    logger.info("✓ Database adapters disconnected")
 
-initialize_settings_service(db)
-initialize_session_manager(db)
+# Add Redis middleware
+try:
+    app.add_middleware(
+        RedisSessionMiddleware,
+        redis_url=redis_url,
+        cookie_name="session_id",
+        ttl_seconds=60 * 60 * 24 * 7,  # 7 days
+        cookie_secure=os.getenv("ENVIRONMENT") == "production",
+        cookie_samesite="lax"
+    )
+    logger.info(f"✓ Redis session middleware applied (URL: {redis_url})")
+except Exception as e:
+    logger.warning(f"⚠️ Failed to apply Redis session middleware: {e}")
+    logger.info("  → Chat features in social/streaming may not work without Redis")
+# ============================================================================
+# Mount Routes
+# ============================================================================
 
-# Mount core routes (landing pages only)
 router_main.to_app(app)
 router_oauth.to_app(app)
 router_editor.to_app(app)
 router_admin_sites.to_app(app)
 router_settings.to_app(app)
-# Note: Auth is now a service (add_ons/services/auth.py), not a mounted add-on
-# Each example implements its own auth UI/routes using the auth service
+# ... other routers
+
+
+# ============================================================================
+# Mount Example Apps 
+# ============================================================================
 
 # Mount e-shop example
 try:
@@ -132,8 +208,4 @@ logger.info("Note: Auth is now a service - each example has its own login/regist
 
 
 if __name__ == "__main__":
-    #import uvicorn
-    #uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
     serve()
-
-

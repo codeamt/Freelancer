@@ -8,6 +8,10 @@ from fasthtml.common import *
 from monsterui.all import *
 from core.utils.logger import get_logger
 from core.ui.layout import Layout
+from core.db.adapters import PostgresAdapter, MongoDBAdapter, RedisAdapter
+from core.db.graphql import schema_registry
+from add_ons.domains.commerce.repositories import ProductRepository
+from add_ons.domains.commerce.resolvers import CommerceQueries, CommerceMutations
 
 # Import shared services (no recreation!)
 from core.services import AuthService, DBService, get_current_user
@@ -21,12 +25,22 @@ from .auth_ui import EShopLoginPage, EShopRegisterPage
 logger = get_logger(__name__)
 
 
-def create_eshop_app():
+async def create_eshop_app():
     """Create E-Shop example app"""
     
     # Initialize services (shared, not recreated)
-    db_service = DBService()
+    #db_service = DBService()
+    # Initialize adapters (done once at app startup)
+    # Register with GraphQL
+    schema_registry.register_domain(
+        'commerce',
+        queries=CommerceQueries,
+        mutations=CommerceMutations
+    )
+
     auth_service = AuthService(db_service)
+
+
     
     # Create app with MonsterUI theme
     app = FastHTML(hdrs=[*Theme.slate.headers()])
@@ -68,6 +82,20 @@ def create_eshop_app():
         )
         
         return Layout(content, title="E-Shop | Demo")
+
+    # Use in routes
+    @app.post("/products")
+    async def create_product(request: Request):
+        form = await request.form()
+        
+        # Repository handles all DB coordination
+        product_id = await product_repo.create_product({
+            'name': form.get('name'),
+            'price': float(form.get('price')),
+            # ... etc
+        })
+        
+        return {"product_id": product_id}
     
     
     @app.get("/product/{product_id}")
@@ -76,7 +104,8 @@ def create_eshop_app():
         user = await get_user(request)
         
         # Use shared helper function!
-        product = get_product_by_id(product_id)
+        # product = get_product_by_id(product_id)
+        product = await product_repo.get_product_full(product_id)
         
         if not product:
             return Layout(
@@ -149,7 +178,7 @@ def create_eshop_app():
                 cls="alert alert-error"
             )
         
-        product = get_product_by_id(product_id)
+        product = product_repo.get_product_full(product_id)
         if not product:
             return Div(P("Product not found", cls="text-error"), cls="alert alert-error")
         
@@ -200,7 +229,7 @@ def create_eshop_app():
         cart_products = []
         subtotal = 0
         for pid, qty in cart_items.items():
-            product = get_product_by_id(pid)
+            product = product_repo.get_product_full(pid)
             if product:
                 cart_products.append({**product, "quantity": qty})
                 subtotal += product["price"] * qty
@@ -282,7 +311,7 @@ def create_eshop_app():
         cart_products = []
         subtotal = 0
         for pid, qty in cart_items.items():
-            product = get_product_by_id(pid)
+            product = product_repo.get_product_full(pid)
             if product:
                 cart_products.append({**product, "quantity": qty})
                 subtotal += product["price"] * qty
