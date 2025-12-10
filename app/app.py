@@ -9,10 +9,16 @@ app_dir = Path(__file__).parent
 if str(app_dir) not in sys.path:
     sys.path.insert(0, str(app_dir))
 
-from core.routes.main import router_main
-from core.routes.oauth import router_oauth
+from core.routes import *
+from core.services.settings import (
+    initialize_settings_service,
+    initialize_session_manager
+)
 from core.utils.logger import get_logger
 from core.middleware import apply_security, RedisSessionMiddleware
+
+from core.services.base.mongo_service import get_db
+
 from examples.eshop import create_eshop_app
 from examples.lms import create_lms_app
 from examples.social import create_social_app
@@ -66,10 +72,17 @@ else:
     logger.info("ℹ️  Redis not configured - using in-memory sessions")
     logger.info("  → Set REDIS_URL environment variable for persistent sessions")
 
+db = get_db()
+
+initialize_settings_service(db)
+initialize_session_manager(db)
+
 # Mount core routes (landing pages only)
 router_main.to_app(app)
 router_oauth.to_app(app)
-
+router_editor.to_app(app)
+router_admin_sites.to_app(app)
+router_settings.to_app(app)
 # Note: Auth is now a service (add_ons/services/auth.py), not a mounted add-on
 # Each example implements its own auth UI/routes using the auth service
 

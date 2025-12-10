@@ -3,6 +3,8 @@ from core.utils.logger import get_logger
 from typing import Dict, Optional
 from core.services.auth.security import security
 from core.services.auth.providers.jwt import JWTProvider
+from core.services.auth.permissions import permission_registry
+
 
 logger = get_logger(__name__)
 
@@ -114,3 +116,21 @@ class UserService:
         except Exception as e:
             logger.error(f"Error deleting user {user_id}: {e}")
             return False
+
+    async def check_permission(
+        self,
+        user_id: str,
+        resource: str,
+        action: str,
+        context: Optional[Dict] = None
+    ) -> bool:
+        """Check if user has permission"""
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return False
+        
+        roles = user.get("roles", [])
+        context = context or {}
+        context["user_id"] = user_id
+        
+        return permission_registry.check_permission(roles, resource, action, context)

@@ -16,3 +16,4 @@ htmx
 fasthtml[oauth]
 MonsterUI
 stripe
+cryptography>=41.0.0
