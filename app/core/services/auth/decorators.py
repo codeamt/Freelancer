@@ -8,6 +8,9 @@ from core.services.auth.auth_service import AuthService, AnonymousUser
 from core.services.auth.utils import get_current_user_from_request
 from core.utils.logger import get_logger
 
+from .context import current_user_context, Permission
+from .exceptions import PermissionDeniedError
+
 logger = get_logger(__name__)
 
 
@@ -60,113 +63,36 @@ def require_auth(redirect_to: str = "/login"):
     return decorator
 
 
-def require_role(*required_roles: str, redirect_to: str = "/"):
-    """
-    Decorator to require specific role(s).
-    
-    Usage:
-        @require_role("admin", "moderator")
-        async def admin_route(request: Request):
-            ...
-    
-    Args:
-        required_roles: Required role names
-        redirect_to: URL to redirect to if insufficient permissions
-    """
+def requires_permission(permission: Permission):
+      def decorator(func):
+          @wraps(func)
+          async def wrapper(*args, **kwargs):
+              user_context = current_user_context.get(None)
+              if not user_context:
+                  raise RuntimeError("UserContext not set")
+              
+              if not user_context.has_permission(permission):
+                  raise PermissionDeniedError(
+                      f"User {user_context.user_id} missing permission: {permission.value}"
+                  )
+              
+              return await func(*args, **kwargs)
+          return wrapper
+      return decorator
+  
+def requires_role(*roles: str):
     def decorator(func):
         @wraps(func)
-        async def wrapper(request: Request, *args, **kwargs):
-            # Get auth service
-            auth_service = request.app.state.auth_service
-            
-            # Get current user
-            user = await get_current_user_from_request(request, auth_service)
-            
-            # Check authentication
-            if isinstance(user, AnonymousUser) or not user:
-                logger.warning(f"Unauthenticated access to role-protected route")
-                return RedirectResponse("/login", status_code=303)
-            
-            # Check role
-            if user.role not in required_roles:
-                logger.warning(
-                    f"User {user.id} ({user.role}) denied access "
-                    f"to route requiring roles: {required_roles}"
+        async def wrapper(*args, **kwargs):
+            user_context = current_user_context.get(None)
+            if not user_context:
+                raise RuntimeError("UserContext not set")
+              
+            if user_context.role not in roles:
+                raise PermissionDeniedError(
+                    f"User role {user_context.role} not allowed. Required: {roles}"
                 )
-                
-                if request.headers.get("Accept") == "application/json":
-                    return JSONResponse(
-                        {"error": "Insufficient permissions"},
-                        status_code=403
-                    )
-                
-                return RedirectResponse(redirect_to, status_code=303)
-            
-            # Attach user to request
-            request.state.user = user
-            
-            return await func(request, *args, **kwargs)
-        
-        return wrapper
-    return decorator
-
-
-def require_permission(
-    resource: str,
-    action: str,
-    redirect_to: str = "/"
-):
-    """
-    Decorator to require specific permission.
-    
-    Usage:
-        @require_permission("product", "write")
-        async def create_product(request: Request):
-            ...
-    
-    Args:
-        resource: Resource name
-        action: Action name
-        redirect_to: URL to redirect to if insufficient permissions
-    """
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(request: Request, *args, **kwargs):
-            # Get auth service
-            auth_service = request.app.state.auth_service
-            
-            # Get current user
-            user = await get_current_user_from_request(request, auth_service)
-            
-            # Check authentication
-            if isinstance(user, AnonymousUser) or not user:
-                return RedirectResponse("/login", status_code=303)
-            
-            # Check permission
-            has_perm = await auth_service.check_permission(
-                user.id,
-                resource,
-                action
-            )
-            
-            if not has_perm:
-                logger.warning(
-                    f"User {user.id} denied permission "
-                    f"to {action} {resource}"
-                )
-                
-                if request.headers.get("Accept") == "application/json":
-                    return JSONResponse(
-                        {"error": "Insufficient permissions"},
-                        status_code=403
-                    )
-                
-                return RedirectResponse(redirect_to, status_code=303)
-            
-            # Attach user to request
-            request.state.user = user
-            
-            return await func(request, *args, **kwargs)
-        
+              
+            return await func(*args, **kwargs)
         return wrapper
     return decorator

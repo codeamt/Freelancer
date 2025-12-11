@@ -6,6 +6,49 @@ import duckdb
 from core.utils.logger import get_logger
 from abc import ABC, abstractmethod
 from typing import Optional
+import json
+from datetime import datetime
+from enum import Enum
+
+class PrivacyRegime(Enum):
+    GDPR = "gdpr"       # EU - strict opt-in
+    CCPA = "ccpa"       # California - opt-out
+    LGPD = "lgpd"       # Brazil - opt-in
+    DEFAULT = "default"
+
+class ConsentManager:
+    def __init__(self, user_context):
+        self.context = user_context
+      
+    def get_consent_state(self) -> dict:
+        consent_json = self.context.get_cookie('cookie_consent')
+        if not consent_json:
+            return {'necessary': True}
+          
+        return json.loads(consent_json)
+      
+    def set_consent(self, categories: dict):
+        consent = {
+            'necessary': True,
+            'analytics': categories.get('analytics', False),
+              'marketing': categories.get('marketing', False),
+            'functional': categories.get('functional', False),
+            'timestamp': datetime.utcnow().isoformat()
+        }
+          
+        cookie_mgr = SecureCookieManager(self.context, settings)
+        cookie_mgr.set_session_cookie(
+            'cookie_consent',
+            json.dumps(consent),
+            max_age=31536000  # 1 year
+        )
+      
+    def requires_consent_banner(self) -> bool:
+        return 'cookie_consent' not in self.context.cookies
+      
+    def has_analytics_consent(self) -> bool:
+        consent_state = self.get_consent_state()
+        return consent_state.get('analytics', False)
 
 logger = get_logger(__name__)
 
@@ -29,6 +72,29 @@ class AnalyticsServiceBase(ABC):
     def summarize_metrics(self):
         """Summarize metrics"""
         pass
+
+
+class AnalyticsClient:
+    async def track_page_view(self, path: str):
+        user_context = current_user_context.get()
+        consent_mgr = ConsentManager(user_context)
+          
+        # Check consent before tracking
+        if not consent_mgr.has_analytics_consent():
+            logger.info(f"TRACKING SKIPPED: User {user_context.user_id} opted out.")
+            return
+          
+        # Get or create tracking ID
+        tracker_id = user_context.get_or_set_cookie(
+            'fast_tracker_id',
+            self._generate_tracker_id,
+            max_age=31536000,
+            httponly=True,
+            samesite='Lax'
+        )
+          
+        # Send event
+        await self._send_event(user_context.user_id, tracker_id, path)
 
 
 class AnalyticsService(AnalyticsServiceBase):

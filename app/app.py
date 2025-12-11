@@ -38,6 +38,8 @@ from core.routes import (
     router_settings
 )
 
+from app.core.middleware.auth_context import inject_user_context, set_response_cookies
+
 # Example apps
 from examples.eshop import create_eshop_app
 from examples.lms import create_lms_app
@@ -203,6 +205,15 @@ else:
 # ============================================================================
 # Application Lifecycle
 # ============================================================================
+@app.before
+async def before_request(request):
+    await inject_user_context(request)
+
+@app.after
+async def after_request(request, response):
+    return await set_response_cookies(request, response)
+
+
 
 @app.on_event("startup")
 async def startup():

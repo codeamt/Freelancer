@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import List, Dict, Set, Optional
 from enum import Enum
 
+from .context import PermissionContext
+
 
 class PermissionLevel(Enum):
     """Permission levels from least to most privileged"""
@@ -25,6 +27,31 @@ class ResourceType(Enum):
     ROLE = "role"
     # Add-ons register their own resource types
 
+
+ROLE_PERMISSIONS = {
+    'user': {
+        Permission.VIEW_OWN_ORDERS,
+        Permission.MANAGE_OWN_PROFILE,
+    },
+    'student': {
+        Permission.VIEW_OWN_ORDERS,
+        Permission.VIEW_COURSES,
+        Permission.ENROLL_COURSES,
+    },
+    'instructor': {
+        Permission.VIEW_OWN_ORDERS,
+        Permission.VIEW_COURSES,
+        Permission.CREATE_COURSES,
+        Permission.EDIT_OWN_COURSES,
+    },
+    'admin': {
+        # All permissions
+        *Permission,
+    }
+}
+  
+def get_permissions_for_role(role: str) -> Set[Permission]:
+      return ROLE_PERMISSIONS.get(role, set())
 
 @dataclass
 class Permission:
