@@ -3,6 +3,75 @@ from fasthtml.common import *
 from monsterui.all import *
 
 
+# ============================================================================
+# Helper Components
+# ============================================================================
+
+def ProductCard(product: dict, user, base_path: str):
+    """Product card component."""
+    return Div(
+        A(
+            Div(
+                Img(
+                    src=product["image"],
+                    alt=product["name"],
+                    cls="w-full h-48 object-cover"
+                ),
+                Div(
+                    H3(product["name"], cls="text-lg font-semibold mb-2"),
+                    P(product["description"], cls="text-sm text-gray-500 mb-4"),
+                    Div(
+                        Span(
+                            f"${product['price']}",
+                            cls="text-2xl font-bold text-blue-600"
+                        ),
+                        Span(product["category"], cls="badge badge-outline"),
+                        cls="flex justify-between items-center"
+                    ),
+                    cls="p-4"
+                ),
+                cls="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow"
+            ),
+            href=f"{base_path}/product/{product['id']}"
+        )
+    )
+
+
+def CartItem(item: dict, base_path: str):
+    """Cart item component."""
+    return Div(
+        Div(
+            Img(
+                src=item["image"],
+                alt=item["name"],
+                cls="w-24 h-24 object-cover rounded"
+            ),
+            Div(
+                H3(item["name"], cls="font-semibold text-lg"),
+                P(f"${item['price']}", cls="text-blue-600"),
+                P(f"Quantity: {item['quantity']}", cls="text-sm text-gray-600"),
+                cls="flex-1 ml-4"
+            ),
+            Div(
+                P(
+                    f"${item['price'] * item['quantity']:.2f}",
+                    cls="font-bold text-xl"
+                ),
+                Button(
+                    "Remove",
+                    cls="btn btn-sm btn-error mt-2",
+                    hx_post=f"{base_path}/cart/remove/{item['id']}",
+                    hx_swap="outerHTML",
+                    hx_target="closest div.card"
+                ),
+                cls="text-right"
+            ),
+            cls="flex items-center gap-4"
+        ),
+        cls="card bg-base-100 shadow p-4"
+    )
+
+
 def EShopLoginPage(base_path: str = "/eshop-example", error: str = None):
     """E-Shop login page - simple and focused"""
     # Error messages
