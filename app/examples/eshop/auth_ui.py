@@ -3,7 +3,7 @@ from fasthtml.common import *
 from monsterui.all import *
 
 
-def EShopLoginPage(redirect_url: str = "/eshop-example", error: str = None):
+def EShopLoginPage(base_path: str = "/eshop-example", error: str = None):
     """E-Shop login page - simple and focused"""
     # Error messages
     error_messages = {
@@ -65,12 +65,12 @@ def EShopLoginPage(redirect_url: str = "/eshop-example", error: str = None):
                 # Register link
                 Div(
                     Span("Don't have an account? ", cls="text-gray-500"),
-                    A("Create one", href=f"/eshop-example/register?redirect={redirect_url}", cls="link link-primary"),
+                    A("Create one", href=f"/eshop-example/register?redirect={base_path}", cls="link link-primary"),
                     cls="text-center mt-4"
                 ),
                 
                 method="post",
-                action=f"/eshop-example/auth/login?redirect={redirect_url}"
+                action=f"{base_path}/auth/login?redirect={base_pathl}"
             ),
             cls="max-w-md mx-auto p-8"
         ),
@@ -79,7 +79,7 @@ def EShopLoginPage(redirect_url: str = "/eshop-example", error: str = None):
     )
 
 
-def EShopRegisterPage(redirect_url: str = "/eshop-example", error: str = None):
+def EShopRegisterPage(base_path: str = "/eshop-example", error: str = None):
     """E-Shop registration page - simple user registration only"""
     # Error messages
     error_messages = {
@@ -161,12 +161,12 @@ def EShopRegisterPage(redirect_url: str = "/eshop-example", error: str = None):
                 # Login link
                 Div(
                     Span("Already have an account? ", cls="text-gray-500"),
-                    A("Sign in", href=f"/eshop-example/login?redirect={redirect_url}", cls="link link-primary"),
+                    A("Sign in", href=f"/eshop-example/login?redirect={base_path}", cls="link link-primary"),
                     cls="text-center mt-4"
                 ),
                 
                 method="post",
-                action=f"/eshop-example/auth/register?redirect={redirect_url}"
+                action=f"{base_path}/auth/register?redirect={base_path}"
             ),
             cls="max-w-md mx-auto p-8"
         ),

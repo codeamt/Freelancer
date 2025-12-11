@@ -1,83 +1,136 @@
-"""Main Application Setup"""
+"""
+Main Application Setup
+
+Initializes all database adapters, repositories, services, and routes.
+Provides dependency injection through app.state for child applications.
+"""
 from fasthtml.common import *
 from monsterui.all import *
 import os
+from dotenv import load_dotenv
 
-# Middleware 
-from core.middleware import apply_security, RedisSessionMiddleware
+# Logging
+from core.utils.logger import get_logger
 
-# Database adapters
-from core.db.adapters.postgres_adapter import PostgresAdapter
-from core.db.adapters.mongodb_adapter import MongoDBAdapter
-from core.db.adapters.redis_adapter import RedisAdapter
-
-# Repositories
-from core.db.repositories.user_repository import UserRepository
+# Database components
+from core.db.adapters import PostgresAdapter, MongoDBAdapter, RedisAdapter
+from core.db.repositories import UserRepository
+from core.db import initialize_session_manager, get_pool_manager
 
 # Services
 from core.services.auth import AuthService, UserService
 from core.services.auth.providers.jwt import JWTProvider
-from core.services.settings import (
-    initialize_settings_service,
-    initialize_session_manager
+
+# Middleware
+from core.middleware.security import (
+    SecurityHeaders, 
+    RateLimitMiddleware, 
+    SecurityMiddleware
 )
+from core.middleware import RedisSessionMiddleware
 
 # Routes
-from core.routes import *
+from core.routes import (
+    router_main,
+    router_oauth,
+    router_editor,
+    router_admin_sites,
+    router_settings
+)
 
-
-# Examples
+# Example apps
 from examples.eshop import create_eshop_app
 from examples.lms import create_lms_app
 from examples.social import create_social_app
 from examples.streaming import create_streaming_app
 
-from dotenv import load_dotenv
+# Load environment
 load_dotenv('app.config.env')
 
+logger = get_logger(__name__)
+
 # ============================================================================
-# Database Setup
+# Configuration
 # ============================================================================
 
-# Initialize adapters
+POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql+asyncpg://postgres:postgres@postgres:5432/app_db")
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://root:example@mongodb:27017")
+MONGO_DB = os.getenv("MONGO_DB", "app_db")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+# ============================================================================
+# Database Adapter Initialization
+# ============================================================================
+
+logger.info("Initializing database adapters...")
+
+# PostgreSQL adapter
 postgres = PostgresAdapter(
-    connection_string=os.getenv("POSTGRES_URL"),
+    connection_string=POSTGRES_URL,
     min_size=10,
     max_size=20
 )
 
+# MongoDB adapter
 mongodb = MongoDBAdapter(
-    connection_string=os.getenv("MONGO_URL"),
-    database=os.getenv("MONGO_DB", "app_db")
+    connection_string=MONGO_URL,
+    database=MONGO_DB
 )
 
+# Redis adapter
 redis = RedisAdapter(
-    connection_string=os.getenv("REDIS_URL")
+    connection_string=REDIS_URL
 )
 
+# Register pools with pool manager
+pool_manager = get_pool_manager()
+# Note: Pools are registered after connection in startup event
+
+logger.info("✓ Database adapters initialized")
+
 # ============================================================================
-# Repository Setup
+# Repository Initialization
 # ============================================================================
 
-# User repository (core)
-user_repo = UserRepository(postgres, mongodb, redis)
+logger.info("Initializing repositories...")
+
+# Core user repository
+user_repository = UserRepository(
+    postgres=postgres,
+    mongodb=mongodb,
+    redis=redis
+)
+
+logger.info("✓ Repositories initialized")
 
 # ============================================================================
-# Service Setup
+# Service Initialization
 # ============================================================================
+
+logger.info("Initializing services...")
 
 # JWT provider
 jwt_provider = JWTProvider()
 
 # Auth service (authentication/authorization)
-auth_service = AuthService(user_repo, jwt_provider)
+auth_service = AuthService(
+    user_repository=user_repository,
+    jwt_provider=jwt_provider
+)
 
-# User service (user management)
-user_service = UserService(user_repo)
+# User service (user CRUD operations)
+user_service = UserService(
+    user_repository=user_repository
+)
+
+logger.info("✓ Services initialized")
 
 # ============================================================================
-# FastHTML App
+# FastHTML Application
 # ============================================================================
+
+logger.info("Creating FastHTML application...")
 
 app, rt = fast_app(
     hdrs=[
@@ -87,125 +140,244 @@ app, rt = fast_app(
             href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
         ),
     ],
+    live=ENVIRONMENT == "development"
 )
 
-# Attach services to app state (for access in routes/decorators)
+# ============================================================================
+# Dependency Injection (App State)
+# ============================================================================
+
+# Attach services to app state for access in routes and child apps
 app.state.auth_service = auth_service
 app.state.user_service = user_service
-# app.state.jwt_provider = jwt_provider
-# app.state.settimngs_service = initialize_settings_service(db)
-# app.state.session_manager = initialize_session_manager(db)
-app.state.user_repo = user_repo
+app.state.user_repository = user_repository
+app.state.jwt_provider = jwt_provider
 
- # Apply security middlewares (CSP removed from SecurityHeaders for FastHTML compatibility)
+# Attach adapters for child apps that need direct access
+app.state.postgres = postgres
+app.state.mongodb = mongodb
+app.state.redis = redis
+
+logger.info("✓ Services attached to app.state")
+
+# ============================================================================
+# Middleware Configuration
+# ============================================================================
+
+logger.info("Applying middleware...")
+
+# Security middlewares
 try:
-    from core.middleware.security import SecurityHeaders, RateLimitMiddleware, SecurityMiddleware
-            
-    # Apply security middlewares
-    app.add_middleware(SecurityMiddleware)  # Input sanitization & logging
-    app.add_middleware(RateLimitMiddleware)  # Rate limiting (60 req/min per IP)
-    app.add_middleware(SecurityHeaders)  # Security headers (no CSP - FastHTML incompatible)
-    # CSRFMiddleware disabled - breaks HTMX forms without proper token handling
+    # Order matters: most specific first, most general last
+    app.add_middleware(SecurityMiddleware)      # Input sanitization & logging
+    app.add_middleware(RateLimitMiddleware)     # Rate limiting (60 req/min per IP)
+    app.add_middleware(SecurityHeaders)         # Security headers
     
-
-    logger.info("✓ Security middlewares applied (Headers, Rate Limit, Sanitization)")
-    logger.info("ℹ️  CSP disabled (FastHTML uses inline styles), CSRF disabled (needs HTMX integration)")
+    logger.info("✓ Security middlewares applied")
+    logger.info("  → Input sanitization: enabled")
+    logger.info("  → Rate limiting: 60 req/min per IP")
+    logger.info("  → Security headers: enabled")
+    logger.info("  → CSP: disabled (FastHTML inline styles)")
+    logger.info("  → CSRF: disabled (needs HTMX token integration)")
+    
 except Exception as e:
     logger.warning(f"⚠️ Failed to apply security middlewares: {e}")
+
+# Redis session middleware (for chat/real-time features)
+if REDIS_URL and REDIS_URL != "redis://localhost:6379":
+    try:
+        app.add_middleware(
+            RedisSessionMiddleware,
+            redis_url=REDIS_URL,
+            cookie_name="session_id",
+            ttl_seconds=60 * 60 * 24 * 7,  # 7 days
+            cookie_secure=ENVIRONMENT == "production",
+            cookie_samesite="lax"
+        )
+        logger.info(f"✓ Redis session middleware applied")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to apply Redis session middleware: {e}")
+else:
+    logger.info("ℹ️  Redis session middleware skipped (Redis not configured)")
+
 # ============================================================================
-# Startup/Shutdown
+# Application Lifecycle
 # ============================================================================
 
 @app.on_event("startup")
 async def startup():
-    """Initialize database connections"""
-    await postgres.connect()
-    await mongodb.connect()
-    await redis.connect()
-    logger.info("✓ Database adapters connected")
+    """Initialize database connections and resources."""
+    logger.info("Starting application...")
+    
+    try:
+        # Connect adapters
+        await postgres.connect()
+        logger.info("✓ PostgreSQL connected")
+        
+        await mongodb.connect()
+        logger.info("✓ MongoDB connected")
+        
+        await redis.connect()
+        logger.info("✓ Redis connected")
+        
+        # Initialize session manager
+        initialize_session_manager(postgres, mongodb, redis)
+        logger.info("✓ Session manager initialized")
+        
+        # Register connection pools
+        if hasattr(postgres, 'pool') and postgres.pool:
+            pool_manager.register_pool("postgres", postgres.pool, None)
+        if hasattr(mongodb, 'client') and mongodb.client:
+            pool_manager.register_pool("mongodb", mongodb.client, None)
+        if hasattr(redis, 'client') and redis.client:
+            pool_manager.register_pool("redis", redis.client, None)
+        
+        logger.info("✓ Connection pools registered")
+        logger.info("=" * 60)
+        logger.info("Application startup complete")
+        
+    except Exception as e:
+        logger.error(f"Startup failed: {e}")
+        raise
+
 
 @app.on_event("shutdown")
 async def shutdown():
-    """Close database connections"""
-    await postgres.disconnect()
-    await mongodb.disconnect()
-    await redis.disconnect()
-    logger.info("✓ Database adapters disconnected")
+    """Clean up database connections and resources."""
+    logger.info("Shutting down application...")
+    
+    try:
+        # Close all connection pools
+        await pool_manager.close_all()
+        logger.info("✓ Connection pools closed")
+        
+        # Disconnect adapters
+        await postgres.disconnect()
+        logger.info("✓ PostgreSQL disconnected")
+        
+        await mongodb.disconnect()
+        logger.info("✓ MongoDB disconnected")
+        
+        await redis.disconnect()
+        logger.info("✓ Redis disconnected")
+        
+        logger.info("=" * 60)
+        logger.info("Application shutdown complete")
+        
+    except Exception as e:
+        logger.error(f"Shutdown error: {e}")
 
-# Add Redis middleware
+
+# ============================================================================
+# Mount Core Routes
+# ============================================================================
+
+logger.info("Mounting core routes...")
+
 try:
-    app.add_middleware(
-        RedisSessionMiddleware,
-        redis_url=redis_url,
-        cookie_name="session_id",
-        ttl_seconds=60 * 60 * 24 * 7,  # 7 days
-        cookie_secure=os.getenv("ENVIRONMENT") == "production",
-        cookie_samesite="lax"
-    )
-    logger.info(f"✓ Redis session middleware applied (URL: {redis_url})")
+    router_main.to_app(app)
+    router_oauth.to_app(app)
+    router_editor.to_app(app)
+    router_admin_sites.to_app(app)
+    router_settings.to_app(app)
+    logger.info("✓ Core routes mounted")
 except Exception as e:
-    logger.warning(f"⚠️ Failed to apply Redis session middleware: {e}")
-    logger.info("  → Chat features in social/streaming may not work without Redis")
-# ============================================================================
-# Mount Routes
-# ============================================================================
-
-router_main.to_app(app)
-router_oauth.to_app(app)
-router_editor.to_app(app)
-router_admin_sites.to_app(app)
-router_settings.to_app(app)
-# ... other routers
-
+    logger.error(f"Failed to mount core routes: {e}")
 
 # ============================================================================
-# Mount Example Apps 
+# Mount Example Applications
 # ============================================================================
 
-# Mount e-shop example
+logger.info("Mounting example applications...")
+
+# E-Shop Example
 try:
-    eshop_app = create_eshop_app()
+    eshop_app = create_eshop_app(
+        auth_service=auth_service,
+        user_service=user_service,
+        postgres=postgres,
+        mongodb=mongodb,
+        redis=redis
+    )
     app.mount("/eshop-example", eshop_app)
     logger.info("✓ E-Shop example mounted at /eshop-example")
 except Exception as e:
     logger.error(f"Failed to mount e-shop example: {e}")
+    logger.exception(e)
 
-# Mount LMS example
+# LMS Example
 try:
-    lms_app = create_lms_app()
+    lms_app = create_lms_app(
+        auth_service=auth_service,
+        user_service=user_service,
+        postgres=postgres,
+        mongodb=mongodb,
+        redis=redis
+    )
     app.mount("/lms-example", lms_app)
     logger.info("✓ LMS example mounted at /lms-example")
 except Exception as e:
     logger.error(f"Failed to mount LMS example: {e}")
+    logger.exception(e)
 
-# Mount Social example
+# Social Example
 try:
-    social_app = create_social_app()
+    social_app = create_social_app(
+        auth_service=auth_service,
+        user_service=user_service,
+        postgres=postgres,
+        mongodb=mongodb,
+        redis=redis
+    )
     app.mount("/social-example", social_app)
     logger.info("✓ Social example mounted at /social-example")
 except Exception as e:
-    logger.error(f"Failed to mount Social example: {e}")
+    logger.error(f"Failed to mount social example: {e}")
+    logger.exception(e)
 
-# Mount Streaming example
+# Streaming Example
 try:
-    streaming_app = create_streaming_app()
+    streaming_app = create_streaming_app(
+        auth_service=auth_service,
+        user_service=user_service,
+        postgres=postgres,
+        mongodb=mongodb,
+        redis=redis
+    )
     app.mount("/streaming-example", streaming_app)
     logger.info("✓ Streaming example mounted at /streaming-example")
 except Exception as e:
-    logger.error(f"Failed to mount Streaming example: {e}")
+    logger.error(f"Failed to mount streaming example: {e}")
+    logger.exception(e)
 
-logger.info("FastApp started successfully")
-logger.info("Available routes:")
-logger.info("  - / (Home)")
-logger.info("  - /docs (Documentation)")
-logger.info("  - /eshop-example (E-Shop Demo with auth)")
-logger.info("  - /lms-example (LMS Demo with auth)")
-logger.info("  - /social-example (Social Network Demo)")
-logger.info("  - /streaming-example (Streaming Platform Demo)")
+# ============================================================================
+# Startup Summary
+# ============================================================================
+
+logger.info("=" * 60)
+logger.info("FastApp started successfully!")
+logger.info("=" * 60)
 logger.info("")
-logger.info("Note: Auth is now a service - each example has its own login/register UI")
+logger.info("Available routes:")
+logger.info("  → / (Home)")
+logger.info("  → /docs (Documentation)")
+logger.info("  → /eshop-example (E-Commerce Demo)")
+logger.info("  → /lms-example (Learning Management System)")
+logger.info("  → /social-example (Social Network)")
+logger.info("  → /streaming-example (Streaming Platform)")
+logger.info("")
+logger.info("Architecture:")
+logger.info("  → Database: PostgreSQL + MongoDB + Redis")
+logger.info("  → Pattern: Repository + Service Layer")
+logger.info("  → Auth: JWT-based with session support")
+logger.info("  → Security: Rate limiting, sanitization, headers")
+logger.info("")
+logger.info(f"Environment: {ENVIRONMENT}")
+logger.info("=" * 60)
 
-
+# ============================================================================
+# Application Entry Point
+# ============================================================================
 
 if __name__ == "__main__":
     serve()

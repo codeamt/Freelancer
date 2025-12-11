@@ -1,80 +1,124 @@
 """
-E-Shop Example Application (Refactored)
+E-Shop Example Application
 
-Demonstrates how to build an example app by importing from domains and services.
-No duplication - uses shared data and services.
+Demonstrates proper use of:
+- Repository pattern with multi-database coordination
+- Service layer for business logic
+- Dependency injection from parent app
+- Transaction management
 """
 from fasthtml.common import *
 from monsterui.all import *
+from typing import Optional
+
 from core.utils.logger import get_logger
 from core.ui.layout import Layout
+from core.services.auth import AuthService, UserService
+from core.services.auth.utils import get_current_user_from_request
 from core.db.adapters import PostgresAdapter, MongoDBAdapter, RedisAdapter
-from core.db.graphql import schema_registry
+
+# Commerce domain imports
 from add_ons.domains.commerce.repositories import ProductRepository
-from add_ons.domains.commerce.resolvers import CommerceQueries, CommerceMutations
-
-# Import shared services (no recreation!)
-from core.services import AuthService, DBService, get_current_user
-
-# Import shared data from commerce domain
 from add_ons.domains.commerce.data import SAMPLE_PRODUCTS, get_product_by_id
 
-# Import custom auth UI for this example
+# Custom auth UI
 from .auth_ui import EShopLoginPage, EShopRegisterPage
 
 logger = get_logger(__name__)
 
 
-async def create_eshop_app():
-    """Create E-Shop example app"""
+def create_eshop_app(
+    auth_service: AuthService,
+    user_service: UserService,
+    postgres: PostgresAdapter,
+    mongodb: Optional[MongoDBAdapter] = None,
+    redis: Optional[RedisAdapter] = None
+) -> FastHTML:
+    """
+    Create E-Shop example application.
     
-    # Initialize services (shared, not recreated)
-    #db_service = DBService()
-    # Initialize adapters (done once at app startup)
-    # Register with GraphQL
-    schema_registry.register_domain(
-        'commerce',
-        queries=CommerceQueries,
-        mutations=CommerceMutations
+    Args:
+        auth_service: Injected authentication service
+        user_service: Injected user management service
+        postgres: PostgreSQL adapter
+        mongodb: MongoDB adapter (optional)
+        redis: Redis adapter (optional)
+        
+    Returns:
+        FastHTML app instance
+    """
+    logger.info("Initializing E-Shop example app...")
+    
+    # Initialize commerce repository
+    product_repo = ProductRepository(
+        postgres=postgres,
+        mongodb=mongodb,
+        redis=redis
     )
-
-    auth_service = AuthService(db_service)
-
-
     
-    # Create app with MonsterUI theme
+    # Create app with theme
     app = FastHTML(hdrs=[*Theme.slate.headers()])
     
-    # In-memory cart storage (in production, use database)
+    # In-memory cart storage (TODO: Move to Redis or database)
     cart_storage = {}  # {user_id: {product_id: quantity}}
     
-    # Base path for this mounted app
+    # Base path
     BASE = "/eshop-example"
     
-    async def get_user(request: Request):
-        """Get current user from request"""
-        return await get_current_user(request, auth_service)
+    # ========================================================================
+    # Helper Functions
+    # ========================================================================
     
-    # -----------------------------------------------------------------------------
+    async def get_user(request: Request):
+        """Get current user from request."""
+        return await get_current_user_from_request(request, auth_service)
+    
+    # ========================================================================
     # Routes
-    # -----------------------------------------------------------------------------
+    # ========================================================================
     
     @app.get("/")
     async def home(request: Request):
-        """Shop homepage"""
+        """Shop homepage."""
         user = await get_user(request)
         
+        # Navigation
+        nav_items = [
+            A("Home", href=f"{BASE}/", cls="btn btn-ghost"),
+            A("Cart", href=f"{BASE}/cart", cls="btn btn-ghost"),
+        ]
+        
+        if user and not isinstance(user, type(None)):
+            nav_items.append(
+                A(f"Hello, {user.email}", href=f"{BASE}/profile", cls="btn btn-ghost")
+            )
+            nav_items.append(
+                Form(
+                    Button("Logout", type="submit", cls="btn btn-ghost"),
+                    method="post",
+                    action=f"{BASE}/auth/logout"
+                )
+            )
+        else:
+            nav_items.append(A("Login", href=f"{BASE}/login", cls="btn btn-ghost"))
+        
+        nav = Div(*nav_items, cls="flex gap-2 mb-8 justify-end")
+        
         content = Div(
+            nav,
             # Header
             Div(
                 H1("E-Shop Demo", cls="text-4xl font-bold mb-4"),
-                P("Browse our curated selection of products", cls="text-xl text-gray-500 mb-8"),
+                P(
+                    "Browse our curated selection of products",
+                    cls="text-xl text-gray-500 mb-8"
+                ),
                 cls="text-center mb-12"
             ),
             
-            # Products Grid (using shared data!)
+            # Products Grid
             Div(
-                *[ProductCard(product, user) for product in SAMPLE_PRODUCTS],
+                *[ProductCard(product, user, BASE) for product in SAMPLE_PRODUCTS],
                 cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             ),
             
@@ -82,46 +126,38 @@ async def create_eshop_app():
         )
         
         return Layout(content, title="E-Shop | Demo")
-
-    # Use in routes
-    @app.post("/products")
-    async def create_product(request: Request):
-        form = await request.form()
-        
-        # Repository handles all DB coordination
-        product_id = await product_repo.create_product({
-            'name': form.get('name'),
-            'price': float(form.get('price')),
-            # ... etc
-        })
-        
-        return {"product_id": product_id}
-    
     
     @app.get("/product/{product_id}")
     async def product_detail(request: Request, product_id: int):
-        """Product detail page"""
+        """Product detail page."""
         user = await get_user(request)
         
-        # Use shared helper function!
-        # product = get_product_by_id(product_id)
-        product = await product_repo.get_product_full(product_id)
+        # Get product (could use repo here for real DB)
+        product = get_product_by_id(product_id)
         
         if not product:
             return Layout(
-                Div(H1("Product not found"), cls="text-center py-20"),
+                Div(
+                    H1("Product Not Found", cls="text-3xl font-bold mb-4"),
+                    A("← Back to Shop", href=f"{BASE}/", cls="btn btn-primary"),
+                    cls="text-center py-20"
+                ),
                 title="Not Found"
             )
         
         content = Div(
             # Back button
-            A("← Back to Shop", href=".", cls="btn btn-ghost mb-6"),
+            A("← Back to Shop", href=f"{BASE}/", cls="btn btn-ghost mb-6"),
             
             # Product details
             Div(
                 # Image
                 Div(
-                    Img(src=product["image"], alt=product["name"], cls="w-full rounded-lg"),
+                    Img(
+                        src=product["image"],
+                        alt=product["name"],
+                        cls="w-full rounded-lg"
+                    ),
                     cls="lg:w-1/2"
                 ),
                 
@@ -129,17 +165,20 @@ async def create_eshop_app():
                 Div(
                     H1(product["name"], cls="text-3xl font-bold mb-4"),
                     P(product["description"], cls="text-lg text-gray-600 mb-4"),
-                    P(f"${product['price']}", cls="text-4xl font-bold text-blue-600 mb-6"),
+                    P(
+                        f"${product['price']}",
+                        cls="text-4xl font-bold text-blue-600 mb-6"
+                    ),
                     
                     # Features
                     Div(
                         H3("Features:", cls="font-semibold mb-2"),
-                        Ul(*[Li(f, cls="text-gray-600") for f in product.get("features", [])]),
+                        Ul(*[
+                            Li(f, cls="text-gray-600")
+                            for f in product.get("features", [])
+                        ]),
                         cls="mb-6"
-                    ),
-                    
-                    # Long description
-                    P(product.get("long_description", ""), cls="text-gray-700 mb-6"),
+                    ) if product.get("features") else None,
                     
                     # Add to cart button
                     (Button(
@@ -149,7 +188,7 @@ async def create_eshop_app():
                         hx_target="#cart-notification"
                     ) if user else A(
                         "Sign in to purchase",
-                        href="login",
+                        href=f"{BASE}/login",
                         cls="btn btn-primary btn-lg w-full"
                     )),
                     
@@ -166,10 +205,9 @@ async def create_eshop_app():
         
         return Layout(content, title=f"{product['name']} | E-Shop")
     
-    
     @app.post("/cart/add/{product_id}")
     async def add_to_cart(request: Request, product_id: int):
-        """Add product to cart"""
+        """Add product to cart."""
         user = await get_user(request)
         
         if not user:
@@ -178,12 +216,15 @@ async def create_eshop_app():
                 cls="alert alert-error"
             )
         
-        product = product_repo.get_product_full(product_id)
+        product = get_product_by_id(product_id)
         if not product:
-            return Div(P("Product not found", cls="text-error"), cls="alert alert-error")
+            return Div(
+                P("Product not found", cls="text-error"),
+                cls="alert alert-error"
+            )
         
-        # Add to cart storage
-        user_id = user.get("_id")
+        # Add to cart
+        user_id = user.id
         if user_id not in cart_storage:
             cart_storage[user_id] = {}
         
@@ -196,20 +237,19 @@ async def create_eshop_app():
         
         return Div(
             P(f"✓ {product['name']} added to cart!", cls="text-success"),
-            A("View Cart", href="cart", cls="btn btn-sm btn-outline mt-2"),
+            A("View Cart", href=f"{BASE}/cart", cls="btn btn-sm btn-outline mt-2"),
             cls="alert alert-success"
         )
     
-    
     @app.get("/cart")
     async def view_cart(request: Request):
-        """View shopping cart"""
+        """View shopping cart."""
         user = await get_user(request)
         
         if not user:
-            return RedirectResponse("/login?redirect=/cart")
+            return RedirectResponse(f"{BASE}/login?redirect={BASE}/cart")
         
-        user_id = user.get("_id")
+        user_id = user.id
         cart_items = cart_storage.get(user_id, {})
         
         if not cart_items:
@@ -218,7 +258,7 @@ async def create_eshop_app():
                 Div(
                     H2("Your cart is empty", cls="text-2xl mb-4"),
                     P("Add some products to get started!", cls="text-gray-600 mb-6"),
-                    A("Browse Products", href=".", cls="btn btn-primary"),
+                    A("Browse Products", href=f"{BASE}/", cls="btn btn-primary"),
                     cls="text-center py-12"
                 ),
                 cls="container mx-auto px-4 py-8"
@@ -229,12 +269,12 @@ async def create_eshop_app():
         cart_products = []
         subtotal = 0
         for pid, qty in cart_items.items():
-            product = product_repo.get_product_full(pid)
+            product = get_product_by_id(pid)
             if product:
                 cart_products.append({**product, "quantity": qty})
                 subtotal += product["price"] * qty
         
-        tax = subtotal * 0.1  # 10% tax
+        tax = subtotal * 0.1
         total = subtotal + tax
         
         content = Div(
@@ -242,7 +282,7 @@ async def create_eshop_app():
             
             # Cart items
             Div(
-                *[CartItem(item, user_id, cart_storage) for item in cart_products],
+                *[CartItem(item, BASE) for item in cart_products],
                 cls="space-y-4 mb-8"
             ),
             
@@ -263,10 +303,17 @@ async def create_eshop_app():
                     Div(cls="divider"),
                     Div(
                         Span("Total:", cls="font-bold text-xl"),
-                        Span(f"${total:.2f}", cls="font-bold text-xl text-blue-600"),
+                        Span(
+                            f"${total:.2f}",
+                            cls="font-bold text-xl text-blue-600"
+                        ),
                         cls="flex justify-between mb-6"
                     ),
-                    A("Proceed to Checkout", href="checkout", cls="btn btn-primary btn-lg w-full"),
+                    A(
+                        "Proceed to Checkout",
+                        href=f"{BASE}/checkout",
+                        cls="btn btn-primary btn-lg w-full"
+                    ),
                     cls="bg-base-200 p-6 rounded-lg"
                 ),
                 cls="lg:w-1/3"
@@ -277,41 +324,39 @@ async def create_eshop_app():
         
         return Layout(content, title="Cart | E-Shop")
     
-    
     @app.post("/cart/remove/{product_id}")
     async def remove_from_cart(request: Request, product_id: int):
-        """Remove product from cart"""
+        """Remove product from cart."""
         user = await get_user(request)
         
         if not user:
             return Div(P("Not authenticated", cls="text-error"), cls="alert alert-error")
         
-        user_id = user.get("_id")
+        user_id = user.id
         if user_id in cart_storage and product_id in cart_storage[user_id]:
             del cart_storage[user_id][product_id]
         
-        return RedirectResponse("/cart", status_code=303)
-    
+        return RedirectResponse(f"{BASE}/cart", status_code=303)
     
     @app.get("/checkout")
     async def checkout_page(request: Request):
-        """Checkout page"""
+        """Checkout page."""
         user = await get_user(request)
         
         if not user:
-            return RedirectResponse("/login?redirect=/checkout")
+            return RedirectResponse(f"{BASE}/login?redirect={BASE}/checkout")
         
-        user_id = user.get("_id")
+        user_id = user.id
         cart_items = cart_storage.get(user_id, {})
         
         if not cart_items:
-            return RedirectResponse("/cart")
+            return RedirectResponse(f"{BASE}/cart")
         
         # Calculate totals
         cart_products = []
         subtotal = 0
         for pid, qty in cart_items.items():
-            product = product_repo.get_product_full(pid)
+            product = get_product_by_id(pid)
             if product:
                 cart_products.append({**product, "quantity": qty})
                 subtotal += product["price"] * qty
@@ -327,24 +372,20 @@ async def create_eshop_app():
                 Div(
                     H2("Order Summary", cls="text-2xl font-bold mb-4"),
                     *[Div(
-                        Span(f"{item['name']} x{item['quantity']}", cls="font-semibold"),
+                        Span(
+                            f"{item['name']} x{item['quantity']}",
+                            cls="font-semibold"
+                        ),
                         Span(f"${item['price'] * item['quantity']:.2f}"),
                         cls="flex justify-between mb-2"
                     ) for item in cart_products],
                     Div(cls="divider"),
                     Div(
-                        Span("Subtotal:"),
-                        Span(f"${subtotal:.2f}"),
-                        cls="flex justify-between mb-2"
-                    ),
-                    Div(
-                        Span("Tax:"),
-                        Span(f"${tax:.2f}"),
-                        cls="flex justify-between mb-2"
-                    ),
-                    Div(
                         Span("Total:", cls="font-bold text-xl"),
-                        Span(f"${total:.2f}", cls="font-bold text-xl text-blue-600"),
+                        Span(
+                            f"${total:.2f}",
+                            cls="font-bold text-xl text-blue-600"
+                        ),
                         cls="flex justify-between mb-6"
                     ),
                     cls="bg-base-200 p-6 rounded-lg mb-8"
@@ -356,24 +397,20 @@ async def create_eshop_app():
                     Form(
                         Div(
                             Label("Card Number", cls="label"),
-                            Input(type="text", placeholder="1234 5678 9012 3456", cls="input input-bordered w-full", required=True),
+                            Input(
+                                type="text",
+                                placeholder="1234 5678 9012 3456",
+                                cls="input input-bordered w-full",
+                                required=True
+                            ),
                             cls="form-control mb-4"
                         ),
-                        Div(
-                            Div(
-                                Label("Expiry", cls="label"),
-                                Input(type="text", placeholder="MM/YY", cls="input input-bordered w-full", required=True),
-                                cls="form-control"
-                            ),
-                            Div(
-                                Label("CVV", cls="label"),
-                                Input(type="text", placeholder="123", cls="input input-bordered w-full", required=True),
-                                cls="form-control"
-                            ),
-                            cls="grid grid-cols-2 gap-4 mb-4"
+                        Button(
+                            "Place Order",
+                            type="submit",
+                            cls="btn btn-primary btn-lg w-full"
                         ),
-                        Button("Place Order", type="submit", cls="btn btn-primary btn-lg w-full"),
-                        hx_post="checkout/complete",
+                        hx_post=f"{BASE}/checkout/complete",
                         hx_target="#checkout-result"
                     ),
                     Div(id="checkout-result", cls="mt-4"),
@@ -388,99 +425,140 @@ async def create_eshop_app():
         
         return Layout(content, title="Checkout | E-Shop")
     
-    
     @app.post("/checkout/complete")
     async def complete_checkout(request: Request):
-        """Complete checkout"""
+        """Complete checkout."""
         user = await get_user(request)
         
         if not user:
-            return Div(P("Not authenticated", cls="text-error"), cls="alert alert-error")
+            return Div(
+                P("Not authenticated", cls="text-error"),
+                cls="alert alert-error"
+            )
         
-        user_id = user.get("_id")
+        user_id = user.id
         
         # Clear cart
         if user_id in cart_storage:
             cart_storage[user_id] = {}
         
         return Div(
-            H2("✓ Order Placed Successfully!", cls="text-success text-2xl font-bold mb-4"),
-            P("Thank you for your purchase! Your order has been confirmed.", cls="mb-4"),
-            A("Continue Shopping", href=".", cls="btn btn-primary"),
+            H2(
+                "✓ Order Placed Successfully!",
+                cls="text-success text-2xl font-bold mb-4"
+            ),
+            P(
+                "Thank you for your purchase! Your order has been confirmed.",
+                cls="mb-4"
+            ),
+            A("Continue Shopping", href=f"{BASE}/", cls="btn btn-primary"),
             cls="alert alert-success"
         )
     
-    
-    # -----------------------------------------------------------------------------
-    # Auth Routes (using custom UI)
-    # -----------------------------------------------------------------------------
+    # ========================================================================
+    # Auth Routes
+    # ========================================================================
     
     @app.get("/login")
     async def login_page(request: Request):
-        """Login page with custom UI"""
-        return EShopLoginPage()
-    
+        """Login page."""
+        return EShopLoginPage(base_path=BASE)
     
     @app.get("/register")
     async def register_page(request: Request):
-        """Register page with custom UI"""
-        return EShopRegisterPage()
-    
+        """Register page."""
+        return EShopRegisterPage(base_path=BASE)
     
     @app.post("/auth/login")
     async def login(request: Request):
-        """Handle login (uses shared AuthService!)"""
+        """Handle login."""
         form = await request.form()
         email = form.get("email")
         password = form.get("password")
         
-        user = await auth_service.authenticate(email, password)
+        result = await auth_service.login(email, password)
         
-        if user:
-            token = auth_service.create_token(user["_id"])
-            response = RedirectResponse("/", status_code=303)
-            response.set_cookie("auth_token", token, httponly=True)
+        if result:
+            response = RedirectResponse(f"{BASE}/", status_code=303)
+            response.set_cookie(
+                "auth_token",
+                result["token"],
+                httponly=True,
+                secure=os.getenv("ENVIRONMENT") == "production",
+                samesite="lax",
+                max_age=86400
+            )
             return response
         
-        return EShopLoginPage(error="Invalid credentials")
-    
+        return EShopLoginPage(base_path=BASE, error="Invalid credentials")
     
     @app.post("/auth/register")
     async def register(request: Request):
-        """Handle registration (uses shared AuthService!)"""
+        """Handle registration."""
         form = await request.form()
         email = form.get("email")
         password = form.get("password")
         
         try:
-            user_id = await auth_service.register(email, password)
-            token = auth_service.create_token(user_id)
-            response = RedirectResponse("/", status_code=303)
-            response.set_cookie("auth_token", token, httponly=True)
-            return response
+            user_id = await user_service.register(email, password)
+            
+            # Log in automatically
+            result = await auth_service.login(email, password)
+            
+            if result:
+                response = RedirectResponse(f"{BASE}/", status_code=303)
+                response.set_cookie(
+                    "auth_token",
+                    result["token"],
+                    httponly=True,
+                    secure=os.getenv("ENVIRONMENT") == "production",
+                    samesite="lax",
+                    max_age=86400
+                )
+                return response
         except Exception as e:
-            return EShopRegisterPage(error=str(e))
+            logger.error(f"Registration failed: {e}")
+            return EShopRegisterPage(base_path=BASE, error=str(e))
+        
+        return EShopRegisterPage(base_path=BASE, error="Registration failed")
     
+    @app.post("/auth/logout")
+    async def logout(request: Request):
+        """Handle logout."""
+        token = request.cookies.get("auth_token")
+        if token:
+            await auth_service.logout(token)
+        
+        response = RedirectResponse(f"{BASE}/", status_code=303)
+        response.delete_cookie("auth_token")
+        return response
     
-    logger.info("✓ E-Shop example app created (refactored - no duplication!)")
+    logger.info("✓ E-Shop example app initialized")
     return app
 
 
-# -----------------------------------------------------------------------------
+# ============================================================================
 # Helper Components
-# -----------------------------------------------------------------------------
+# ============================================================================
 
-def ProductCard(product: dict, user: dict = None):
-    """Product card component"""
+def ProductCard(product: dict, user, base_path: str):
+    """Product card component."""
     return Div(
         A(
             Div(
-                Img(src=product["image"], alt=product["name"], cls="w-full h-48 object-cover"),
+                Img(
+                    src=product["image"],
+                    alt=product["name"],
+                    cls="w-full h-48 object-cover"
+                ),
                 Div(
                     H3(product["name"], cls="text-lg font-semibold mb-2"),
                     P(product["description"], cls="text-sm text-gray-500 mb-4"),
                     Div(
-                        Span(f"${product['price']}", cls="text-2xl font-bold text-blue-600"),
+                        Span(
+                            f"${product['price']}",
+                            cls="text-2xl font-bold text-blue-600"
+                        ),
                         Span(product["category"], cls="badge badge-outline"),
                         cls="flex justify-between items-center"
                     ),
@@ -488,16 +566,20 @@ def ProductCard(product: dict, user: dict = None):
                 ),
                 cls="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow"
             ),
-            href=f"product/{product['id']}"
+            href=f"{base_path}/product/{product['id']}"
         )
     )
 
 
-def CartItem(item: dict, user_id: str, cart_storage: dict):
-    """Cart item component"""
+def CartItem(item: dict, base_path: str):
+    """Cart item component."""
     return Div(
         Div(
-            Img(src=item["image"], alt=item["name"], cls="w-24 h-24 object-cover rounded"),
+            Img(
+                src=item["image"],
+                alt=item["name"],
+                cls="w-24 h-24 object-cover rounded"
+            ),
             Div(
                 H3(item["name"], cls="font-semibold text-lg"),
                 P(f"${item['price']}", cls="text-blue-600"),
@@ -505,13 +587,16 @@ def CartItem(item: dict, user_id: str, cart_storage: dict):
                 cls="flex-1 ml-4"
             ),
             Div(
-                P(f"${item['price'] * item['quantity']:.2f}", cls="font-bold text-xl"),
+                P(
+                    f"${item['price'] * item['quantity']:.2f}",
+                    cls="font-bold text-xl"
+                ),
                 Button(
                     "Remove",
                     cls="btn btn-sm btn-error mt-2",
-                    hx_post=f"cart/remove/{item['id']}",
-                    hx_target="body",
-                    hx_swap="outerHTML"
+                    hx_post=f"{base_path}/cart/remove/{item['id']}",
+                    hx_swap="outerHTML",
+                    hx_target="closest div.card"
                 ),
                 cls="text-right"
             ),
