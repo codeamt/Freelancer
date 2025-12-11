@@ -17,7 +17,7 @@ from add_ons.domains.lms.data import SAMPLE_COURSES, get_course_by_id, get_free_
 
 # Import custom auth UI and certificate generator for this example
 from .auth_ui import LMSLoginPage, LMSRegisterPage
-from .certificate_generator import CertificateGenerator
+from add_ons.domains.lms.services.certificate_generator import CertificateGenerator
 
 logger = get_logger(__name__)
 
