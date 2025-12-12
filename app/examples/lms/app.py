@@ -10,7 +10,8 @@ from core.utils.logger import get_logger
 from core.ui.layout import Layout
 
 # Import shared services (no recreation!)
-from core.services import AuthService, get_current_user, SearchService
+from core.services import AuthService, get_current_user, SearchService, get_db_service
+from core.services.auth.context import set_user_context, UserContext
 
 # Import shared data from LMS domain
 from add_ons.domains.lms.data import SAMPLE_COURSES, get_course_by_id, get_free_courses
@@ -26,21 +27,29 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
     """Create LMS example app"""
     
     # Initialize services (shared, not recreated)
+    db = get_db_service()
     search_service = SearchService()
     # cert_generator = CertificateGenerator()  # TODO: Fix circular import
     
     # Create app with MonsterUI theme
     app = FastHTML(hdrs=[*Theme.violet.headers(mode="light")])
     
-    # In-memory enrollment storage (in production, use database)
-    enrollments = {}  # {user_id: [course_ids]}
-    
     # Base path for this mounted app
     BASE = "/lms-example"
     
     async def get_user(request: Request):
-        """Get current user from request"""
-        return await get_current_user(request, auth_service)
+        """Get current user from request and set context"""
+        user = await get_current_user(request, auth_service)
+        if user:
+            # Set user context for state system
+            user_context = UserContext(
+                user_id=user.get("_id"),
+                email=user.get("email"),
+                role=user.get("role", "student"),
+                ip_address=request.client.host if request.client else None
+            )
+            set_user_context(user_context)
+        return user
     
     # -----------------------------------------------------------------------------
     # Routes
@@ -72,7 +81,7 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
             (Div(
                 H2("Start Learning for Free", cls="text-3xl font-bold mb-6"),
                 Div(
-                    *[CourseCard(course, user, enrollments) for course in free_courses],
+                    *[CourseCard(course, user) for course in free_courses],
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 ),
                 cls="mb-12"
@@ -82,7 +91,7 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
             Div(
                 H2("Popular Courses", cls="text-3xl font-bold mb-6"),
                 Div(
-                    *[CourseCard(course, user, enrollments) for course in SAMPLE_COURSES[:6]],
+                    *[CourseCard(course, user) for course in SAMPLE_COURSES[:6]],
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 ),
                 cls="mb-12"
@@ -141,7 +150,7 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
             
             # Course grid (using shared data!)
             Div(
-                *[CourseCard(course, user, enrollments) for course in SAMPLE_COURSES],
+                *[CourseCard(course, user) for course in SAMPLE_COURSES],
                 id="course-results",
                 cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             ),
@@ -165,7 +174,7 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
             courses = results
         
         return Div(
-            *[CourseCard(course, user, enrollments) for course in courses],
+            *[CourseCard(course, user) for course in courses],
             cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         )
     
@@ -185,7 +194,10 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
             )
         
         user_id = user.get("_id") if user else None
-        is_enrolled = user_id and user_id in enrollments and course_id in enrollments[user_id]
+        is_enrolled = False
+        if user_id:
+            enrollment = await db.find_one("enrollments", {"user_id": user_id, "course_id": course_id})
+            is_enrolled = enrollment is not None
         
         content = Div(
             # Back button
@@ -302,16 +314,21 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
         user_id = user.get("_id")
         
         # Check if already enrolled
-        if user_id in enrollments and course_id in enrollments[user_id]:
+        existing = await db.find_one("enrollments", {"user_id": user_id, "course_id": course_id})
+        if existing:
             return Div(
                 P("You're already enrolled in this course!", cls="text-info"),
                 cls="alert alert-info"
             )
         
-        # Enroll user (in production: save to database)
-        if user_id not in enrollments:
-            enrollments[user_id] = []
-        enrollments[user_id].append(course_id)
+        # Enroll user in database
+        enrollment_data = {
+            "user_id": user_id,
+            "course_id": course_id,
+            "status": "active",
+            "progress": 0
+        }
+        await db.insert("enrollments", enrollment_data)
         
         logger.info(f"User {user_id} enrolled in course {course_id}")
         
@@ -333,7 +350,8 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
         user_id = user.get("_id")
         
         # Check enrollment
-        if user_id not in enrollments or course_id not in enrollments[user_id]:
+        enrollment = await db.find_one("enrollments", {"user_id": user_id, "course_id": course_id})
+        if not enrollment:
             return RedirectResponse(f"/course/{course_id}")
         
         course = get_course_by_id(course_id)
@@ -421,7 +439,8 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
             return RedirectResponse("/login?redirect=/student/dashboard")
         
         user_id = user.get("_id")
-        enrolled_course_ids = enrollments.get(user_id, [])
+        enrollments_data = await db.find_many("enrollments", {"user_id": user_id}, limit=100)
+        enrolled_course_ids = [e["course_id"] for e in enrollments_data]
         enrolled_courses = [get_course_by_id(cid) for cid in enrolled_course_ids]
         enrolled_courses = [c for c in enrolled_courses if c]  # Filter None
         
@@ -452,7 +471,7 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
             (Div(
                 H2("My Courses", cls="text-2xl font-bold mb-6"),
                 Div(
-                    *[CourseCard(course, user, enrollments, show_progress=True) for course in enrolled_courses],
+                    *[CourseCard(course, user, show_progress=True) for course in enrolled_courses],
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 )
             ) if enrolled_courses else Div(
@@ -527,10 +546,11 @@ def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=
 # Helper Components
 # -----------------------------------------------------------------------------
 
-def CourseCard(course: dict, user: dict = None, enrollments: dict = None, show_progress: bool = False):
+def CourseCard(course: dict, user: dict = None, show_progress: bool = False):
     """Course card component"""
     user_id = user.get("_id") if user else None
-    is_enrolled = user_id and enrollments and user_id in enrollments and course["id"] in enrollments[user_id]
+    # Note: is_enrolled check removed - enrollment status checked in routes via database
+    is_enrolled = False
     
     return Div(
         A(

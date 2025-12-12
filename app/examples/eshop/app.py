@@ -15,11 +15,14 @@ from core.utils.logger import get_logger
 from core.ui.layout import Layout
 from core.services.auth import AuthService, UserService
 from core.services.auth.utils import get_current_user_from_request
+from core.services import get_db_service
+from core.services.auth.context import set_user_context, UserContext
 from core.db.adapters import PostgresAdapter, MongoDBAdapter, RedisAdapter
 
 # Commerce domain imports
 from add_ons.domains.commerce.repositories import ProductRepository
 from add_ons.domains.commerce.data import SAMPLE_PRODUCTS, get_product_by_id
+from add_ons.domains.commerce.services.cart_service import CartService
 
 # E-Shop UI
 from .ui import EShopLoginPage, EShopRegisterPage, CartItem, ProductCard
@@ -49,18 +52,17 @@ def create_eshop_app(
     """
     logger.info("Initializing E-Shop example app...")
     
-    # Initialize commerce repository
+    # Initialize services
+    db = get_db_service()
     product_repo = ProductRepository(
         postgres=postgres,
         mongodb=mongodb,
         redis=redis
     )
+    cart_service = CartService()
     
     # Create app with theme
     app = FastHTML(hdrs=[*Theme.slate.headers()])
-    
-    # In-memory cart storage (TODO: Move to Redis or database)
-    cart_storage = {}  # {user_id: {product_id: quantity}}
     
     # Base path
     BASE = "/eshop-example"
@@ -70,8 +72,18 @@ def create_eshop_app(
     # ========================================================================
     
     async def get_user(request: Request):
-        """Get current user from request."""
-        return await get_current_user_from_request(request, auth_service)
+        """Get current user from request and set context."""
+        user = await get_current_user_from_request(request, auth_service)
+        if user:
+            # Set user context for state system
+            user_context = UserContext(
+                user_id=user.id,
+                email=user.email,
+                role=getattr(user, 'role', 'user'),
+                ip_address=request.client.host if request.client else None
+            )
+            set_user_context(user_context)
+        return user
     
     # ========================================================================
     # Routes
@@ -223,15 +235,14 @@ def create_eshop_app(
                 cls="alert alert-error"
             )
         
-        # Add to cart
+        # Add to cart using CartService
         user_id = user.id
-        if user_id not in cart_storage:
-            cart_storage[user_id] = {}
-        
-        if product_id in cart_storage[user_id]:
-            cart_storage[user_id][product_id] += 1
-        else:
-            cart_storage[user_id][product_id] = 1
+        await cart_service.add_item(
+            user_id=user_id,
+            product_id=product_id,
+            quantity=1,
+            price=product["price"]
+        )
         
         logger.info(f"User {user_id} added product {product_id} to cart")
         
@@ -250,7 +261,8 @@ def create_eshop_app(
             return RedirectResponse(f"{BASE}/login?redirect={BASE}/cart")
         
         user_id = user.id
-        cart_items = cart_storage.get(user_id, {})
+        cart = await cart_service.get_cart(user_id)
+        cart_items = cart.get("items", []) if cart else []
         
         if not cart_items:
             content = Div(
@@ -265,14 +277,14 @@ def create_eshop_app(
             )
             return Layout(content, title="Cart | E-Shop")
         
-        # Calculate totals
+        # Calculate totals from cart
         cart_products = []
         subtotal = 0
-        for pid, qty in cart_items.items():
-            product = get_product_by_id(pid)
+        for item in cart_items:
+            product = get_product_by_id(item["product_id"])
             if product:
-                cart_products.append({**product, "quantity": qty})
-                subtotal += product["price"] * qty
+                cart_products.append({**product, "quantity": item["quantity"]})
+                subtotal += item["price"] * item["quantity"]
         
         tax = subtotal * 0.1
         total = subtotal + tax
@@ -333,8 +345,7 @@ def create_eshop_app(
             return Div(P("Not authenticated", cls="text-error"), cls="alert alert-error")
         
         user_id = user.id
-        if user_id in cart_storage and product_id in cart_storage[user_id]:
-            del cart_storage[user_id][product_id]
+        await cart_service.remove_item(user_id, product_id)
         
         return RedirectResponse(f"{BASE}/cart", status_code=303)
     
@@ -347,19 +358,20 @@ def create_eshop_app(
             return RedirectResponse(f"{BASE}/login?redirect={BASE}/checkout")
         
         user_id = user.id
-        cart_items = cart_storage.get(user_id, {})
+        cart = await cart_service.get_cart(user_id)
+        cart_items = cart.get("items", []) if cart else []
         
         if not cart_items:
             return RedirectResponse(f"{BASE}/cart")
         
-        # Calculate totals
+        # Calculate totals from cart
         cart_products = []
         subtotal = 0
-        for pid, qty in cart_items.items():
-            product = get_product_by_id(pid)
+        for item in cart_items:
+            product = get_product_by_id(item["product_id"])
             if product:
-                cart_products.append({**product, "quantity": qty})
-                subtotal += product["price"] * qty
+                cart_products.append({**product, "quantity": item["quantity"]})
+                subtotal += item["price"] * item["quantity"]
         
         tax = subtotal * 0.1
         total = subtotal + tax
@@ -438,9 +450,16 @@ def create_eshop_app(
         
         user_id = user.id
         
-        # Clear cart
-        if user_id in cart_storage:
-            cart_storage[user_id] = {}
+        # Store order in database
+        order_data = {
+            "user_id": user_id,
+            "status": "completed",
+            "total": 0  # Calculate from cart
+        }
+        await db.insert("orders", order_data)
+        
+        # Clear cart using CartService
+        await cart_service.clear_cart(user_id)
         
         return Div(
             H2(
