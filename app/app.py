@@ -9,6 +9,17 @@ from monsterui.all import *
 import os
 from dotenv import load_dotenv
 
+# Load environment first
+load_dotenv('app.config.env')
+
+# Validate configuration before proceeding
+from core.config.validation import validate_config
+validate_config()  # Will raise ConfigurationError if validation fails in production
+
+# Validate required secrets before app initialization
+from core.config.validation import validate_secrets
+validate_secrets()  # Will raise ConfigurationError if validation fails in production
+
 # Logging
 from core.utils.logger import get_logger
 
@@ -45,9 +56,6 @@ from examples.eshop import create_eshop_app
 from examples.lms import create_lms_app
 from examples.social import create_social_app
 from examples.streaming import create_streaming_app
-
-# Load environment
-load_dotenv('app.config.env')
 
 logger = get_logger(__name__)
 

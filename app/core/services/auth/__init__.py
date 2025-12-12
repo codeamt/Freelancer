@@ -30,6 +30,27 @@ from core.services.auth.helpers import (
 )
 from core.services.auth.providers.adapters.google_oauth import GoogleOAuthService
 
+# Import Pydantic models for type safety
+from core.services.auth.models import (
+    User,
+    UserCreate,
+    UserUpdate,
+    LoginRequest,
+    LoginResponse,
+    TokenPayload,
+    TokenRefreshRequest,
+    TokenRefreshResponse,
+    PasswordChangeRequest,
+    PasswordResetRequest,
+    PasswordResetConfirm,
+    PermissionCheck,
+    PermissionCheckResponse,
+    RoleAssignment,
+    SessionInfo,
+    UserRole,
+    UserStatus,
+)
+
 __all__ = [
     # Services
     'AuthService',
@@ -37,6 +58,25 @@ __all__ = [
     'JWTProvider',
     'AnonymousUser',
     'GoogleOAuthService',
+    
+    # Pydantic Models
+    'User',
+    'UserCreate',
+    'UserUpdate',
+    'LoginRequest',
+    'LoginResponse',
+    'TokenPayload',
+    'TokenRefreshRequest',
+    'TokenRefreshResponse',
+    'PasswordChangeRequest',
+    'PasswordResetRequest',
+    'PasswordResetConfirm',
+    'PermissionCheck',
+    'PermissionCheckResponse',
+    'RoleAssignment',
+    'SessionInfo',
+    'UserRole',
+    'UserStatus',
     
     # Decorators
     'require_auth',

@@ -9,7 +9,13 @@ logger = get_logger(__name__)
 
 class JWTProvider:
     def __init__(self):
-        self.secret = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+        # Use JWT_SECRET (consistent with rest of app) or JWT_SECRET_KEY
+        self.secret = os.getenv("JWT_SECRET") or os.getenv("JWT_SECRET_KEY")
+        if not self.secret:
+            raise ValueError(
+                "JWT_SECRET environment variable is required. "
+                "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+            )
         self.algorithm = "HS256"
         self.exp_hours = 24
 

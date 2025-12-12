@@ -8,9 +8,26 @@ import hashlib
 from enum import Enum
 from botocore.client import Config
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Union
+from typing import Optional, Dict, Union, List
 from cryptography.fernet import Fernet
+from core.services.base.storage import BaseStorageService
 from core.utils.logger import get_logger
+from core.exceptions import (
+    FileNotFoundError as AppFileNotFoundError,
+    FileUploadError,
+    FileDownloadError,
+    StorageError
+)
+from core.integrations.storage.models import (
+    FileUploadRequest,
+    FileUploadResponse,
+    UploadUrlRequest,
+    UploadUrlResponse,
+    DownloadUrlRequest,
+    DownloadUrlResponse,
+    FileMetadata,
+    StorageLevel as ModelStorageLevel
+)
 
 logger = get_logger(__name__)
 logger.setLevel(logging.INFO)
@@ -22,7 +39,7 @@ class StorageLevel(Enum):
     USER = 'user'  # Isolated per user in domain
 
 
-class StorageService:
+class StorageService(BaseStorageService):
     """Enhanced domain-aware storage service with isolation levels"""
 
     def __init__(self):
@@ -31,7 +48,15 @@ class StorageService:
         self.region = os.getenv("AWS_REGION", "us-east-1")
         self.access_key = os.getenv("AWS_ACCESS_KEY_ID", "minioadmin")
         self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin")
-        self.encryption_key = os.getenv("APP_MEDIA_KEY", Fernet.generate_key().decode())
+        
+        # Encryption key MUST be set via environment variable
+        # Generating it dynamically would make encrypted data unreadable after restart
+        self.encryption_key = os.getenv("APP_MEDIA_KEY")
+        if not self.encryption_key:
+            raise ValueError(
+                "APP_MEDIA_KEY environment variable is required for media encryption. "
+                "Generate one with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+            )
         self.encryptor = Fernet(self.encryption_key.encode())
 
         self.provider = "aws" if "amazonaws.com" in self.endpoint else "minio"
@@ -72,39 +97,64 @@ class StorageService:
 
     def upload_domain_file(
         self,
-        domain: str,
-        level: StorageLevel,
-        filename: str,
-        data: bytes,
-        user_id: Optional[str] = None,
-        content_type: str = "application/octet-stream",
-        metadata: Optional[Dict] = None
-    ) -> bool:
-        """Upload file with domain and isolation level awareness"""
-        key = self._get_path(domain, level, user_id, filename)
+        request: FileUploadRequest,
+        data: bytes
+    ) -> FileUploadResponse:
+        """Upload file with domain and isolation level awareness
+        
+        Args:
+            request: File upload request with domain, level, filename, etc.
+            data: File data bytes
+            
+        Returns:
+            FileUploadResponse with upload details
+            
+        Raises:
+            FileUploadError: If upload fails
+        """
+        key = self._get_path(
+            request.domain,
+            StorageLevel(request.level.value),
+            request.user_id,
+            request.filename
+        )
         
         # Add domain metadata
         file_metadata = {
-            "domain": domain,
-            "storage_level": level.value,
-            "user_id": str(user_id) if user_id else "",
-            **(metadata or {})
+            "domain": request.domain,
+            "storage_level": request.level.value,
+            "user_id": str(request.user_id) if request.user_id else "",
+            **request.metadata
         }
 
         try:
-            encrypted_data = self._encrypt_and_compress(data)
+            # Encrypt and compress if requested
+            if request.encrypt:
+                if request.compress:
+                    processed_data = self._encrypt_and_compress(data)
+                else:
+                    processed_data = self.encryptor.encrypt(data)
+            else:
+                processed_data = data
+                
             self.s3.put_object(
                 Bucket=self.bucket,
                 Key=key,
-                Body=encrypted_data,
-                ContentType=content_type,
+                Body=processed_data,
+                ContentType=request.content_type,
                 Metadata=file_metadata,
             )
             logger.info(f"Uploaded domain file to {key}")
-            return True
+            
+            return FileUploadResponse(
+                success=True,
+                key=key,
+                size=len(data),
+                message="File uploaded successfully"
+            )
         except Exception as e:
             logger.error(f"Failed to upload domain file {key}: {e}")
-            return False
+            raise FileUploadError(request.filename, reason=str(e))
 
     def download_domain_file(
         self,
@@ -112,8 +162,13 @@ class StorageService:
         level: StorageLevel,
         filename: str,
         user_id: Optional[str] = None
-    ) -> Optional[bytes]:
-        """Download file with domain and isolation level awareness"""
+    ) -> bytes:
+        """Download file with domain and isolation level awareness
+        
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            FileDownloadError: If download fails
+        """
         key = self._get_path(domain, level, user_id, filename)
         try:
             response = self.s3.get_object(Bucket=self.bucket, Key=key)
@@ -121,47 +176,77 @@ class StorageService:
             decrypted_data = self._decrypt_and_decompress(raw_data)
             logger.info(f"Downloaded domain file from {key}")
             return decrypted_data
+        except self.s3.exceptions.NoSuchKey:
+            logger.error(f"File not found: {key}")
+            raise AppFileNotFoundError(filename, path=key)
         except Exception as e:
-            logger.error(f"Failed to download domain file {key}: {e}")
-            return None
+            logger.error(f"Download failed for {key}: {e}")
+            raise FileDownloadError(filename, reason=str(e))
 
     def generate_upload_url(
         self,
-        domain: str,
-        level: StorageLevel,
-        filename: str,
-        content_type: str,
-        user_id: Optional[str] = None,
-        expires_in: int = 3600
-    ) -> Dict:
-        """Generate presigned upload URL with domain and isolation level awareness"""
-        key = self._get_path(domain, level, user_id, filename)
+        request: UploadUrlRequest
+    ) -> UploadUrlResponse:
+        """Generate presigned upload URL with domain and isolation level awareness
+        
+        Args:
+            request: Upload URL request with domain, level, filename, etc.
+            
+        Returns:
+            UploadUrlResponse with presigned URL and fields
+        """
+        key = self._get_path(
+            request.domain,
+            StorageLevel(request.level.value),
+            request.user_id,
+            request.filename
+        )
         logger.info(f"Generating presigned upload URL for {key}")
 
-        return self.s3.generate_presigned_post(
+        result = self.s3.generate_presigned_post(
             Bucket=self.bucket,
             Key=key,
-            Fields={"Content-Type": content_type},
-            Conditions=[{"Content-Type": content_type}],
-            ExpiresIn=expires_in,
+            Fields={"Content-Type": request.content_type},
+            Conditions=[{"Content-Type": request.content_type}],
+            ExpiresIn=request.expires_in,
+        )
+        
+        return UploadUrlResponse(
+            url=result['url'],
+            fields=result['fields'],
+            key=key,
+            expires_in=request.expires_in
         )
 
     def generate_download_url(
         self,
-        domain: str,
-        level: StorageLevel,
-        filename: str,
-        user_id: Optional[str] = None,
-        expires_in: int = 3600
-    ) -> str:
-        """Generate presigned download URL with domain and isolation level awareness"""
-        key = self._get_path(domain, level, user_id, filename)
+        request: DownloadUrlRequest
+    ) -> DownloadUrlResponse:
+        """Generate presigned download URL with domain and isolation level awareness
+        
+        Args:
+            request: Download URL request with domain, level, filename, etc.
+            
+        Returns:
+            DownloadUrlResponse with presigned URL
+        """
+        key = self._get_path(
+            request.domain,
+            StorageLevel(request.level.value),
+            request.user_id,
+            request.filename
+        )
         logger.info(f"Generating presigned download URL for {key}")
 
-        return self.s3.generate_presigned_url(
+        url = self.s3.generate_presigned_url(
             "get_object",
             Params={"Bucket": self.bucket, "Key": key},
-            ExpiresIn=expires_in,
+            ExpiresIn=request.expires_in,
+        )
+        
+        return DownloadUrlResponse(
+            url=url,
+            expires_in=request.expires_in
         )
 
     def delete_object(
@@ -179,7 +264,7 @@ class StorageService:
             return True
         except Exception as e:
             logger.error(f"Failed to delete {key}: {e}")
-            return False
+            raise StorageError(f"Failed to delete: {str(e)}")
 
     def head_object(
         self,
@@ -187,8 +272,12 @@ class StorageService:
         level: StorageLevel,
         filename: str,
         user_id: Optional[str] = None
-    ) -> Optional[Dict]:
-        """Get object metadata with domain and isolation level awareness"""
+    ) -> Dict:
+        """Get object metadata with domain and isolation level awareness
+        
+        Raises:
+            FileNotFoundError: If file doesn't exist
+        """
         key = self._get_path(domain, level, user_id, filename)
         try:
             response = self.s3.head_object(Bucket=self.bucket, Key=key)
@@ -200,9 +289,12 @@ class StorageService:
                 "last_modified": response.get("LastModified"),
                 "metadata": response.get("Metadata", {}),
             }
+        except self.s3.exceptions.NoSuchKey:
+            logger.warning(f"Metadata not found for {key}")
+            raise AppFileNotFoundError(filename, path=key)
         except Exception as e:
-            logger.warning(f"Metadata not found for {key}: {e}")
-            return None
+            logger.error(f"Failed to get metadata for {key}: {e}")
+            raise StorageError(f"Failed to get metadata: {str(e)}")
 
     def cleanup_temp_files(
         self,
@@ -279,6 +371,84 @@ class StorageService:
         """Generate CDN URL if configured"""
         cdn_base = os.getenv("CDN_BASE_URL")
         return f"{cdn_base}/{path}" if cdn_base else None
+
+    # -------------------------------------------------------------------------
+    # BaseStorageService Interface Implementation
+    # These methods provide a simplified interface for add-ons
+    # -------------------------------------------------------------------------
+    
+    def get_module_prefix(self) -> str:
+        """Get the storage prefix/namespace for this module."""
+        return "core"  # Default module, can be overridden by add-on implementations
+    
+    def upload_file(
+        self, 
+        user_id: int, 
+        filename: str, 
+        data: bytes,
+        content_type: str = "application/octet-stream",
+        metadata: Optional[Dict[str, str]] = None
+    ) -> bool:
+        """Upload a file directly from server (BaseStorageService interface)."""
+        return self.upload_domain_file(
+            domain=self.get_module_prefix(),
+            level=StorageLevel.USER,
+            filename=filename,
+            data=data,
+            user_id=str(user_id),
+            content_type=content_type,
+            metadata=metadata or {}
+        )
+    
+    def download_file(self, user_id: int, filename: str) -> Optional[bytes]:
+        """Download a file to server memory (BaseStorageService interface)."""
+        return self.download_domain_file(
+            domain=self.get_module_prefix(),
+            level=StorageLevel.USER,
+            filename=filename,
+            user_id=str(user_id)
+        )
+    
+    def delete_file(self, user_id: int, filename: str) -> bool:
+        """Delete a file (BaseStorageService interface)."""
+        return self.delete_object(
+            domain=self.get_module_prefix(),
+            level=StorageLevel.USER,
+            filename=filename,
+            user_id=str(user_id)
+        )
+    
+    def list_files(
+        self, 
+        user_id: int, 
+        prefix: Optional[str] = None,
+        max_keys: int = 1000
+    ) -> List[Dict]:
+        """List files for a user (BaseStorageService interface)."""
+        return self.list_domain_files(
+            domain=self.get_module_prefix(),
+            level=StorageLevel.USER,
+            user_id=str(user_id),
+            prefix=prefix or ""
+        )
+    
+    def get_file_metadata(self, user_id: int, filename: str) -> Optional[Dict]:
+        """Get metadata for a file (BaseStorageService interface)."""
+        return self.head_object(
+            domain=self.get_module_prefix(),
+            level=StorageLevel.USER,
+            filename=filename,
+            user_id=str(user_id)
+        )
+    
+    def get_storage_path(self, user_id: int, filename: str) -> str:
+        """Get the full storage path/key for a file (BaseStorageService interface)."""
+        return self._get_path(
+            domain=self.get_module_prefix(),
+            level=StorageLevel.USER,
+            user_id=str(user_id),
+            filename=filename
+        )
 
 
 # Example usage:

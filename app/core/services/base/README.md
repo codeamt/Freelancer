@@ -1,47 +1,20 @@
-# Base Services - Abstract Base Classes
+# Base Services - Abstract Base Classes for Add-on Extensibility
 
-This directory contains abstract base classes (ABCs) for core services that add-ons can extend to implement custom functionality while maintaining a consistent interface.
+This directory contains abstract base classes (ABCs) for services where **add-ons might provide custom implementations**.
+
+## Philosophy: Hybrid Approach
+
+**✅ Base classes are provided for:**
+- Services where add-ons need custom implementations (storage, email, notifications)
+- External integrations that vary by client (payment processors, analytics)
+
+**❌ Base classes are NOT provided for:**
+- Core platform services (auth, database) - these are not extensible
+- Internal-only services that add-ons don't customize
 
 ## Available Base Services
 
-### 1. BaseAuthService (`auth.py`)
-Abstract base class for authentication and authorization services.
-
-**Key Methods:**
-- `get_user_roles()` - Get user roles
-- `get_user_permissions()` - Get user permissions/scopes
-- `has_permission()` - Check specific permission
-- `has_role()` - Check specific role
-- `authenticate_user()` - Authenticate with credentials
-- `create_token()` - Create JWT token
-- `verify_token()` - Verify JWT token
-
-**Extension Points:**
-- Custom role definitions
-- Permission scopes specific to add-on
-- Custom authentication logic
-
-### 2. BaseDBService (`db.py`)
-Abstract base class for database operations.
-
-**Key Methods:**
-- `insert_one()` - Insert document
-- `find_one()` - Find single document
-- `find_many()` - Find multiple documents
-- `update_one()` - Update single document
-- `update_many()` - Update multiple documents
-- `delete_one()` - Delete single document
-- `delete_many()` - Delete multiple documents
-- `count()` - Count documents
-- `aggregate()` - Run aggregation pipeline
-- `get_collection_name()` - Get prefixed collection name
-
-**Extension Points:**
-- Collection/table naming (e.g., `lms_courses`)
-- Domain-specific query helpers
-- Custom indexes and schemas
-
-### 3. BaseStorageService (`storage.py`)
+### 1. BaseStorageService (`storage.py`)
 Abstract base class for file storage operations.
 
 **Key Methods:**
@@ -62,7 +35,7 @@ Abstract base class for file storage operations.
 - File processing pipelines
 - Retention policies
 
-### 4. BaseEmailService (`email.py`)
+### 2. BaseEmailService (`email.py`)
 Abstract base class for email services.
 
 **Key Methods:**
@@ -82,7 +55,7 @@ Abstract base class for email services.
 - Provider selection (SMTP, SES, SendGrid, etc.)
 - Email tracking and analytics
 
-### 5. BaseNotificationService (`notification.py`)
+### 3. BaseNotificationService (`notification.py`)
 Abstract base class for notification services.
 
 **Key Methods:**
@@ -108,17 +81,20 @@ Abstract base class for notification services.
 ### Example: LMS Add-on
 
 ```python
-from core.services.base import BaseDBService, BaseEmailService
+from core.services.base import BaseStorageService, BaseEmailService
 
-class LMSDBService(BaseDBService):
-    """LMS-specific database service"""
+class LMSStorageService(BaseStorageService):
+    """LMS-specific storage service"""
     
-    def get_collection_name(self, entity: str) -> str:
-        return f"lms_{entity}"
+    def get_module_prefix(self) -> str:
+        return "lms"
     
-    async def get_course_by_id(self, course_id: str):
-        """LMS-specific helper"""
-        return await self.find_one("lms_courses", {"_id": course_id})
+    def upload_file(self, user_id: int, filename: str, data: bytes, **kwargs) -> bool:
+        """Upload with LMS-specific validation"""
+        # Custom validation for course materials
+        if not self.validate_file_type(filename, ['.pdf', '.mp4', '.zip']):
+            raise ValueError("Invalid file type for course materials")
+        return super().upload_file(user_id, filename, data, **kwargs)
 
 class LMSEmailService(BaseEmailService):
     """LMS-specific email service"""
@@ -138,8 +114,18 @@ class LMSEmailService(BaseEmailService):
 4. **Testability** - Easy to mock base services for testing
 5. **Documentation** - Clear contract for what methods are required
 
-## Next Steps
+## Implementation Status
 
-1. Refactor existing core services to inherit from these bases
-2. Create example implementations in add-ons (LMS, Commerce, Social)
-3. Add integration tests for base service contracts
+**✅ Implemented:**
+- `StorageService` in `core/integrations/storage/s3_client.py` implements `BaseStorageService`
+
+**📝 To Do:**
+- Create example email service implementations in add-ons
+- Create example notification service implementations in add-ons
+- Add integration tests for base service contracts
+
+## Notes
+
+- **Auth and DB services** do not have base classes as they are core platform services, not extensible by add-ons
+- Add-ons should extend base classes when they need custom implementations
+- Core implementations (like `StorageService`) serve as reference implementations

@@ -30,7 +30,8 @@ dependencies = [
   "watchtower",
   "pillow>=12.0.0",
   "reportlab>=4.4.5",
-  "cryptography>=41.0.0"
+  "cryptography>=41.0.0", 
+  "httpx"
 ]
 
 [build-system]

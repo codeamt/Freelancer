@@ -17,7 +17,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from core.ui.utils.security import sanitize_html, sanitize_sql_input
 from core.utils.logger import get_logger
 
-JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_hex(32))
+# JWT configuration - JWT_SECRET MUST be set via environment variable
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise ValueError(
+        "JWT_SECRET environment variable is required. "
+        "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+    )
 JWT_ALGO = "HS256"
 
 COOKIE_OPTS = {"httponly": True, "secure": False, "samesite": "lax", "path": "/"}

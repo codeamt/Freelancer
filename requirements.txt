@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 httptools
+httpx
 jinja2
 sqlalchemy[asyncio]
 asyncpg

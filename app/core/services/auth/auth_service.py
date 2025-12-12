@@ -13,10 +13,31 @@ from core.services.auth.providers.jwt import JWTProvider
 from core.services.auth.permissions import permission_registry
 from core.utils.logger import get_logger
 from core.utils.security import hash_password, verify_password
+from core.exceptions import (
+    InvalidCredentialsError,
+    InvalidTokenError,
+    TokenExpiredError,
+    NotFoundError,
+    AuthenticationError
+)
+from core.services.auth.models import (
+    LoginRequest,
+    LoginResponse,
+    TokenRefreshRequest,
+    TokenRefreshResponse,
+    TokenPayload,
+    User
+)
 
 logger = get_logger(__name__)
 
-JWT_SECRET = os.getenv("JWT_SECRET", "devsecret")
+# JWT configuration - JWT_SECRET MUST be set via environment variable
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise ValueError(
+        "JWT_SECRET environment variable is required. "
+        "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+    )
 JWT_ALGORITHM = "HS256"
 TOKEN_EXPIRATION_HOURS = int(os.getenv("TOKEN_EXPIRATION_HOURS", "12"))
 
@@ -59,32 +80,26 @@ class AuthService:
     
     async def login(
         self,
-        email: str,
-        password: str,
-        create_session: bool = True
-    ) -> Optional[Dict]:
+        request: LoginRequest
+    ) -> LoginResponse:
         """
         Authenticate user with email/password.
         
         Args:
-            email: User email
-            password: Plain text password
-            create_session: Whether to create Redis session
+            request: Login request with username/email and password
             
         Returns:
-            Dict with user and token, or None if auth fails
-            {
-                "user": User entity,
-                "token": JWT string,
-                "expires_at": datetime
-            }
+            LoginResponse with user data and access token
+            
+        Raises:
+            InvalidCredentialsError: If credentials are invalid
         """
-        # Verify credentials via repository
-        user = await self.user_repo.verify_password(email, password)
+        # Verify credentials via repository (username can be email or username)
+        user = await self.user_repo.verify_password(request.username, request.password)
         
         if not user:
             logger.warning(f"Login failed for {email}")
-            return None
+            raise InvalidCredentialsError()
         
         # Check if user is active (if you have that field)
         # if not user.is_active:
@@ -99,11 +114,17 @@ class AuthService:
             "type": "access"
         }
         
-        token = self.jwt.create(token_data, expires_hours=24)
-        expires_at = datetime.utcnow() + timedelta(hours=24)
+        expires_hours = 24
+        token = self.jwt.create(token_data, expires_hours=expires_hours)
         
-        # Create session in Redis
-        if create_session:
+        # Create session in Redis if remember_me is enabled
+        if request.remember_me:
+            await self.user_repo.create_session(
+                user_id=user.id,
+                session_token=token,
+                ttl_seconds=86400 * 30  # 30 days for remember me
+            )
+        else:
             await self.user_repo.create_session(
                 user_id=user.id,
                 session_token=token,
@@ -112,11 +133,22 @@ class AuthService:
         
         logger.info(f"User {user.id} logged in successfully")
         
-        return {
-            "user": user,
-            "token": token,
-            "expires_at": expires_at
-        }
+        # Convert user dict to User model if needed
+        user_model = User(
+            _id=str(user.id),
+            email=user.email,
+            username=user.get('username', user.email.split('@')[0]),
+            roles=user.get('roles', [user.role]) if hasattr(user, 'role') else [],
+            created_at=user.get('created_at', datetime.utcnow()),
+            status=user.get('status', 'active')
+        )
+        
+        return LoginResponse(
+            access_token=token,
+            token_type="bearer",
+            expires_in=expires_hours * 3600,
+            user=user_model
+        )
     
     async def logout(self, token: str):
         """
@@ -139,56 +171,61 @@ class AuthService:
         await self.user_repo.revoke_all_sessions(user_id)
         logger.info(f"User {user_id} logged out from all devices")
     
-    async def refresh_token(self, old_token: str) -> Optional[Dict]:
+    async def refresh_token(self, request: TokenRefreshRequest) -> TokenRefreshResponse:
         """
         Refresh an expired or expiring token.
         
         Args:
-            old_token: Current token
+            request: Token refresh request with refresh token
             
         Returns:
-            Dict with new token or None if invalid
+            TokenRefreshResponse with new access token
+            
+        Raises:
+            InvalidTokenError: If token is invalid
+            NotFoundError: If user not found
         """
         # Verify old token (allow expired tokens for refresh)
-        payload = self.jwt.verify(old_token, allow_expired=True)
+        payload = self.jwt.verify(request.refresh_token, allow_expired=True)
         
         if not payload:
-            return None
+            raise InvalidTokenError("Cannot refresh invalid token")
         
         user_id = payload.get("user_id")
         if not user_id:
-            return None
+            raise InvalidTokenError("Token missing user_id")
         
         # Get fresh user data
         user = await self.user_repo.get_user_by_id(user_id)
         if not user:
-            return None
+            raise NotFoundError("User", user_id)
         
         # Create new token
+        expires_hours = 24
         new_token = self.jwt.create({
             "user_id": user.id,
             "email": user.email,
             "role": user.role,
             "type": "access"
-        })
+        }, expires_hours=expires_hours)
         
         # Update session
-        await self.user_repo.revoke_session(old_token)
+        await self.user_repo.revoke_session(request.refresh_token)
         await self.user_repo.create_session(user.id, new_token)
         
         logger.info(f"Token refreshed for user {user_id}")
         
-        return {
-            "user": user,
-            "token": new_token,
-            "expires_at": datetime.utcnow() + timedelta(hours=24)
-        }
+        return TokenRefreshResponse(
+            access_token=new_token,
+            token_type="bearer",
+            expires_in=expires_hours * 3600
+        )
     
     # ========================================================================
     # Token Verification
     # ========================================================================
     
-    async def verify_token(self, token: str) -> Optional[Dict]:
+    async def verify_token(self, token: str) -> TokenPayload:
         """
         Verify token and return payload.
         
@@ -196,13 +233,16 @@ class AuthService:
             token: JWT token
             
         Returns:
-            Token payload or None if invalid
+            TokenPayload with user information
+            
+        Raises:
+            InvalidTokenError: If token is invalid or expired
         """
         # Verify JWT signature and expiration
         payload = self.jwt.verify(token)
         
         if not payload:
-            return None
+            raise InvalidTokenError()
         
         # Check if session exists in Redis (if using sessions)
         session = await self.user_repo.get_session(token)
@@ -211,7 +251,14 @@ class AuthService:
             # This is OK if not using Redis sessions
             logger.debug(f"Token valid but no Redis session found")
         
-        return payload
+        # Convert to TokenPayload model
+        return TokenPayload(
+            sub=payload.get("user_id"),
+            exp=payload.get("exp"),
+            iat=payload.get("iat", int(datetime.utcnow().timestamp())),
+            roles=payload.get("roles", [payload.get("role")]) if payload.get("role") else [],
+            email=payload.get("email")
+        )
     
     async def get_current_user(self, token: str):
         """
