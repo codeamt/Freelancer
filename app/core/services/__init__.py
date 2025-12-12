@@ -1,9 +1,10 @@
 # Services Package Initialization
 # Import database services from add_ons/services (universal services)
-from add_ons.services.mongodb import MongoDBService as DBService  # Backwards compatibility
-from add_ons.services.postgres import PostgresService
-from add_ons.services.mongodb import MongoDBService
-from add_ons.services.analytics import AnalyticsService
+# TODO: Create missing services in add_ons/services
+# from add_ons.services.mongodb import MongoDBService as DBService  # Backwards compatibility
+# from add_ons.services.postgres import PostgresService
+# from add_ons.services.mongodb import MongoDBService
+# from add_ons.services.analytics import AnalyticsService
 
 from .admin import AdminService, require_admin, is_admin, has_role
 from .search import SearchService
@@ -21,10 +22,10 @@ except ImportError:
     has_user_service = False
 
 __all__ = [
-    'DBService',  # Backwards compatibility (alias for MongoDBService)
-    'PostgresService',
-    'MongoDBService',
-    'AnalyticsService',
+    # 'DBService',  # Backwards compatibility (alias for MongoDBService)
+    # 'PostgresService',
+    # 'MongoDBService',
+    # 'AnalyticsService',
     'AuthService', 
     'get_current_user',
     'require_role',

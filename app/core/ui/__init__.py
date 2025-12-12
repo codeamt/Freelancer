@@ -64,13 +64,14 @@ from .state.config import (
 )
 
 # Component Factory
-from .state.factory import (
-    EnhancedComponentLibrary,
-    ComponentRenderer,
-    SectionRenderer,
-    ThemeAwareComponent,
-    get_all_component_templates,
-)
+# TODO: Create factory.py module
+# from .state.factory import (
+#     EnhancedComponentLibrary,
+#     ComponentRenderer,
+#     SectionRenderer,
+#     ThemeAwareComponent,
+#     get_all_component_templates,
+# )
 
 # Component Actions
 from .state.actions import (
@@ -93,7 +94,8 @@ from .theme.editor import (
     Spacing,
 )
 
-from .theme.presets import ThemePresets
+# TODO: Create ThemePresets class
+# from .theme.presets import ThemePresets
 
 # =============================================================================
 # Exports

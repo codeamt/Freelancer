@@ -4,7 +4,7 @@ from starlette.responses import RedirectResponse
 from core.services.auth import require_auth, require_role
 from core.services.auth.utils import get_current_user_from_request
 
-router_auth = Router()
+router_auth = APIRouter()
 
 @router_auth.get("/login")
 async def login_page(request: Request):

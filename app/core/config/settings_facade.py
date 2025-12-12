@@ -1,5 +1,8 @@
-from app.settings import Settings
-from app.core.auth.context import UserContext
+from core.services.auth.context import UserContext
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.settings import Settings
   
 class SettingsFacade:
     def __init__(self, user_context: UserContext, global_settings: Settings):

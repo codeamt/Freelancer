@@ -1,5 +1,10 @@
-"""
-Enhanced admin routes with component management, theme editing, and preview.
+"""Admin routes for single-site management with draft/published versions.
+
+Architecture:
+- Single site per installation (not multi-tenant SaaS)
+- Draft version for editing
+- Published version for live site
+- Version history for rollback
 """
 
 from fasthtml.common import *
@@ -7,13 +12,15 @@ from monsterui.all import *
 from core.services.admin.decorators import require_admin
 from core.state.persistence import InMemoryPersister, MongoPersister
 from core.workflows.admin import SiteWorkflowManager
-from core.components.library import ComponentLibrary, ComponentType, VisibilityCondition
-from core.components.actions import AddComponentAction, RemoveComponentAction, ToggleComponentAction
-from core.theme.editor import ThemeEditorManager, ThemePresets
-from core.preview.manager import PreviewPublishManager
+from core.ui.state.config import ComponentLibrary, ComponentType, VisibilityCondition
+from core.ui.state.actions import AddComponentAction, RemoveComponentAction, ToggleComponentAction
+from core.ui.theme.editor import ThemeEditorManager
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Single site identifier (could be from config or environment)
+SITE_ID = "main"  # Single site for this installation
 
 # Initialize managers
 try:
@@ -25,24 +32,23 @@ except:
 
 workflow_manager = SiteWorkflowManager(persister=persister)
 theme_manager = ThemeEditorManager(persister=persister)
-preview_manager = PreviewPublishManager(persister=persister)
 
-router_admin_sites = Router()
+router_admin_sites = APIRouter()
 
 
 # ============================================================================
 # Component Management Routes
 # ============================================================================
 
-@router_admin_sites.get("/admin/sites/{site_id}/components")
+@router_admin_sites.get("/admin/site/components")
 @require_admin
-async def manage_components(request, site_id: str):
+async def manage_components(request):
     """Component management interface."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    # Load site
-    site_result = await workflow_manager.load_site(site_id, user_id)
+    # Load draft version of site
+    site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
     if not site_result["success"]:
         return Alert(f"Error: {site_result.get('error')}", cls="alert-error")
     
@@ -59,7 +65,7 @@ async def manage_components(request, site_id: str):
                 *[Option(f"{s['id']} ({s['type']})", value=s['id']) for s in sections],
                 name="section_id",
                 id="section-selector",
-                hx_get=f"/admin/sites/{site_id}/components/section",
+                hx_get="/admin/site/components/section",
                 hx_target="#component-list",
                 hx_trigger="change",
                 cls="select select-bordered w-full mb-4"
@@ -82,7 +88,7 @@ async def manage_components(request, site_id: str):
                                     P(comp_desc, cls="text-sm text-gray-600 mb-2"),
                                     ButtonPrimary(
                                         "Add to Section",
-                                        hx_post=f"/admin/sites/{site_id}/components/add-preset",
+                                        hx_post="/admin/site/components/add-preset",
                                         hx_vals=f'{{"preset": "{comp_id}"}}',
                                         hx_include="#section-selector",
                                         hx_target="#component-list"
@@ -108,7 +114,7 @@ async def manage_components(request, site_id: str):
             # Back button
             ButtonSecondary(
                 "Back to Site Editor",
-                hx_get=f"/admin/sites/{site_id}/edit",
+                hx_get="/admin/site/edit",
                 hx_target="#site-content"
             ),
             
@@ -117,14 +123,14 @@ async def manage_components(request, site_id: str):
     )
 
 
-@router_admin_sites.get("/admin/sites/{site_id}/components/section")
+@router_admin_sites.get("/admin/site/components/section")
 @require_admin
-async def get_section_components(request, site_id: str, section_id: str):
+async def get_section_components(request, section_id: str):
     """Get components for a specific section."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    site_result = await workflow_manager.load_site(site_id, user_id)
+    site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
     if not site_result["success"]:
         return Alert(f"Error: {site_result.get('error')}", cls="alert-error")
     
@@ -172,21 +178,21 @@ async def get_section_components(request, site_id: str, section_id: str):
                     Div(
                         ButtonSecondary(
                             "Toggle",
-                            hx_post=f"/admin/sites/{site_id}/components/toggle",
+                            hx_post="/admin/site/components/toggle",
                             hx_vals=f'{{"section_id": "{section_id}", "component_id": "{comp["id"]}"}}',
                             hx_target="#component-list",
                             cls="btn-sm"
                         ),
                         ButtonSecondary(
                             "Edit Visibility",
-                            hx_get=f"/admin/sites/{site_id}/components/{comp['id']}/visibility",
+                            hx_get=f"/admin/site/components/{comp['id']}/visibility",
                             hx_vals=f'{{"section_id": "{section_id}"}}',
                             hx_target="#visibility-modal",
                             cls="btn-sm"
                         ),
                         ButtonDanger(
                             "Remove",
-                            hx_post=f"/admin/sites/{site_id}/components/remove",
+                            hx_post="/admin/site/components/remove",
                             hx_vals=f'{{"section_id": "{section_id}", "component_id": "{comp["id"]}"}}',
                             hx_target="#component-list",
                             hx_confirm="Remove this component?",
@@ -207,9 +213,9 @@ async def get_section_components(request, site_id: str, section_id: str):
     )
 
 
-@router_admin_sites.post("/admin/sites/{site_id}/components/add-preset")
+@router_admin_sites.post("/admin/site/components/add-preset")
 @require_admin
-async def add_preset_component(request, site_id: str, preset: str, section_id: str):
+async def add_preset_component(request, preset: str, section_id: str):
     """Add a preset component to a section."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
@@ -229,8 +235,8 @@ async def add_preset_component(request, site_id: str, preset: str, section_id: s
     
     component_config = component_map[preset]()
     
-    # Load state and add component
-    site_result = await workflow_manager.load_site(site_id, user_id)
+    # Load draft state and add component
+    site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
     if not site_result["success"]:
         return Alert(f"Error: {site_result.get('error')}", cls="alert-error")
     
@@ -246,20 +252,20 @@ async def add_preset_component(request, site_id: str, preset: str, section_id: s
     
     if result.success and persister:
         partition_key = f"user:{user_id}" if user_id else None
-        await persister.save(site_id, new_state, partition_key)
+        await persister.save(SITE_ID, new_state, partition_key="draft")
     
     # Reload component list
-    return RedirectResponse(url=f"/admin/sites/{site_id}/components/section?section_id={section_id}")
+    return RedirectResponse(url=f"/admin/site/components/section?section_id={section_id}")
 
 
-@router_admin_sites.post("/admin/sites/{site_id}/components/toggle")
+@router_admin_sites.post("/admin/site/components/toggle")
 @require_admin
-async def toggle_component(request, site_id: str, section_id: str, component_id: str):
+async def toggle_component(request, section_id: str, component_id: str):
     """Toggle component enabled state."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    site_result = await workflow_manager.load_site(site_id, user_id)
+    site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
     from core.state.state import State
     state = State(site_result["state"])
     
@@ -272,25 +278,24 @@ async def toggle_component(request, site_id: str, section_id: str, component_id:
     
     if result.success and persister:
         partition_key = f"user:{user_id}" if user_id else None
-        await persister.save(site_id, new_state, partition_key)
+        await persister.save(SITE_ID, new_state, partition_key="draft")
     
-    return RedirectResponse(url=f"/admin/sites/{site_id}/components/section?section_id={section_id}")
+    return RedirectResponse(url=f"/admin/site/components/section?section_id={section_id}")
 
 
 # ============================================================================
 # Theme Editor Routes
 # ============================================================================
 
-@router_admin_sites.get("/admin/sites/{site_id}/theme")
+@router_admin_sites.get("/admin/site/theme")
 @require_admin
-async def theme_editor(request, site_id: str):
+async def theme_editor(request):
     """Theme editor interface."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    # Load current theme
-    partition_key = f"user:{user_id}" if user_id else None
-    theme_state = await persister.load(f"theme_{site_id}", partition_key)
+    # Load draft theme
+    theme_state = await persister.load(f"theme_{SITE_ID}", partition_key="draft")
     
     current_theme = theme_state.get("theme_state", {}) if theme_state else {}
     
@@ -308,7 +313,7 @@ async def theme_editor(request, site_id: str):
                                 H4(preset_name.title(), cls="font-bold mb-2"),
                                 ButtonPrimary(
                                     "Apply",
-                                    hx_post=f"/admin/sites/{site_id}/theme/preset",
+                                    hx_post="/admin/site/theme/preset",
                                     hx_vals=f'{{"preset": "{preset_name}"}}',
                                     hx_target="#theme-editor",
                                     cls="btn-sm"
@@ -344,7 +349,7 @@ async def theme_editor(request, site_id: str):
                         cls="grid grid-cols-2 md:grid-cols-4 gap-4"
                     ),
                     ButtonPrimary("Update Colors", type="submit", cls="mt-4"),
-                    hx_post=f"/admin/sites/{site_id}/theme/colors",
+                    hx_post="/admin/site/theme/colors",
                     hx_target="#theme-editor"
                 ),
                 cls="mb-6"
@@ -375,7 +380,7 @@ async def theme_editor(request, site_id: str):
                         )
                     ),
                     ButtonPrimary("Update Typography", type="submit", cls="mt-4"),
-                    hx_post=f"/admin/sites/{site_id}/theme/typography",
+                    hx_post="/admin/site/theme/typography",
                     hx_target="#theme-editor"
                 ),
                 cls="mb-6"
@@ -393,7 +398,7 @@ async def theme_editor(request, site_id: str):
                         cls="textarea textarea-bordered w-full font-mono text-sm"
                     ),
                     ButtonPrimary("Update CSS", type="submit", cls="mt-4"),
-                    hx_post=f"/admin/sites/{site_id}/theme/css",
+                    hx_post="/admin/site/theme/css",
                     hx_target="#theme-editor"
                 ),
                 cls="mb-6"
@@ -403,13 +408,13 @@ async def theme_editor(request, site_id: str):
             Div(
                 ButtonPrimary(
                     "Preview Theme",
-                    hx_get=f"/admin/sites/{site_id}/preview",
+                    hx_get="/admin/site/preview",
                     hx_target="#preview-window",
                     cls="mr-2"
                 ),
                 ButtonSecondary(
                     "Back to Site Editor",
-                    hx_get=f"/admin/sites/{site_id}/edit",
+                    hx_get="/admin/site/edit",
                     hx_target="#site-content"
                 ),
                 cls="flex gap-2"
@@ -423,32 +428,32 @@ async def theme_editor(request, site_id: str):
     )
 
 
-@router_admin_sites.post("/admin/sites/{site_id}/theme/preset")
+@router_admin_sites.post("/admin/site/theme/preset")
 @require_admin
-async def apply_theme_preset(request, site_id: str, preset: str):
+async def apply_theme_preset(request, preset: str):
     """Apply a theme preset."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    result = await theme_manager.apply_preset(site_id, preset, user_id=user_id)
+    result = await theme_manager.apply_preset(SITE_ID, preset, user_id=user_id, partition_key="draft")
     
     if result["success"]:
-        return RedirectResponse(url=f"/admin/sites/{site_id}/theme")
+        return RedirectResponse(url="/admin/site/theme")
     
     return Alert(f"Error: {result.get('error')}", cls="alert-error")
 
 
-@router_admin_sites.post("/admin/sites/{site_id}/theme/colors")
+@router_admin_sites.post("/admin/site/theme/colors")
 @require_admin
-async def update_theme_colors(request, site_id: str, **colors):
+async def update_theme_colors(request, **colors):
     """Update theme colors."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    result = await theme_manager.update_theme_colors(site_id, colors, user_id)
+    result = await theme_manager.update_theme_colors(SITE_ID, colors, user_id, partition_key="draft")
     
     if result["success"]:
-        return RedirectResponse(url=f"/admin/sites/{site_id}/theme")
+        return RedirectResponse(url="/admin/site/theme")
     
     return Alert(f"Error: {result.get('error')}", cls="alert-error")
 
@@ -457,15 +462,15 @@ async def update_theme_colors(request, site_id: str, **colors):
 # Preview and Publishing Routes
 # ============================================================================
 
-@router_admin_sites.get("/admin/sites/{site_id}/preview")
+@router_admin_sites.get("/admin/site/preview")
 @require_admin
-async def preview_site(request, site_id: str):
+async def preview_site(request):
     """Preview site from draft version."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
     # Generate preview
-    result = await preview_manager.generate_preview(site_id, user_context=user, user_id=user_id)
+    result = await preview_manager.generate_preview(SITE_ID, user_context=user, user_id=user_id)
     
     if not result["success"]:
         return Alert(f"Error: {result.get('error')}", cls="alert-error")
@@ -512,19 +517,19 @@ async def preview_site(request, site_id: str):
             Div(
                 ButtonPrimary(
                     "Publish This Version",
-                    hx_post=f"/admin/sites/{site_id}/publish-draft",
+                    hx_post="/admin/site/publish",
                     hx_target="#site-content",
                     hx_confirm="Publish this version?",
                     cls="mr-2"
                 ),
                 ButtonSecondary(
                     "Compare with Published",
-                    hx_get=f"/admin/sites/{site_id}/compare",
+                    hx_get="/admin/site/compare",
                     hx_target="#site-content"
                 ),
                 ButtonSecondary(
                     "Back to Editor",
-                    hx_get=f"/admin/sites/{site_id}/edit",
+                    hx_get="/admin/site/edit",
                     hx_target="#site-content",
                     cls="ml-2"
                 ),
@@ -536,14 +541,14 @@ async def preview_site(request, site_id: str):
     )
 
 
-@router_admin_sites.post("/admin/sites/{site_id}/publish-draft")
+@router_admin_sites.post("/admin/site/publish")
 @require_admin
-async def publish_draft_version(request, site_id: str):
+async def publish_draft_version(request):
     """Publish the current draft version."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    result = await preview_manager.publish_draft(site_id, user_id)
+    result = await preview_manager.publish_draft(SITE_ID, user_id)
     
     if result["success"]:
         return Div(
@@ -553,7 +558,7 @@ async def publish_draft_version(request, site_id: str):
             ),
             ButtonSecondary(
                 "Back to Dashboard",
-                hx_get="/admin/sites",
+                hx_get="/admin/dashboard",
                 hx_target="body"
             )
         )
@@ -561,14 +566,14 @@ async def publish_draft_version(request, site_id: str):
     return Alert(f"Error: {result.get('error')}", cls="alert-error")
 
 
-@router_admin_sites.get("/admin/sites/{site_id}/compare")
+@router_admin_sites.get("/admin/site/compare")
 @require_admin
-async def compare_versions(request, site_id: str):
+async def compare_versions(request):
     """Compare draft and published versions."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    result = await preview_manager.compare_versions(site_id, user_id)
+    result = await preview_manager.compare_versions(SITE_ID, user_id)
     
     if not result["success"]:
         return Alert(f"Error: {result.get('error')}", cls="alert-error")
@@ -619,14 +624,14 @@ async def compare_versions(request, site_id: str):
             Div(
                 ButtonPrimary(
                     "Publish Changes",
-                    hx_post=f"/admin/sites/{site_id}/publish-draft",
+                    hx_post="/admin/site/publish",
                     hx_target="#site-content",
                     hx_confirm="Publish these changes?",
                     disabled=not comparison["has_changes"]
                 ),
                 ButtonSecondary(
                     "Back to Editor",
-                    hx_get=f"/admin/sites/{site_id}/edit",
+                    hx_get="/admin/site/edit",
                     hx_target="#site-content",
                     cls="ml-2"
                 ),

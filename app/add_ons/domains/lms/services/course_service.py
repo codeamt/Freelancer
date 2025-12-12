@@ -2,10 +2,12 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
-from typing import List, Optional
-from app.core.db.models import Course, Lesson, Enrollment, User
-from app.add_ons.lms.schemas import CourseCreate, CourseUpdate, CourseStatus
+from typing import List, Optional, TYPE_CHECKING
 import math
+
+if TYPE_CHECKING:
+    from core.db.models import Course, Lesson, Enrollment, User
+    from add_ons.lms.schemas import CourseCreate, CourseUpdate, CourseStatus
 
 
 class CourseService:

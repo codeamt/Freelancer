@@ -1,6 +1,9 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from core.state.actions import Action, ActionResult
 from core.state.state import State
+
+if TYPE_CHECKING:
+    from .config import ComponentConfig
 
 
 class AddComponentAction(Action):
@@ -294,7 +297,7 @@ class SetComponentVisibilityAction(Action):
 def render_section_components(
     section: Dict[str, Any],
     user: Optional[Dict[str, Any]] = None
-) -> List[ComponentConfig]:
+) -> List["ComponentConfig"]:
     """
     Get renderable components for a section.
     

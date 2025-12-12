@@ -1,20 +1,30 @@
+"""Editor Routes - Single-site visual editor for draft version.
+
+Architecture:
+- Single site per installation
+- Editor works on draft version
+- Session-based editing with auto-save
+"""
+
 from fasthtml.common import *
 from core.services.editor import OmniviewEditorService, get_editor_capabilities
 from core.services.auth.decorators import require_permission
 from core.state.persistence import get_persister
 
-router_editor = Router()
+router_editor = APIRouter()
 editor_service = OmniviewEditorService(persister=get_persister())
 
+# Single site identifier
+SITE_ID = "main"
 
-@router_editor.get("/editor/{site_id}")
-@require_permission("site", "update")
-async def editor_page(request, site_id: str):
-    """Main editor interface"""
+
+@router_editor.get("/editor")
+async def editor_page(request):
+    """Main editor interface for single site."""
     user = request.state.user
     
-    # Start editing session
-    result = await editor_service.start_editing(site_id, user["_id"])
+    # Start editing session for draft version
+    result = await editor_service.start_editing(SITE_ID, user["_id"], partition_key="draft")
     
     if not result["success"]:
         return Alert(f"Error: {result.get('error')}", cls="alert-error")
@@ -23,7 +33,7 @@ async def editor_page(request, site_id: str):
     capabilities = get_editor_capabilities(user.get("roles", []))
     
     return EditorLayout(
-        site_id=site_id,
+        site_id=SITE_ID,
         session_id=result["session_id"],
         site_state=result["site_state"],
         theme_state=result["theme_state"],
@@ -32,7 +42,7 @@ async def editor_page(request, site_id: str):
     )
 
 
-@router.post("/api/editor/sections/add")
+@router_editor.post("/api/editor/sections/add")
 async def add_section(request, session_id: str, section_id: str, section_type: str):
     """Add section to site"""
     result = await editor_service.add_section(
@@ -43,7 +53,7 @@ async def add_section(request, session_id: str, section_id: str, section_type: s
     return result
 
 
-@router.post("/api/editor/components/add")
+@router_editor.post("/api/editor/components/add")
 async def add_component(
     request,
     session_id: str,
@@ -59,7 +69,7 @@ async def add_component(
     return result
 
 
-@router.put("/api/editor/components/update")
+@router_editor.put("/api/editor/components/update")
 async def update_component(
     request,
     session_id: str,
@@ -77,7 +87,7 @@ async def update_component(
     return result
 
 
-@router.put("/api/editor/theme/colors")
+@router_editor.put("/api/editor/theme/colors")
 async def update_theme_colors(request, session_id: str, colors: Dict[str, str]):
     """Update theme colors"""
     result = await editor_service.update_theme_colors(
@@ -87,7 +97,7 @@ async def update_theme_colors(request, session_id: str, colors: Dict[str, str]):
     return result
 
 
-@router.get("/api/editor/preview/{user_type}")
+@router_editor.get("/api/editor/preview/{user_type}")
 async def preview_as_user(request, session_id: str, user_type: str):
     """Preview as different user type"""
     result = await editor_service.preview_as_user_type(
@@ -97,7 +107,7 @@ async def preview_as_user(request, session_id: str, user_type: str):
     return result
 
 
-@router.post("/api/editor/publish")
+@router_editor.post("/api/editor/publish")
 async def publish_site(request, session_id: str):
     """Publish current draft"""
     result = await editor_service.publish(session_id=session_id)

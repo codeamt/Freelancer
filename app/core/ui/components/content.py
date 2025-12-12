@@ -202,3 +202,51 @@ def FAQAccordion(faqs: list):
         ),
         cls="max-w-4xl mx-auto py-8"
     )
+
+def CTABanner(title: str, description: str, cta_text: str = "Get Started", cta_href: str = "#", secondary_text: str = None, secondary_href: str = None):
+    """Call-to-action banner with title, description, and buttons"""
+    return Div(
+        Container(
+            Div(
+                H2(title, cls="text-3xl md:text-4xl font-bold mb-4 text-white"),
+                P(description, cls="text-xl mb-6 text-gray-200"),
+                Div(
+                    A(cta_text, href=cta_href, cls="btn btn-primary btn-lg mr-3"),
+                    A(secondary_text, href=secondary_href, cls="btn btn-outline btn-lg") if secondary_text else None,
+                    cls="flex gap-4"
+                ),
+                cls="text-center max-w-4xl mx-auto"
+            ),
+            cls="py-16"
+        ),
+        cls="bg-gradient-to-r from-blue-600 to-purple-600"
+    )
+
+def EmailCaptureForm(title: str = "Stay Updated", description: str = "Get the latest updates delivered to your inbox.", button_text: str = "Subscribe", placeholder: str = "Enter your email"):
+    """Email capture form with title and description"""
+    return Div(
+        Container(
+            Div(
+                H3(title, cls="text-2xl font-bold mb-2"),
+                P(description, cls="text-gray-400 mb-6"),
+                Form(
+                    Div(
+                        Input(
+                            type="email",
+                            placeholder=placeholder,
+                            required=True,
+                            cls="input input-bordered w-full"
+                        ),
+                        Button(button_text, type="submit", cls="btn btn-primary"),
+                        cls="flex gap-2"
+                    ),
+                    method="POST",
+                    action="/subscribe",
+                    cls="max-w-md mx-auto"
+                ),
+                cls="text-center"
+            ),
+            cls="py-12"
+        ),
+        cls="bg-base-200"
+    )

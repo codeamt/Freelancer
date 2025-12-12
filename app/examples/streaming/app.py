@@ -11,7 +11,7 @@ from core.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def create_streaming_app():
+def create_streaming_app(auth_service=None, user_service=None, postgres=None, mongodb=None, redis=None):
     """Create and configure the streaming platform example app"""
     
     app = FastHTML(hdrs=[*Theme.slate.headers()])

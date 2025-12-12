@@ -12,8 +12,10 @@ from core.db.transaction_manager import TransactionManager, transactional
 from core.db.adapters.postgres_adapter import PostgresAdapter
 from core.db.adapters.mongodb_adapter import MongoDBAdapter
 from core.db.adapters.redis_adapter import RedisAdapter
-from core.services.auth.security import security
 from core.utils.logger import get_logger
+
+# Import security directly to avoid circular import with auth_service
+import bcrypt
 
 logger = get_logger(__name__)
 
@@ -115,7 +117,8 @@ class UserRepository(PostgresRepository[User]):
         )
         
         # Hash password
-        password_hash = security.hash_password(password)
+        salt = bcrypt.gensalt(rounds=12)
+        password_hash = bcrypt.hashpw(password.encode(), salt).decode()
         
         # Prepare data with timestamps
         user_data = self._add_timestamps({
@@ -239,7 +242,12 @@ class UserRepository(PostgresRepository[User]):
         if not user_data:
             return None
         
-        if not security.verify_password(password, user_data['password_hash']):
+        try:
+            password_valid = bcrypt.checkpw(password.encode(), user_data['password_hash'].encode())
+        except Exception:
+            password_valid = False
+        
+        if not password_valid:
             self._log_operation('auth_failed', user_data['id'], f"email={email}")
             return None
         
@@ -326,7 +334,8 @@ class UserRepository(PostgresRepository[User]):
         """Update password (separate for security)."""
         tm = transaction_manager
         
-        password_hash = security.hash_password(new_password)
+        salt = bcrypt.gensalt(rounds=12)
+        password_hash = bcrypt.hashpw(new_password.encode(), salt).decode()
         
         affected = await self.execute_in_transaction(
             tm,

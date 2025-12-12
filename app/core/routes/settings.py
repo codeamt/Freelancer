@@ -25,14 +25,14 @@ from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-router_settings = Router()
+router_settings = APIRouter()
 
 
 # ============================================================================
 # Settings Dashboard
 # ============================================================================
 
-@router.get("/settings")
+@router_settings.get("/settings")
 async def settings_dashboard(request):
     """Main settings page - shows categories user has access to"""
     user = request.state.user if hasattr(request.state, 'user') else None
@@ -169,7 +169,7 @@ def get_category_icon(category: str) -> str:
 # Category Settings View
 # ============================================================================
 
-@router.get("/settings/{category}")
+@router_settings.get("/settings/{category}")
 async def category_settings(request, category: str):
     """Settings for specific category"""
     user = request.state.user if hasattr(request.state, 'user') else None
@@ -390,7 +390,7 @@ def _render_input_field(
 # API Endpoints
 # ============================================================================
 
-@router.put("/api/settings/{key}")
+@router_settings.put("/api/settings/{key}")
 async def update_setting(request, key: str):
     """Update a single setting"""
     user = request.state.user if hasattr(request.state, 'user') else None
@@ -417,7 +417,7 @@ async def update_setting(request, key: str):
         return Alert(f"Error: {result.get('error')}", cls="alert-error")
 
 
-@router.post("/api/settings/bulk")
+@router_settings.post("/api/settings/bulk")
 async def update_multiple_settings(request):
     """Update multiple settings at once"""
     user = request.state.user if hasattr(request.state, 'user') else None

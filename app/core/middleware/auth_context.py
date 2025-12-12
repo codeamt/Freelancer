@@ -1,8 +1,5 @@
 from fasthtml.common import *
-from app.core.auth.context import UserContext, current_user_context
-
-from app.core.config.settings_facade import SettingsFacade
-from app.settings import settings
+from core.services.auth.context import UserContext, current_user_context
 
 async def inject_settings_facade(request):
     user_context = current_user_context.get()

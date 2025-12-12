@@ -4,11 +4,14 @@ State Machine Application Builder - Burr-inspired builder pattern.
 This module provides the builder pattern for constructing state machines.
 """
 
-from typing import List, Dict, Optional, Callable, Tuple, Any
+from typing import List, Dict, Optional, Callable, Tuple, Any, TYPE_CHECKING
 from .state import State, StateManager
 from .actions import Action
 from .transitions import Transition, TransitionCondition
 from core.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from core.di.container import ExecutionContext
 
 logger = get_logger(__name__)
 
@@ -49,11 +52,12 @@ class StateMachineApplication:
         if entrypoint not in actions:
             raise ValueError(f"Entrypoint '{entrypoint}' not in actions")
     
-    async def step(self, **inputs) -> Tuple[str, Any, State]:
+    async def step(self, context: Optional['ExecutionContext'] = None, **inputs) -> Tuple[str, Any, State]:
         """
         Execute one step of the state machine.
         
         Args:
+            context: Optional execution context with user permissions and services
             **inputs: Runtime inputs for the action
             
         Returns:
@@ -66,8 +70,8 @@ class StateMachineApplication:
         if "before_action" in self.hooks:
             await self.hooks["before_action"](self.current_action, self.state_manager.current)
         
-        # Execute action
-        new_state, result = await action.execute(self.state_manager.current, **inputs)
+        # Execute action with context
+        new_state, result = await action.execute(self.state_manager.current, context, **inputs)
         
         # Update state manager
         self.state_manager.update(new_state)
@@ -111,7 +115,8 @@ class StateMachineApplication:
         return None
     
     async def run(
-        self, 
+        self,
+        context: Optional['ExecutionContext'] = None,
         halt_after: Optional[List[str]] = None,
         halt_before: Optional[List[str]] = None,
         max_steps: int = 100,
@@ -140,8 +145,8 @@ class StateMachineApplication:
                 logger.info(f"Halting before action: {self.current_action}")
                 break
             
-            # Execute step
-            action_name, result, state = await self.step(**initial_inputs)
+            # Execute step with context
+            action_name, result, state = await self.step(context, **initial_inputs)
             last_result = result
             steps += 1
             initial_inputs = {}  # Clear inputs after first step
@@ -201,8 +206,6 @@ class StateMachineApplication:
             
             if action_name not in self.transitions or not self.transitions[action_name]:
                 break
-        
-        return self.current_action, result, state
     
     def get_graph(self) -> Dict[str, Any]:
         """

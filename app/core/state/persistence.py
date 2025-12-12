@@ -5,10 +5,42 @@ This module provides persistence for state across sessions.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 from .state import State
 from datetime import datetime
 import json
+import os
+
+if TYPE_CHECKING:
+    from typing import TypeVar
+    StatePersisterType = TypeVar('StatePersisterType', bound='StatePersister')
+
+# Global persister instance
+_persister: Optional['StatePersister'] = None
+
+
+def get_persister() -> 'StatePersister':
+    """
+    Get the global state persister instance.
+    
+    Returns:
+        StatePersister instance (defaults to InMemoryPersister if not configured)
+    """
+    global _persister
+    if _persister is None:
+        _persister = InMemoryPersister()
+    return _persister
+
+
+def set_persister(persister: 'StatePersister'):
+    """
+    Set the global state persister instance.
+    
+    Args:
+        persister: StatePersister instance to use
+    """
+    global _persister
+    _persister = persister
 
 
 class StatePersister(ABC):

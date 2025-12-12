@@ -342,6 +342,48 @@ class AuthService:
         """
         if not await self.has_role(user_id, role):
             raise PermissionError(f"User {user_id} must have role '{role}'")
+    
+    # ========================================================================
+    # Password Management
+    # ========================================================================
+    
+    async def update_password(self, user_id: int, new_password: str) -> Dict:
+        """
+        Update user password.
+        
+        Args:
+            user_id: User ID
+            new_password: New plain text password (will be hashed)
+            
+        Returns:
+            Dict with success status and error if any
+        """
+        try:
+            # Validate password strength
+            if len(new_password) < 8:
+                return {
+                    "success": False,
+                    "error": "Password must be at least 8 characters"
+                }
+            
+            # Update password (repository handles hashing)
+            success = await self.user_repo.update_password(user_id, new_password)
+            
+            if success:
+                logger.info(f"Password updated for user {user_id}")
+                return {"success": True, "error": None}
+            else:
+                return {
+                    "success": False,
+                    "error": "Failed to update password"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error updating password for user {user_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
 
 class AnonymousUser:

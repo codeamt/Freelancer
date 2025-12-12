@@ -52,6 +52,10 @@ async def get_orm_session() -> AsyncSession:
         yield session
 
 
+# Alias for backwards compatibility
+get_session = get_orm_session
+
+
 async def init_db():
     """Initialize database tables (creates all ORM models)."""
     async with engine.begin() as conn:

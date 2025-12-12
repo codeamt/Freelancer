@@ -4,11 +4,14 @@ Actions for site state management - Burr-inspired action system.
 Actions are the building blocks of workflows. They read from and write to state.
 """
 
-from typing import List, Dict, Any, Optional, Callable, Tuple
+from typing import List, Dict, Any, Optional, Callable, Tuple, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from .state import State
 from core.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from core.di.container import ExecutionContext
 
 logger = get_logger(__name__)
 
@@ -44,12 +47,18 @@ class Action(ABC):
         self.writes = writes
     
     @abstractmethod
-    async def run(self, state: State, **inputs) -> ActionResult:
+    async def run(
+        self, 
+        state: State, 
+        context: Optional['ExecutionContext'] = None,
+        **inputs
+    ) -> ActionResult:
         """
         Execute the action.
         
         Args:
             state: Current state (subset to self.reads)
+            context: Optional execution context with user permissions and services
             **inputs: Additional runtime inputs
             
         Returns:
@@ -74,12 +83,18 @@ class Action(ABC):
             return state.update(**result.data)
         return state
     
-    async def execute(self, state: State, **inputs) -> Tuple[State, ActionResult]:
+    async def execute(
+        self, 
+        state: State, 
+        context: Optional['ExecutionContext'] = None,
+        **inputs
+    ) -> Tuple[State, ActionResult]:
         """
         Execute action and update state.
         
         Args:
             state: Full current state
+            context: Optional execution context with user permissions and services
             **inputs: Runtime inputs
             
         Returns:
@@ -89,8 +104,8 @@ class Action(ABC):
             # Subset state to only what action reads
             read_state = state.subset(self.reads) if self.reads else state
             
-            # Run the action
-            result = await self.run(read_state, **inputs)
+            # Run the action with context
+            result = await self.run(read_state, context, **inputs)
             
             # Update state if successful
             if result.success:

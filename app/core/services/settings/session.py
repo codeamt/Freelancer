@@ -7,7 +7,7 @@ Reads configuration from settings and provides:
 - Session cleanup and expiry
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import secrets

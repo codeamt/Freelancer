@@ -641,3 +641,205 @@ def has_published_version(state: State, result: Any) -> bool:
 def has_draft_version(state: State, result: Any) -> bool:
     """Check if site has a draft version."""
     return state.get("draft_version") is not None
+
+
+logger = get_logger(__name__)
+
+
+class CreatePreviewAction(Action):
+    """Action to create a preview of the current site state"""
+    
+    def __init__(self):
+        super().__init__(
+            name="create_preview",
+            reads=["site_graph", "theme_config"],
+            writes=["preview_id", "preview_url", "preview_created_at"]
+        )
+    
+    async def run(self, state: State, **inputs) -> ActionResult:
+        """Create preview snapshot"""
+        site_id = inputs.get("site_id")
+        if not site_id:
+            return ActionResult(success=False, error="site_id required")
+        
+        preview_id = f"preview_{site_id}_{int(datetime.utcnow().timestamp())}"
+        preview_url = f"/preview/{preview_id}"
+        
+        # Store preview metadata in state
+        new_state = state.update({
+            "preview_id": preview_id,
+            "preview_url": preview_url,
+            "preview_created_at": datetime.utcnow().isoformat(),
+            "preview_site_id": site_id
+        })
+        
+        return ActionResult(
+            success=True,
+            message=f"Preview created: {preview_id}",
+            data={"preview_id": preview_id, "preview_url": preview_url}
+        )
+
+
+class PublishSiteAction(Action):
+    """Action to publish the current site state"""
+    
+    def __init__(self):
+        super().__init__(
+            name="publish_site",
+            reads=["site_graph", "theme_config"],
+            writes=["published_at", "published_version"]
+        )
+    
+    async def run(self, state: State, context=None, **inputs) -> ActionResult:
+        """Publish site to production"""
+        # Check permission if context provided
+        if context and context.user_context:
+            if not context.user_context.has_permission("site", "publish"):
+                return ActionResult(
+                    success=False,
+                    error=f"User {context.user_context.user_id} lacks permission to publish sites"
+                )
+        
+        site_id = inputs.get("site_id")
+        if not site_id:
+            return ActionResult(success=False, error="site_id required")
+        
+        # Update state with publish metadata
+        new_state = state.update({
+            "published_at": datetime.utcnow().isoformat(),
+            "published_version": state.sequence_id,
+            "status": "published"
+        })
+        
+        return ActionResult(
+            success=True,
+            message=f"Site {site_id} published successfully",
+            data={
+                "site_id": site_id,
+                "published_at": new_state.get("published_at"),
+                "version": new_state.get("published_version")
+            }
+        )
+
+
+class PreviewPublishManager:
+    """
+    Manager for previewing and publishing sites using core.state system.
+    
+    Integrates with State, Actions, and StatePersister for preview/publish workflows.
+    """
+    
+    def __init__(self, persister: Optional[StatePersister] = None):
+        self.persister = persister or get_persister()
+        self.create_preview_action = CreatePreviewAction()
+        self.publish_action = PublishSiteAction()
+        self._preview_states: Dict[str, State] = {}
+    
+    async def create_preview(self, site_id: str, state: State) -> Dict[str, Any]:
+        """
+        Create a preview of the site using the state system.
+        
+        Args:
+            site_id: Site identifier
+            state: Current site state
+            
+        Returns:
+            Result with preview_id and preview_url
+        """
+        # Execute preview action
+        result = await self.create_preview_action.run(state, site_id=site_id)
+        
+        if not result.success:
+            return {"success": False, "error": result.error}
+        
+        # Store preview state
+        preview_id = result.data["preview_id"]
+        self._preview_states[preview_id] = state
+        
+        # Optionally persist preview state
+        await self.persister.save(
+            app_id=preview_id,
+            state=state,
+            partition_key="previews",
+            status="preview"
+        )
+        
+        logger.info(f"Preview created: {preview_id}")
+        return {
+            "success": True,
+            "preview_id": preview_id,
+            "preview_url": result.data["preview_url"]
+        }
+    
+    async def publish(self, site_id: str, state: State) -> Dict[str, Any]:
+        """
+        Publish site using the state system.
+        
+        Args:
+            site_id: Site identifier
+            state: Current site state to publish
+            
+        Returns:
+            Result with publish status
+        """
+        # Execute publish action
+        result = await self.publish_action.run(state, site_id=site_id)
+        
+        if not result.success:
+            return {"success": False, "error": result.error}
+        
+        # Persist published state
+        await self.persister.save(
+            app_id=site_id,
+            state=state,
+            partition_key="published",
+            status="published"
+        )
+        
+        logger.info(f"Site published: {site_id}")
+        return {
+            "success": True,
+            "site_id": site_id,
+            "published_at": result.data["published_at"],
+            "version": result.data["version"]
+        }
+    
+    async def get_preview(self, preview_id: str) -> Optional[State]:
+        """
+        Get preview state by ID.
+        
+        Args:
+            preview_id: Preview identifier
+            
+        Returns:
+            Preview state or None
+        """
+        # Try in-memory first
+        if preview_id in self._preview_states:
+            return self._preview_states[preview_id]
+        
+        # Try loading from persistence
+        state = await self.persister.load(
+            app_id=preview_id,
+            partition_key="previews"
+        )
+        
+        if state:
+            self._preview_states[preview_id] = state
+        
+        return state
+    
+    async def get_published_state(self, site_id: str) -> Optional[State]:
+        """
+        Get published state for a site.
+        
+        Args:
+            site_id: Site identifier
+            
+        Returns:
+            Published state or None
+        """
+        return await self.persister.load(
+            app_id=site_id,
+            partition_key="published"
+        )

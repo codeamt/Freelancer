@@ -32,13 +32,13 @@ from core.middleware import RedisSessionMiddleware
 # Routes
 from core.routes import (
     router_main,
-    router_oauth,
     router_editor,
     router_admin_sites,
+    router_auth,
     router_settings
 )
 
-from app.core.middleware.auth_context import inject_user_context, set_response_cookies
+from core.middleware.auth_context import inject_user_context, set_response_cookies
 
 # Example apps
 from examples.eshop import create_eshop_app
@@ -55,10 +55,10 @@ logger = get_logger(__name__)
 # Configuration
 # ============================================================================
 
-POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql+asyncpg://postgres:postgres@postgres:5432/app_db")
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://root:example@mongodb:27017")
+POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://postgres:postgres@localhost:5432/app_db")
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://root:example@localhost:27017")
 MONGO_DB = os.getenv("MONGO_DB", "app_db")
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 # ============================================================================
@@ -205,15 +205,8 @@ else:
 # ============================================================================
 # Application Lifecycle
 # ============================================================================
-@app.before
-async def before_request(request):
-    await inject_user_context(request)
-
-@app.after
-async def after_request(request, response):
-    return await set_response_cookies(request, response)
-
-
+# Note: User context injection handled by middleware
+# TODO: Implement proper before/after hooks if needed
 
 @app.on_event("startup")
 async def startup():
@@ -287,10 +280,13 @@ logger.info("Mounting core routes...")
 
 try:
     router_main.to_app(app)
-    router_oauth.to_app(app)
+    router_auth.to_app(app)
     router_editor.to_app(app)
     router_admin_sites.to_app(app)
     router_settings.to_app(app)
+    router_admin_users.to_app(app)
+    router_profile.to_app(app)
+
     logger.info("✓ Core routes mounted")
 except Exception as e:
     logger.error(f"Failed to mount core routes: {e}")

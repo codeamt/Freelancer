@@ -102,37 +102,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 # CloudWatch Logging and Metrics Setup
 # ------------------------------------------------------------------------------
 
-def configure_logger():
-    logger = get_logger("security_middleware")
-    logger.setLevel(logging.INFO)
-
-    # Console handler
-    stream_handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
-
-    # Optional CloudWatch Logs integration
-    if os.getenv("AWS_REGION") and os.getenv("AWS_ACCESS_KEY_ID"):
-        try:
-            session = boto3.Session(region_name=os.getenv("AWS_REGION", "us-east-1"))
-            cw_handler = watchtower.CloudWatchLogHandler(
-                log_group=os.getenv("CLOUDWATCH_LOG_GROUP", "FastApp/Security"),
-                stream_name=os.getenv("CLOUDWATCH_LOG_STREAM", "middleware-events"),
-                boto3_session=session,
-            )
-            cw_formatter = logging.Formatter(
-                "%(asctime)s [%(levelname)s] %(message)s"
-            )
-            cw_handler.setFormatter(cw_formatter)
-            logger.addHandler(cw_handler)
-            logger.info("✅ CloudWatch Logs initialized.")
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to initialize CloudWatch Logs: {e}")
-
-    return logger
-
-logger = configure_logger()
+logger = get_logger("security_middleware", enable_cloudwatch=True)
 
 
 # ------------------------------------------------------------------------------

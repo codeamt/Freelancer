@@ -10,26 +10,24 @@ from core.utils.logger import get_logger
 from core.ui.layout import Layout
 
 # Import shared services (no recreation!)
-from core.services import DBService, AuthService, get_current_user, SearchService
+from core.services import AuthService, get_current_user, SearchService
 
 # Import shared data from LMS domain
 from add_ons.domains.lms.data import SAMPLE_COURSES, get_course_by_id, get_free_courses
 
 # Import custom auth UI and certificate generator for this example
-from .auth_ui import LMSLoginPage, LMSRegisterPage
-from add_ons.domains.lms.services.certificate_generator import CertificateGenerator
+from .ui import LMSLoginPage, LMSRegisterPage
+# from add_ons.domains.lms.services.certificate_generator import CertificateGenerator  # TODO: Fix circular import
 
 logger = get_logger(__name__)
 
 
-def create_lms_app():
+def create_lms_app(auth_service=None, user_service=None, postgres=None, mongodb=None, redis=None):
     """Create LMS example app"""
     
     # Initialize services (shared, not recreated)
-    db_service = DBService()
-    auth_service = AuthService(db_service)
     search_service = SearchService()
-    cert_generator = CertificateGenerator()
+    # cert_generator = CertificateGenerator()  # TODO: Fix circular import
     
     # Create app with MonsterUI theme
     app = FastHTML(hdrs=[*Theme.violet.headers(mode="light")])

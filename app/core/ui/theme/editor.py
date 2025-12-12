@@ -341,8 +341,16 @@ class UpdateColorSchemeAction(Action):
             writes=["theme_state"]
         )
     
-    async def run(self, state: State, **inputs) -> ActionResult:
+    async def run(self, state: State, context=None, **inputs) -> ActionResult:
         """Update color values."""
+        # Check permission if context provided
+        if context and context.user_context:
+            if not context.user_context.has_permission("theme", "update"):
+                return ActionResult(
+                    success=False,
+                    error=f"User {context.user_context.user_id} lacks permission to update theme"
+                )
+        
         color_updates = inputs.get("colors")
         
         if not color_updates:
