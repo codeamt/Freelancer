@@ -614,28 +614,159 @@ ExecutionContext bundles all dependencies
 
 ---
 
+## Recent Architectural Improvements (December 2025)
+
+### 1. **Security Hardening** ✅
+**Location**: `app/core/config/validation.py`
+
+- **Removed insecure defaults** for JWT_SECRET and APP_MEDIA_KEY
+- **Startup validation** ensures all required secrets are set
+- **Fail-fast approach** prevents app from starting with missing secrets
+- **Secret generation helpers** in `env.example.txt`
+
+```python
+# Before: ❌ Insecure default
+JWT_SECRET = os.getenv("JWT_SECRET", "devsecret")
+
+# After: ✅ Required secret
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise ValueError("JWT_SECRET environment variable is required")
+```
+
+### 2. **Type Safety with Pydantic** ✅
+**Locations**: 
+- `app/core/services/auth/models.py`
+- `app/core/integrations/storage/models.py`
+- `app/core/integrations/huggingface/models.py`
+
+All major services now use Pydantic models for type-safe inputs/outputs:
+
+```python
+# Before: ❌ Dict-based
+async def login(email: str, password: str) -> Optional[Dict]:
+    ...
+
+# After: ✅ Pydantic-based
+async def login(request: LoginRequest) -> LoginResponse:
+    ...
+```
+
+**Benefits:**
+- Automatic validation
+- IDE autocomplete
+- Self-documenting APIs
+- Type-safe serialization
+
+**Documentation**: `docs/TYPE_SAFETY.md`, `docs/PYDANTIC_USAGE.md`
+
+### 3. **Standardized Error Handling** ✅
+**Locations**:
+- `app/core/exceptions.py` - Custom exception hierarchy
+- `app/core/middleware/error_handler.py` - Centralized error handler
+
+**Exception Hierarchy:**
+```
+AppException (base)
+├── AuthenticationError (401)
+├── AuthorizationError (403)
+├── ResourceError (404)
+├── ValidationError (422)
+├── StorageError (500)
+├── ExternalServiceError (502)
+├── DatabaseError (500)
+├── BusinessLogicError (400)
+└── ConfigurationError (500)
+```
+
+**Benefits:**
+- Consistent error responses
+- Structured error data
+- Automatic logging
+- Clear error types
+
+```python
+# Before: ❌ return None
+if not user:
+    return None
+
+# After: ✅ raise exception
+if not user:
+    raise InvalidCredentialsError()
+```
+
+**Documentation**: `docs/ERROR_HANDLING.md`
+
+### 4. **Dependency Injection Framework** ✅
+**Location**: `app/core/di/dependencies.py`
+
+Replaced global singletons with `app.state` dependency injection:
+
+```python
+# Before: ❌ Global singleton
+_db_service = None
+def get_db_service():
+    global _db_service
+    if _db_service is None:
+        _db_service = DBService()
+    return _db_service
+
+# After: ✅ Dependency injection (FastHTML)
+@router.post("/users")
+async def create_user(request: Request, data: dict):
+    # Access service directly from app.state
+    db = request.app.state.db_service
+    return await db.insert("users", data)
+```
+
+**Benefits:**
+- Isolated per app instance
+- Easy to mock in tests
+- No global state
+- Simple, direct access
+
+**Documentation**: `docs/DEPENDENCY_INJECTION_GUIDE.md`, `docs/GLOBAL_SINGLETONS_AUDIT.md`
+
+### 5. **Async HTTP Client** ✅
+**Location**: `app/core/integrations/huggingface/huggingface_client.py`
+
+Replaced synchronous `requests` with async `httpx`:
+
+```python
+# Before: ❌ Blocking in async
+async def generate_text(prompt: str):
+    response = requests.post(url, ...)  # Blocks event loop!
+
+# After: ✅ True async
+async def generate_text(request: TextGenerationRequest):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, ...)
+```
+
+---
+
 ## Future Improvements
 
 ### High Priority
-1. **Implement ExecutionContext injection** in all Actions
-2. **Add @requires_permission decorators** to all service methods
-3. **Populate ServiceContainer** with actual service instances
-4. **Populate IntegrationContainer** with client instances
+1. **Migrate critical singletons to app.state** (Settings, DBService, SessionManager)
+2. **Implement ExecutionContext injection** in all Actions
+3. **Add @requires_permission decorators** to all service methods
+4. **Add comprehensive tests** for Pydantic models and exceptions
 5. **Create middleware** to inject ExecutionContext into requests
 
 ### Medium Priority
 1. **Consolidate Stripe webhook handlers** across domains
-2. **Abstract common dependencies.py** to core
-3. **Add comprehensive tests** for state transitions
-4. **Implement versioning UI** for state rollback
-5. **Add audit logging** for all state changes
+2. **Add integration tests** for state transitions
+3. **Implement versioning UI** for state rollback
+4. **Add audit logging** for all state changes
+5. **Performance profiling** and optimization
 
 ### Low Priority
 1. **GraphQL API** for external integrations
 2. **WebSocket support** for real-time updates
 3. **Background job system** for async tasks
 4. **Multi-tenancy support** with tenant isolation
-5. **Performance monitoring** and profiling
+5. **OpenAPI documentation** generation
 
 ---
 
@@ -739,5 +870,14 @@ All services include:
 
 ---
 
-**Last Updated**: December 11, 2025
-**Version**: 1.0
+**Last Updated**: December 12, 2025
+**Version**: 1.1
+
+## Quick Reference Documentation
+
+For detailed information on recent improvements:
+- **Security**: `docs/env.example.txt` - Required environment variables
+- **Type Safety**: `docs/TYPE_SAFETY.md`, `docs/PYDANTIC_USAGE.md`
+- **Error Handling**: `docs/ERROR_HANDLING.md`
+- **Dependency Injection**: `docs/DEPENDENCY_INJECTION_GUIDE.md`, `docs/GLOBAL_SINGLETONS_AUDIT.md`
+- **Codebase Navigation**: `CODEBASE_INDEX.md`, `FILE_MANIFEST.md`
