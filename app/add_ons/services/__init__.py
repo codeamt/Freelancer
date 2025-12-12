@@ -18,7 +18,7 @@ Services:
 - database: Relational database (PostgreSQL) and document database (MongoDB)
 
 Usage:
-    from add_ons.services.auth import AuthService, get_current_user, require_role
+    from core.services.auth import AuthService, get_current_user, require_role
     from add_ons.services.graphql import GraphQLService, get_graphql_service
     from add_ons.services.storage import StorageService
     from add_ons.services.stripe import StripeService
@@ -27,7 +27,6 @@ Usage:
 
 """
 
-from .auth import AuthService, get_current_user, require_role, require_permission
 from .graphql import GraphQLService, get_graphql_service, BaseQuery
 # from .storage import StorageService  # TODO: Create storage service
 # from .stripe import StripeService  # TODO: Create stripe service
@@ -36,10 +35,6 @@ from .graphql import GraphQLService, get_graphql_service, BaseQuery
 # from .analytics import AnalyticsService  # TODO: Create analytics service
 
 __all__ = [
-    "AuthService",
-    "get_current_user",
-    "require_role",
-    "require_permission",
     "GraphQLService",
     "get_graphql_service",
     "BaseQuery",

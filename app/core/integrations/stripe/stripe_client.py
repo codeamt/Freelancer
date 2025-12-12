@@ -7,7 +7,7 @@ logger = get_logger(__name__)
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
 
-class StripeService:
+class StripeClient:
     @staticmethod
     def create_checkout_session(amount_cents: int, currency: str, success_url: str, cancel_url: str):
         try:

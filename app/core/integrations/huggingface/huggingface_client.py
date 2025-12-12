@@ -12,9 +12,9 @@ import os
 logger = get_logger(__name__)
 
 
-class AIService:
+class HuggingFaceClient:
     """
-    Base AI service for HuggingFace model interactions
+    HuggingFace client for AI model interactions
     
     Features:
     - Text generation (GPT-style models)

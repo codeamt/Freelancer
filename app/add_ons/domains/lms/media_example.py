@@ -7,7 +7,7 @@ Uses the universal StorageService for S3/MinIO operations.
 
 from fasthtml.common import *
 from add_ons.services.storage import StorageService
-from add_ons.services.auth import get_current_user
+from core.services.auth import get_current_user_from_context
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -30,7 +30,7 @@ async def upload_course_material(request: Request, course_id: str, file: UploadF
     - Stores metadata in course database
     """
     # Get current user
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     if not user:
         return {"error": "Not authenticated"}, 401
     
@@ -106,7 +106,7 @@ async def upload_student_assignment(request: Request, course_id: str, assignment
     - Stores submission metadata
     """
     # Get current user
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     if not user:
         return {"error": "Not authenticated"}, 401
     
@@ -176,7 +176,7 @@ async def upload_course_thumbnail(request: Request, course_id: str, file: Upload
     - Optimizes for web display
     """
     # Get current user
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     if not user:
         return {"error": "Not authenticated"}, 401
     
@@ -239,7 +239,7 @@ async def download_course_material(request: Request, course_id: str, filename: s
     - Logs access for analytics
     """
     # Get current user
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     if not user:
         return {"error": "Not authenticated"}, 401
     

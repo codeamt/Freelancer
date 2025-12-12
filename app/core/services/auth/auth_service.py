@@ -6,12 +6,19 @@ Delegates user data access to UserRepository.
 """
 from typing import Optional, Dict, List
 from datetime import datetime, timedelta
+import os
+import uuid
 from core.db.repositories.user_repository import UserRepository
 from core.services.auth.providers.jwt import JWTProvider
 from core.services.auth.permissions import permission_registry
 from core.utils.logger import get_logger
+from core.utils.security import hash_password, verify_password
 
 logger = get_logger(__name__)
+
+JWT_SECRET = os.getenv("JWT_SECRET", "devsecret")
+JWT_ALGORITHM = "HS256"
+TOKEN_EXPIRATION_HOURS = int(os.getenv("TOKEN_EXPIRATION_HOURS", "12"))
 
 
 class AuthService:
@@ -31,18 +38,20 @@ class AuthService:
     
     def __init__(
         self,
-        user_repository: UserRepository,
+        user_repository: Optional[UserRepository] = None,
         jwt_provider: Optional[JWTProvider] = None
     ):
         """
         Initialize auth service.
         
         Args:
-            user_repository: User repository for data access
+            user_repository: User repository for data access (optional for demo mode)
             jwt_provider: JWT provider (creates one if not provided)
         """
         self.user_repo = user_repository
         self.jwt = jwt_provider or JWTProvider()
+        self._user_cache = {}
+        self._role_cache = {}
     
     # ========================================================================
     # Authentication
@@ -223,7 +232,167 @@ class AuthService:
         if not user_id:
             return None
         
-        return await self.user_repo.get_user_by_id(user_id)
+        if self.user_repo:
+            return await self.user_repo.get_user_by_id(user_id)
+        else:
+            user = self._user_cache.get(user_id)
+            if user and isinstance(user, dict):
+                return {k: v for k, v in user.items() if k != "password_hash"}
+            return None
+    
+    async def authenticate_user(self, username: str, password: str) -> Optional[Dict]:
+        """
+        Authenticate user with username/email and password.
+        
+        Args:
+            username: Username or email
+            password: Plain text password
+            
+        Returns:
+            User data dict (without password_hash) if authenticated, None otherwise
+        """
+        try:
+            user = None
+            
+            if self.user_repo:
+                user_entity = await self.user_repo.verify_password(username, password)
+                if user_entity:
+                    user = {
+                        "_id": str(user_entity.id),
+                        "id": user_entity.id,
+                        "email": user_entity.email,
+                        "role": user_entity.role,
+                        "last_login": datetime.utcnow()
+                    }
+            else:
+                for cached_user in self._user_cache.values():
+                    if isinstance(cached_user, dict) and (
+                        cached_user.get("username") == username or 
+                        cached_user.get("email") == username
+                    ):
+                        if verify_password(password, cached_user.get("password_hash", "")):
+                            user = {k: v for k, v in cached_user.items() if k != "password_hash"}
+                            user["last_login"] = datetime.utcnow()
+                        break
+            
+            if user:
+                logger.info(f"User authenticated successfully: {username}")
+                return user
+            else:
+                logger.warning(f"Authentication failed: {username}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Authentication error: {e}")
+            return None
+    
+    async def register_user(
+        self,
+        email: str,
+        password: str,
+        username: Optional[str] = None,
+        roles: List[str] = None,
+        **extra_fields
+    ) -> Optional[Dict]:
+        """
+        Register a new user.
+        
+        Args:
+            email: User email
+            password: Plain text password
+            username: Optional username (defaults to email)
+            roles: List of roles (defaults to ["user"])
+            **extra_fields: Additional user fields
+            
+        Returns:
+            User data dict (without password_hash) if successful, None otherwise
+        """
+        try:
+            existing = None
+            
+            if self.user_repo:
+                if await self.user_repo.user_exists(email):
+                    logger.warning(f"Registration failed: User already exists - {email}")
+                    return None
+            else:
+                for cached_user in self._user_cache.values():
+                    if isinstance(cached_user, dict) and (
+                        cached_user.get("email") == email or 
+                        cached_user.get("username") == (username or email)
+                    ):
+                        existing = cached_user
+                        break
+                
+                if existing:
+                    logger.warning(f"Registration failed: User already exists - {email}")
+                    return None
+            
+            user_id = str(uuid.uuid4())
+            user_data = {
+                "_id": user_id,
+                "email": email,
+                "username": username or email,
+                "password_hash": hash_password(password),
+                "roles": roles or ["user"],
+                "created_at": datetime.utcnow(),
+                "email_verified": False,
+                **extra_fields
+            }
+            
+            if self.user_repo:
+                created_id = await self.user_repo.create_user(
+                    email=email,
+                    password=password,
+                    role=roles[0] if roles else "user",
+                    profile_data=extra_fields
+                )
+                user_data["_id"] = str(created_id)
+                user_data["id"] = created_id
+            else:
+                self._user_cache[user_id] = user_data
+                self._user_cache[email] = user_data
+                if username:
+                    self._user_cache[username] = user_data
+            
+            response_data = {k: v for k, v in user_data.items() if k != "password_hash"}
+            
+            logger.info(f"User registered successfully: {email}")
+            return response_data
+            
+        except Exception as e:
+            logger.error(f"Registration error: {e}")
+            return None
+    
+    async def get_user_by_id(self, user_id: str) -> Optional[Dict]:
+        """
+        Get user data by ID.
+        
+        Args:
+            user_id: User's unique identifier
+            
+        Returns:
+            User data dict (without password_hash) or None if not found
+        """
+        try:
+            if self.user_repo:
+                user_entity = await self.user_repo.get_user_by_id(int(user_id) if user_id.isdigit() else user_id)
+                if user_entity:
+                    return {
+                        "_id": str(user_entity.id),
+                        "id": user_entity.id,
+                        "email": user_entity.email,
+                        "role": user_entity.role,
+                    }
+            else:
+                user = self._user_cache.get(user_id)
+                if user and isinstance(user, dict):
+                    return {k: v for k, v in user.items() if k != "password_hash"}
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error fetching user {user_id}: {e}")
+            return None
     
     # ========================================================================
     # Authorization
@@ -342,6 +511,118 @@ class AuthService:
         """
         if not await self.has_role(user_id, role):
             raise PermissionError(f"User {user_id} must have role '{role}'")
+    
+    def get_user_roles(self, user_id: str) -> List[str]:
+        """
+        Get all roles for a user.
+        
+        Args:
+            user_id: User's unique identifier
+            
+        Returns:
+            List of role names
+        """
+        if user_id in self._role_cache:
+            return self._role_cache[user_id].get("roles", [])
+        
+        if self.user_repo:
+            try:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                user = loop.run_until_complete(
+                    self.user_repo.get_user_by_id(int(user_id) if user_id.isdigit() else user_id)
+                )
+                if user:
+                    roles = [user.role] if hasattr(user, 'role') else ["user"]
+                    self._role_cache[user_id] = {"roles": roles}
+                    return roles
+            except Exception as e:
+                logger.error(f"Error fetching roles for user {user_id}: {e}")
+        else:
+            user = self._user_cache.get(user_id)
+            if user and isinstance(user, dict):
+                roles = user.get("roles", ["user"])
+                self._role_cache[user_id] = {"roles": roles}
+                return roles
+        
+        return ["user"]
+    
+    def get_user_permissions(self, user_id: str) -> List[str]:
+        """
+        Get all permissions for a user based on their roles.
+        
+        Args:
+            user_id: User's unique identifier
+            
+        Returns:
+            List of permission strings
+        """
+        roles = self.get_user_roles(user_id)
+        permissions = permission_registry.resolve_permissions(roles)
+        
+        permission_strings = []
+        for perm in permissions:
+            if perm.resource == "*" and perm.action == "*":
+                permission_strings.append("*")
+            else:
+                permission_strings.append(f"{perm.resource}.{perm.action}")
+        
+        return permission_strings
+    
+    def has_permission(self, user_id: str, permission: str) -> bool:
+        """
+        Check if user has a specific permission.
+        
+        Args:
+            user_id: User's unique identifier
+            permission: Permission to check (e.g., "courses.create")
+            
+        Returns:
+            True if user has permission, False otherwise
+        """
+        permissions = self.get_user_permissions(user_id)
+        
+        if "*" in permissions:
+            return True
+        
+        if permission in permissions:
+            return True
+        
+        permission_parts = permission.split(".")
+        if len(permission_parts) > 1:
+            wildcard = f"{permission_parts[0]}.*"
+            if wildcard in permissions:
+                return True
+        
+        return False
+    
+    async def update_user_roles(self, user_id: str, roles: List[str]) -> bool:
+        """
+        Update user roles.
+        
+        Args:
+            user_id: User's unique identifier
+            roles: List of role names
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self.user_repo:
+                await self.user_repo.update_user(int(user_id) if user_id.isdigit() else user_id, {"role": roles[0]})
+            else:
+                user = self._user_cache.get(user_id)
+                if user and isinstance(user, dict):
+                    user["roles"] = roles
+            
+            self._role_cache[user_id] = {"roles": roles}
+            
+            logger.info(f"Updated roles for user {user_id}: {roles}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating roles for user {user_id}: {e}")
+            return False
     
     # ========================================================================
     # Password Management

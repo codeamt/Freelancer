@@ -99,14 +99,39 @@ class PermissionRegistry:
             name="Administrator",
             description="Site and user management",
             permissions=[
-                Permission("site", "*", "*"),
-                Permission("page", "*", "*"),
-                Permission("component", "*", "*"),
-                Permission("theme", "*", "*"),
-                Permission("user", "read", "*"),
-                Permission("user", "update", "own"),
+                Permission("*", "*", "*"),  # Admin has all permissions
             ],
             domain="core"
+        ))
+        
+        # Instructor - LMS role
+        self.register_role(Role(
+            id="instructor",
+            name="Instructor",
+            description="Course and lesson management",
+            permissions=[
+                Permission("courses", "create", "*"),
+                Permission("courses", "update", "*"),
+                Permission("courses", "delete", "*"),
+                Permission("lessons", "create", "*"),
+                Permission("lessons", "update", "*"),
+                Permission("lessons", "delete", "*"),
+            ],
+            domain="lms"
+        ))
+        
+        # Student - LMS role
+        self.register_role(Role(
+            id="student",
+            name="Student",
+            description="Course enrollment and learning",
+            permissions=[
+                Permission("courses", "view", "*"),
+                Permission("courses", "enroll", "*"),
+                Permission("lessons", "view", "*"),
+                Permission("assessments", "take", "*"),
+            ],
+            domain="lms"
         ))
         
         # Editor - content management
@@ -122,7 +147,7 @@ class PermissionRegistry:
             domain="core"
         ))
         
-        # Member - basic access
+        # Member/User - basic access
         self.register_role(Role(
             id="member",
             name="Member",
@@ -132,6 +157,20 @@ class PermissionRegistry:
                 Permission("page", "read", "*"),
                 Permission("user", "read", "own"),
                 Permission("user", "update", "own"),
+                Permission("profile", "view", "own"),
+                Permission("profile", "update", "own"),
+            ],
+            domain="core"
+        ))
+        
+        # User role (alias for member)
+        self.register_role(Role(
+            id="user",
+            name="User",
+            description="Basic user",
+            permissions=[
+                Permission("profile", "view", "own"),
+                Permission("profile", "update", "own"),
             ],
             domain="core"
         ))

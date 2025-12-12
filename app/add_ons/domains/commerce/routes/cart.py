@@ -1,7 +1,7 @@
 """Commerce Routes - Shopping Cart"""
 from fasthtml.common import *
 from core.utils.logger import get_logger
-from add_ons.services.auth import get_current_user
+from core.services.auth import get_current_user_from_context
 
 logger = get_logger(__name__)
 
@@ -12,7 +12,7 @@ router_cart = APIRouter()
 @router_cart.post("/shop/cart/add/{product_id}")
 async def add_to_cart(request: Request, product_id: int):
     """Add product to cart (requires auth)"""
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     
     if not user:
         return Div(
@@ -52,7 +52,7 @@ async def add_to_cart(request: Request, product_id: int):
 @router_cart.delete("/shop/cart/remove/{product_id}")
 async def remove_from_cart(request: Request, product_id: int):
     """Remove product from cart (requires auth)"""
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     
     if not user:
         return Div(
@@ -77,7 +77,7 @@ async def remove_from_cart(request: Request, product_id: int):
 @router_cart.get("/shop/cart")
 async def view_cart(request: Request):
     """View cart contents (requires auth)"""
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     
     if not user:
         return RedirectResponse("/auth/login?redirect=/shop/cart")

@@ -2,7 +2,7 @@
 from fasthtml.common import *
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
-from add_ons.services.auth import get_current_user
+from core.services.auth import get_current_user_from_context
 
 logger = get_logger(__name__)
 
@@ -58,7 +58,7 @@ def ProductCard(product: dict, user: dict = None):
 @router_products.get("/shop")
 async def shop_page(request: Request):
     """Display shop page with products"""
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     products = get_products()
     
     content = Div(

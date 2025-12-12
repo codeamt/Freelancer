@@ -2,11 +2,19 @@ from fasthtml.oauth import GoogleAppClient, OAuth
 from fastapi import Request
 from starlette.responses import RedirectResponse
 import os
+from core.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class GoogleOAuthService(OAuth):
+    """
+    Google OAuth Service for authentication.
+    
+    Provides OAuth 2.0 authentication flow with Google.
+    """
+    
     def __init__(self, app):
-        # Initialize Google OAuth client
         client = GoogleAppClient(
             os.getenv("GOOGLE_CLIENT_ID"),
             os.getenv("GOOGLE_CLIENT_SECRET"),
@@ -15,20 +23,30 @@ class GoogleOAuthService(OAuth):
         super().__init__(app, client)
     
     def get_auth(self, info, ident, session, state):
-        # Store user info and token in session
+        """
+        Handle successful OAuth authentication.
+        
+        Args:
+            info: OAuth token information
+            ident: User identity information
+            session: Session object
+            state: OAuth state parameter
+        """
         session['google_token'] = info.get('access_token')
         session['user_info'] = info
         
-        # You can add additional logic here such as:
-        # - Saving user to database
-        # - Checking user permissions
-        # - Setting up user preferences
+        logger.info(f"User authenticated via Google OAuth: {ident}")
         
-        # Redirect to home page after successful authentication
         return RedirectResponse('/', status_code=303)
 
     def get_error(self, err, session):
-        # Handle OAuth errors
-        print(f"OAuth error: {err}")
+        """
+        Handle OAuth errors.
+        
+        Args:
+            err: Error information
+            session: Session object
+        """
+        logger.error(f"OAuth error: {err}")
         session['oauth_error'] = str(err)
         return RedirectResponse('/auth/login', status_code=303)

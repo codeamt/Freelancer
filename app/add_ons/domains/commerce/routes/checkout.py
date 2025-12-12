@@ -2,7 +2,7 @@
 from fasthtml.common import *
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
-from add_ons.services.auth import get_current_user
+from core.services.auth import get_current_user_from_context
 
 logger = get_logger(__name__)
 
@@ -13,7 +13,7 @@ router_checkout = APIRouter()
 @router_checkout.get("/shop/checkout")
 async def checkout_page(request: Request):
     """Checkout page (requires auth)"""
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     
     if not user:
         return RedirectResponse("/auth/login?redirect=/shop/checkout")
@@ -92,7 +92,7 @@ async def checkout_page(request: Request):
 @router_checkout.post("/shop/checkout/process")
 async def process_checkout(request: Request):
     """Process checkout (requires auth)"""
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     
     if not user:
         return Div(
@@ -137,7 +137,7 @@ async def process_checkout(request: Request):
 @router_checkout.get("/shop/checkout/success")
 async def checkout_success(request: Request):
     """Checkout success page"""
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     
     if not user:
         return RedirectResponse("/auth/login")

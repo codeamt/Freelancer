@@ -7,7 +7,7 @@ Uses the universal StorageService for S3/MinIO operations.
 
 from fasthtml.common import *
 from add_ons.services.storage import StorageService
-from add_ons.services.auth import get_current_user
+from core.services.auth import get_current_user_from_context
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -30,7 +30,7 @@ async def upload_product_image(request: Request, file: UploadFile):
     - Stores metadata in database
     """
     # Get current user
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     if not user:
         return {"error": "Not authenticated"}, 401
     
@@ -89,7 +89,7 @@ async def download_product_image(request: Request, filename: str):
     - Logs access
     """
     # Get current user
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     if not user:
         return {"error": "Not authenticated"}, 401
     
@@ -127,7 +127,7 @@ async def delete_product_image(request: Request, filename: str):
     - Updates database
     """
     # Get current user
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     if not user:
         return {"error": "Not authenticated"}, 401
     
@@ -172,7 +172,7 @@ async def upload_secure_product_data(request: Request, file: UploadFile):
     Use case: Product specifications, pricing sheets, vendor contracts
     """
     # Get current user
-    user = await get_current_user(request)
+    user = get_current_user_from_context()
     if not user:
         return {"error": "Not authenticated"}, 401
     

@@ -8,8 +8,8 @@ from core.services.auth.user_service import UserService
 from core.services.auth.providers.jwt import JWTProvider
 from core.services.auth.decorators import (
     require_auth, 
-    require_role, 
-    require_permission,
+    require_role as decorator_require_role, 
+    require_permission as decorator_require_permission,
     requires_permission,
     requires_role,
     require_admin,
@@ -19,6 +19,16 @@ from core.services.auth.utils import get_current_user_from_request
 from core.services.auth.context import UserContext, current_user_context
 from core.services.auth.context_factory import create_user_context, create_anonymous_context
 from core.services.auth.permissions import Permission, Role, permission_registry
+from core.services.auth.helpers import (
+    get_current_user,
+    get_current_user_from_context,
+    require_role as helper_require_role,
+    require_permission as helper_require_permission,
+    is_instructor,
+    is_student,
+    is_admin
+)
+from core.services.auth.providers.adapters.google_oauth import GoogleOAuthService
 
 __all__ = [
     # Services
@@ -26,11 +36,12 @@ __all__ = [
     'UserService',
     'JWTProvider',
     'AnonymousUser',
+    'GoogleOAuthService',
     
     # Decorators
     'require_auth',
-    'require_role',
-    'require_permission',
+    'decorator_require_role',
+    'decorator_require_permission',
     'requires_permission',
     'requires_role',
     'require_admin',
@@ -49,4 +60,19 @@ __all__ = [
     
     # Utils
     'get_current_user_from_request',
+    'get_current_user',
+    'get_current_user_from_context',
+    
+    # Helper decorators (FastAPI compatible)
+    'helper_require_role',
+    'helper_require_permission',
+    
+    # Role helpers
+    'is_instructor',
+    'is_student',
+    'is_admin',
 ]
+
+# Provide backward compatibility aliases
+require_role = helper_require_role
+require_permission = helper_require_permission
