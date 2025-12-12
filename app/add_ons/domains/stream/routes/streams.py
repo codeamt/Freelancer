@@ -3,6 +3,7 @@ from fasthtml.common import *
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
 from core.services.auth import get_current_user_from_context
+from core.services import get_db_service
 from app.add_ons.domains.stream.services.stream_service import StreamService
 from app.add_ons.domains.stream.ui.pages import streams_list_page, watch_page, broadcast_page
 from app.add_ons.domains.stream.ui.components import StreamCard
