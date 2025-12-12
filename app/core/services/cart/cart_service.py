@@ -281,3 +281,54 @@ class CartService:
             logger.info(f"Cleaned up {len(expired)} expired carts")
         
         return len(expired)
+    
+    def create_checkout_session(self, cart_id: str, success_url: str, cancel_url: str) -> Optional[Dict]:
+        """
+        Create Stripe checkout session for cart.
+        
+        Args:
+            cart_id: Cart identifier
+            success_url: URL to redirect on successful payment
+            cancel_url: URL to redirect on cancelled payment
+            
+        Returns:
+            Dict with checkout session details or None if cart is empty
+        """
+        cart = self.get_cart(cart_id)
+        if not cart or cart.is_empty:
+            logger.warning(f"Cannot create checkout for empty cart {cart_id}")
+            return None
+        
+        try:
+            from core.integrations.stripe import StripeClient
+            
+            line_items = []
+            for item in cart.items.values():
+                line_items.append({
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': item.name,
+                        },
+                        'unit_amount': int(item.price * 100),
+                    },
+                    'quantity': item.quantity,
+                })
+            
+            session = StripeClient.create_checkout_session(
+                amount_cents=int(cart.total * 100),
+                currency='usd',
+                success_url=success_url,
+                cancel_url=cancel_url
+            )
+            
+            logger.info(f"Created checkout session for cart {cart_id}, total: ${cart.total}")
+            return {
+                'session_url': session,
+                'cart_total': float(cart.total),
+                'item_count': cart.item_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to create checkout session for cart {cart_id}: {e}")
+            return None

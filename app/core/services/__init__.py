@@ -9,6 +9,9 @@
 from .admin import AdminService, require_admin, is_admin, has_role
 from .search import SearchService
 from .cart import CartService, Cart, CartItem
+from .product import ProductService, Product
+from .order import OrderService, Order, OrderItem, OrderStatus
+from .db_service import DBService, get_db_service
 
 # Import auth from core.services.auth (universal auth service)
 from core.services.auth import AuthService, get_current_user, require_role, require_permission
@@ -45,6 +48,14 @@ __all__ = [
     'CartService',
     'Cart',
     'CartItem',
+    'ProductService',
+    'Product',
+    'OrderService',
+    'Order',
+    'OrderItem',
+    'OrderStatus',
+    'DBService',
+    'get_db_service',
     'PaymentService',
     'StripeClient',
     'Web3Client',

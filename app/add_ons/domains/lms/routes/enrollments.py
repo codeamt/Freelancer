@@ -2,10 +2,14 @@
 from fasthtml.common import *
 from core.db.base_class import get_session
 from core.utils.logger import get_logger
+from core.services.auth import get_current_user_from_context
+from core.services import OrderService, get_db_service
 
 logger = get_logger(__name__)
 
 router_enrollments = FastHTML()
+order_service = OrderService()
+db = get_db_service()  # Multi-database service with state integration
 
 
 @router_enrollments.post("/enroll")
@@ -14,11 +18,18 @@ async def enroll_in_course(
     course_id: int = Form(...),
     payment_id: str = Form(None)
 ):
-    """Enroll in a course"""
-    user_id = request.session.get("user_id")
+    """
+    Enroll in a course (legacy endpoint - use /lms/course/{course_id}/checkout instead)
     
-    if not user_id:
+    This endpoint is kept for backward compatibility.
+    New enrollments should use the integrated checkout flow.
+    """
+    user = get_current_user_from_context()
+    
+    if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    user_id = user['id']
     
     async for db in get_session():
         try:
@@ -32,6 +43,7 @@ async def enroll_in_course(
             if not enrollment:
                 raise HTTPException(status_code=400, detail="Already enrolled or course not found")
             
+            logger.info(f"User {user_id} enrolled in course {course_id} (legacy endpoint)")
             return RedirectResponse(f"/lms/courses/{course_id}", status_code=303)
         except HTTPException:
             raise

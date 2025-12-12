@@ -59,14 +59,17 @@ async def upload_product_image(request: Request, file: UploadFile):
         
         logger.info(f"Generated product image upload URL for user {user['_id']}: {file.filename}")
         
-        # TODO: Store metadata in database
-        # await db.insert_one("product_images", {
-        #     "user_id": user["_id"],
-        #     "filename": file.filename,
-        #     "content_type": file.content_type,
-        #     "size": len(file_content),
-        #     "uploaded_at": datetime.utcnow()
-        # })
+        # Store metadata in database
+        from core.services import get_db_service
+        from datetime import datetime
+        db = get_db_service()
+        await db.insert_document("product_images", {
+            "user_id": user["_id"],
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "size": len(file_content),
+            "uploaded_at": datetime.utcnow()
+        })
         
         return {
             "message": "Upload URL generated successfully",

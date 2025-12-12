@@ -3,8 +3,8 @@ from fasthtml.common import *
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
 from core.services.auth import get_current_user_from_context
+from core.services import PaymentService
 from app.add_ons.domains.stream.services.membership_service import MembershipService
-from app.add_ons.domains.stream.services.payment_service import StreamPaymentService
 from app.add_ons.domains.stream.models.membership import MembershipTier
 
 logger = get_logger(__name__)

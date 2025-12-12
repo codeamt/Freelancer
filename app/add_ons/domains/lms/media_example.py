@@ -71,14 +71,17 @@ async def upload_course_material(request: Request, course_id: str, file: UploadF
         
         logger.info(f"Generated course material upload URL for course {course_id}: {file.filename}")
         
-        # TODO: Store metadata in database
-        # await db.insert_one("course_materials", {
-        #     "course_id": course_id,
-        #     "instructor_id": user["_id"],
-        #     "filename": file.filename,
-        #     "content_type": file.content_type,
-        #     "uploaded_at": datetime.utcnow()
-        # })
+        # Store metadata in database
+        from core.services import get_db_service
+        from datetime import datetime
+        db = get_db_service()
+        await db.insert_document("course_materials", {
+            "course_id": course_id,
+            "instructor_id": user["_id"],
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "uploaded_at": datetime.utcnow()
+        })
         
         return {
             "message": "Upload URL generated successfully",
@@ -141,14 +144,17 @@ async def upload_student_assignment(request: Request, course_id: str, assignment
         if success:
             logger.info(f"Student {user['_id']} uploaded assignment for {course_id}/{assignment_id}")
             
-            # TODO: Store submission in database
-            # await db.insert_one("submissions", {
-            #     "course_id": course_id,
-            #     "assignment_id": assignment_id,
-            #     "student_id": user["_id"],
-            #     "filename": file.filename,
-            #     "submitted_at": datetime.utcnow()
-            # })
+            # Store submission in database
+            from core.services import get_db_service
+            from datetime import datetime
+            db = get_db_service()
+            await db.insert_document("submissions", {
+                "course_id": course_id,
+                "assignment_id": assignment_id,
+                "student_id": user["_id"],
+                "filename": file.filename,
+                "submitted_at": datetime.utcnow()
+            })
             
             return {
                 "message": "Assignment uploaded successfully",
@@ -209,10 +215,12 @@ async def upload_course_thumbnail(request: Request, course_id: str, file: Upload
         
         logger.info(f"Generated course thumbnail upload URL for course {course_id}")
         
-        # TODO: Update course thumbnail in database
-        # await db.update_one("courses", {"_id": course_id}, {
-        #     "thumbnail_url": f"courses/{course_id}/thumbnail.{file.filename.split('.')[-1]}"
-        # })
+        # Update course thumbnail in database
+        from core.services import get_db_service
+        db = get_db_service()
+        await db.update_document("courses", {"_id": course_id}, {
+            "$set": {"thumbnail_url": f"courses/{course_id}/thumbnail.{file.filename.split('.')[-1]}"}
+        })
         
         return {
             "message": "Upload URL generated successfully",

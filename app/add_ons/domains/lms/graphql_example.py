@@ -76,26 +76,78 @@ class LMSQuery(BaseQuery):
         limit: int = 10
     ) -> List[Course]:
         """Get courses with optional filters"""
-        # TODO: Implement actual database query
-        return []
+        from core.services import get_db_service
+        db = get_db_service()
+        
+        filters = {}
+        if category:
+            filters["category"] = category
+        if instructor_id:
+            filters["instructor_id"] = instructor_id
+        if min_rating:
+            filters["rating"] = {"$gte": min_rating}
+        
+        courses_data = await db.find_many("courses", filters, limit=limit)
+        
+        return [Course(
+            id=str(c.get("id", c.get("_id"))),
+            title=c["title"],
+            description=c.get("description", ""),
+            instructor_id=str(c["instructor_id"]),
+            instructor_name=c.get("instructor_name", ""),
+            duration_hours=c.get("duration_hours", 0),
+            price=c.get("price", 0.0),
+            rating=c.get("rating", 0.0),
+            enrolled_count=c.get("enrolled_count", 0),
+            created_at=c.get("created_at", datetime.utcnow())
+        ) for c in courses_data]
     
     @strawberry.field
     async def course(self, id: str) -> Optional[Course]:
         """Get a single course by ID"""
-        # TODO: Implement actual database query
-        return None
+        from core.services import get_db_service
+        db = get_db_service()
+        
+        course_data = await db.find_one("courses", {"id": id})
+        if not course_data:
+            return None
+        
+        return Course(
+            id=str(course_data.get("id", course_data.get("_id"))),
+            title=course_data["title"],
+            description=course_data.get("description", ""),
+            instructor_id=str(course_data["instructor_id"])
+        )
     
     @strawberry.field
     async def lessons(self, course_id: str) -> List[Lesson]:
         """Get lessons for a course"""
-        # TODO: Implement actual database query
-        return []
+        from core.services import get_db_service
+        db = get_db_service()
+        
+        lessons_data = await db.find_many("lessons", {"course_id": course_id})
+        
+        return [Lesson(
+            id=str(l.get("id", l.get("_id"))),
+            course_id=l["course_id"],
+            title=l["title"],
+            content=l.get("content", "")
+        ) for l in lessons_data]
     
     @strawberry.field
     async def enrollments(self, user_id: str) -> List[Enrollment]:
         """Get enrollments for a user"""
-        # TODO: Implement actual database query
-        return []
+        from core.services import get_db_service
+        db = get_db_service()
+        
+        enrollments_data = await db.find_many("enrollments", {"user_id": user_id})
+        
+        return [Enrollment(
+            id=str(e.get("id", e.get("_id"))),
+            user_id=e["user_id"],
+            course_id=e["course_id"],
+            status=e.get("status", "active")
+        ) for e in enrollments_data]
     
     @strawberry.field
     async def recommend_courses(
@@ -120,10 +172,20 @@ class LMSMutation:
     @strawberry.field
     async def create_course(self, input: CourseInput) -> Course:
         """Create a new course"""
-        # TODO: Implement actual database insert
+        from core.services import get_db_service
+        db = get_db_service()
+        
+        course_data = {
+            "title": input.title,
+            "description": input.description,
+            "instructor_id": input.instructor_id
+        }
+        
+        result = await db.insert("courses", course_data)
+        
         return Course(
-            id="new-id",
-            title=input.title,
+            id=str(result.get("id", result.get("_id"))),
+            title=result["title"],
             description=input.description,
             instructor_id="instructor-id",
             instructor_name="Instructor Name",

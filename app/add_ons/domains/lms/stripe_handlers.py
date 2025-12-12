@@ -5,16 +5,46 @@ Handles Stripe webhook events for Learning Management System.
 Focuses on course purchases and subscriptions.
 """
 from core.services.payment import StripeWebhookHandler
+from core.services import OrderService
+from core.integrations.stripe import StripeClient
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Initialize services
+order_service = OrderService()
+stripe_client = StripeClient()
+
+
 class LMSStripeHandler(StripeWebhookHandler):
     async def handle_payment_succeeded(self, event):
-        # LMS-specific: grant course access
-        course_id = event['data']['object']['metadata']['course_id']
-        user_id = event['data']['object']['metadata']['user_id']
-        await self.enrollment_service.enroll(user_id, course_id)
+        """Handle successful course payment - enroll student"""
+        course_id = event['data']['object']['metadata'].get('course_id')
+        user_id = event['data']['object']['metadata'].get('user_id')
+        payment_intent_id = event['data']['object']['id']
+        
+        if course_id and user_id:
+            # Mark order as paid
+            user_orders = order_service.get_user_orders(user_id)
+            for order in reversed(user_orders):
+                if order.metadata.get('course_id') == course_id and order.payment_intent_id == payment_intent_id:
+                    order_service.mark_order_as_paid(order.order_id, payment_intent_id)
+                    logger.info(f"Course enrollment order {order.order_id} marked as paid via webhook")
+                    break
+            
+            # Trigger enrollment in database
+            from core.services import get_db_service
+            db = get_db_service()
+            
+            enrollment_data = {
+                "user_id": user_id,
+                "course_id": course_id,
+                "status": "active",
+                "payment_intent_id": payment_intent_id
+            }
+            await db.insert("enrollments", enrollment_data)
+            
+            logger.info(f"User {user_id} enrolled in course {course_id}")
 
     async def handle_course_purchase(event: dict):
         """

@@ -2,13 +2,17 @@
 Commerce Domain - Stripe Event Handlers
 
 Handles Stripe webhook events for e-commerce.
-Uses StripeService for Stripe API operations (refunds, etc.).
+Uses core StripeClient for Stripe API operations (refunds, etc.).
 """
 
 from core.services.payment import StripeWebhookHandler
+from core.integrations.stripe import StripeClient
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Initialize Stripe client for refunds/disputes
+stripe_client = StripeClient()
 
 
 class CommerceStripeHandler(StripeWebhookHandler):

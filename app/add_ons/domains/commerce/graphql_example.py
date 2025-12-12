@@ -91,10 +91,21 @@ class CommerceMutation:
     @strawberry.field
     async def create_product(self, input: ProductInput) -> Product:
         """Create a new product"""
-        # TODO: Implement actual database insert
+        from core.services import get_db_service
+        db = get_db_service()
+        
+        product_data = {
+            "name": input.name,
+            "description": input.description,
+            "price": input.price,
+            "stock": input.stock
+        }
+        
+        result = await db.insert("products", product_data)
+        
         return Product(
-            id="new-id",
-            name=input.name,
+            id=str(result.get("id", result.get("_id"))),
+            name=result["name"],
             description=input.description,
             price=input.price,
             category=input.category,
@@ -105,10 +116,21 @@ class CommerceMutation:
     @strawberry.field
     async def update_product(self, id: str, input: ProductInput) -> Product:
         """Update an existing product"""
-        # TODO: Implement actual database update
+        from core.services import get_db_service
+        db = get_db_service()
+        
+        update_data = {
+            "name": input.name,
+            "description": input.description,
+            "price": input.price,
+            "stock": input.stock
+        }
+        
+        result = await db.update("products", id, update_data)
+        
         return Product(
-            id=id,
-            name=input.name,
+            id=str(result.get("id", result.get("_id"))),
+            name=result["name"],
             description=input.description,
             price=input.price,
             category=input.category,

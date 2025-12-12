@@ -3,11 +3,16 @@ from fasthtml.common import *
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
 from core.services.auth import get_current_user_from_context
+from core.services import CartService, OrderService, PaymentService, get_db_service
 
 logger = get_logger(__name__)
 
-# Initialize router
+# Initialize router and services
 router_checkout = APIRouter()
+cart_service = CartService()
+order_service = OrderService()
+payment_service = PaymentService()
+db = get_db_service()  # Multi-database service with state integration
 
 
 @router_checkout.get("/shop/checkout")
@@ -26,8 +31,7 @@ async def checkout_page(request: Request):
             Div(
                 H2("Order Summary", cls="text-2xl font-bold mb-4"),
                 P("Review your order before completing purchase", cls="text-gray-500 mb-6"),
-                # Cart items would go here
-                # TODO: Fetch from database and display
+                # Fetch cart from service
                 Div(
                     P("No items in cart", cls="text-gray-500 py-4"),
                     cls="border rounded p-4 mb-6"
@@ -91,7 +95,7 @@ async def checkout_page(request: Request):
 
 @router_checkout.post("/shop/checkout/process")
 async def process_checkout(request: Request):
-    """Process checkout (requires auth)"""
+    """Process checkout with Stripe and create order"""
     user = get_current_user_from_context()
     
     if not user:
@@ -100,47 +104,76 @@ async def process_checkout(request: Request):
             cls="alert alert-error"
         )
     
-    # In a real app:
-    # 1. Validate cart items
-    # 2. Create Stripe checkout session using StripeService
-    # 3. Process payment
-    # 4. Create order record
-    # 5. Clear cart
-    # 6. Send confirmation email
+    cart_id = str(user['id'])
+    cart = cart_service.get_cart(cart_id)
     
-    # TODO: from add_ons.services.stripe import StripeService
-    # TODO: stripe = StripeService()
-    # TODO: checkout_url = stripe.create_checkout_session(
-    #     amount_cents=total * 100,
-    #     currency="usd",
-    #     success_url=f"{request.base_url}/shop/checkout/success",
-    #     cancel_url=f"{request.base_url}/shop/checkout"
-    # )
+    if not cart or cart.is_empty:
+        return Div(
+            P("Your cart is empty", cls="text-error"),
+            cls="alert alert-error"
+        )
     
-    logger.info(f"Processing checkout for user {user.get('_id')}")
-    
-    return Div(
-        Div(
-            P("✓ Purchase successful! Thank you for your order.", cls="text-success"),
-            P("You will receive a confirmation email shortly.", cls="text-sm mt-2"),
-            A("View My Courses", href="/lms/student/dashboard", cls="btn btn-primary mt-4"),
-            cls="alert alert-success"
-        ),
-        Script("""
-            setTimeout(() => {
-                window.location.href = '/lms/student/dashboard';
-            }, 3000);
-        """)
-    )
+    try:
+        # Create Stripe checkout session
+        base_url = str(request.base_url).rstrip('/')
+        success_url = f"{base_url}/shop/checkout/success?session_id={{CHECKOUT_SESSION_ID}}"
+        cancel_url = f"{base_url}/shop/checkout"
+        
+        checkout_session = cart_service.create_checkout_session(
+            cart_id=cart_id,
+            success_url=success_url,
+            cancel_url=cancel_url
+        )
+        
+        if not checkout_session:
+            return Div(
+                P("Failed to create checkout session", cls="text-error"),
+                cls="alert alert-error"
+            )
+        
+        # Create order (pending payment)
+        order = order_service.create_order_from_cart(
+            user_id=cart_id,
+            cart=cart
+        )
+        
+        logger.info(f"Created order {order.order_id} for user {user.get('_id')}")
+        
+        # Redirect to Stripe checkout
+        return Div(
+            Script(f"""
+                window.location.href = '{checkout_session['session_url']}';
+            """)
+        )
+        
+    except Exception as e:
+        logger.error(f"Checkout failed: {e}")
+        return Div(
+            P("Checkout failed. Please try again.", cls="text-error"),
+            cls="alert alert-error"
+        )
 
 
 @router_checkout.get("/shop/checkout/success")
-async def checkout_success(request: Request):
-    """Checkout success page"""
+async def checkout_success(request: Request, session_id: str = None):
+    """Checkout success page - mark order as paid and clear cart"""
     user = get_current_user_from_context()
     
     if not user:
         return RedirectResponse("/auth/login")
+    
+    cart_id = str(user['id'])
+    
+    # Mark most recent order as paid
+    user_orders = order_service.get_user_orders(cart_id)
+    if user_orders:
+        latest_order = user_orders[-1]
+        order_service.mark_order_as_paid(latest_order.order_id, session_id)
+        logger.info(f"Order {latest_order.order_id} marked as paid, session: {session_id}")
+    
+    # Clear cart
+    cart_service.clear_cart(cart_id)
+    logger.info(f"Cleared cart for user {user.get('_id')}")
     
     content = Div(
         Div(
@@ -148,6 +181,7 @@ async def checkout_success(request: Request):
             P("Thank you for your purchase!", cls="text-xl mb-8"),
             Div(
                 P("Your order has been confirmed and you'll receive an email shortly.", cls="mb-4"),
+                P(f"Order ID: {latest_order.order_id if user_orders else 'N/A'}", cls="text-sm text-gray-600 mb-4"),
                 P("You can now access your purchased courses.", cls="mb-6"),
                 Div(
                     A("View My Courses", href="/lms/student/dashboard", cls="btn btn-primary mr-2"),
