@@ -3,20 +3,20 @@ from fasthtml.common import *
 from decimal import Decimal
 from core.utils.logger import get_logger
 from core.services.auth import get_current_user_from_context
-from core.services import CartService, ProductService, get_db_service
 
 logger = get_logger(__name__)
 
-# Initialize router and services
+# Initialize router
 router_cart = APIRouter()
-cart_service = CartService()
-product_service = ProductService()
-db = get_db_service()  # Multi-database service with state integration
 
 
 @router_cart.post("/shop/cart/add/{product_id}")
 async def add_to_cart(request: Request, product_id: int):
     """Add product to cart (requires auth)"""
+    # Get services from app state
+    cart_service = request.app.state.cart_service
+    product_service = request.app.state.product_service
+    
     user = get_current_user_from_context()
     
     if not user:
@@ -75,6 +75,8 @@ async def add_to_cart(request: Request, product_id: int):
 @router_cart.delete("/shop/cart/remove/{product_id}")
 async def remove_from_cart(request: Request, product_id: int):
     """Remove product from cart (requires auth)"""
+    cart_service = request.app.state.cart_service
+    
     user = get_current_user_from_context()
     
     if not user:
@@ -102,6 +104,8 @@ async def remove_from_cart(request: Request, product_id: int):
 @router_cart.get("/shop/cart")
 async def view_cart(request: Request):
     """View cart contents (requires auth)"""
+    cart_service = request.app.state.cart_service
+    
     user = get_current_user_from_context()
     
     if not user:

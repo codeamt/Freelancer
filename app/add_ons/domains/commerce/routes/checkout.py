@@ -3,21 +3,17 @@ from fasthtml.common import *
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
 from core.services.auth import get_current_user_from_context
-from core.services import CartService, OrderService, PaymentService, get_db_service
-
 logger = get_logger(__name__)
 
-# Initialize router and services
+# Initialize router
 router_checkout = APIRouter()
-cart_service = CartService()
-order_service = OrderService()
-payment_service = PaymentService()
-db = get_db_service()  # Multi-database service with state integration
 
 
 @router_checkout.get("/shop/checkout")
 async def checkout_page(request: Request):
     """Checkout page (requires auth)"""
+    cart_service = request.app.state.cart_service
+    
     user = get_current_user_from_context()
     
     if not user:

@@ -3,13 +3,9 @@ from fasthtml.common import *
 from core.db.base_class import get_session
 from core.utils.logger import get_logger
 from core.services.auth import get_current_user_from_context
-from core.services import OrderService, get_db_service
-
 logger = get_logger(__name__)
 
 router_enrollments = FastHTML()
-order_service = OrderService()
-db = get_db_service()  # Multi-database service with state integration
 
 
 @router_enrollments.post("/enroll")

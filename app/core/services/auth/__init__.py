@@ -15,9 +15,13 @@ from core.services.auth.decorators import (
     require_admin,
     require_super_admin
 )
-from core.services.auth.utils import get_current_user_from_request
-from core.services.auth.context import UserContext, current_user_context
-from core.services.auth.context_factory import create_user_context, create_anonymous_context
+from core.services.auth.context import (
+    UserContext, 
+    current_user_context,
+    create_user_context,
+    create_anonymous_context
+)
+from core.services.auth.helpers import get_current_user_from_request, extract_token_from_request
 from core.services.auth.permissions import Permission, Role, permission_registry
 from core.services.auth.helpers import (
     get_current_user,

@@ -11,6 +11,7 @@ Routes:
 from fasthtml.common import *
 from monsterui.all import *
 from core.services.auth import require_auth
+from core.ui.layout import Layout
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -24,11 +25,20 @@ async def view_profile(request: Request):
     """View own profile."""
     user = request.state.user
     user_service = request.app.state.user_service
+    demo = getattr(request.app.state, 'demo', False)
     
     # Get full user data
-    user_data = await user_service.get_user_by_id(user.id)
+    user_data = await user_service.get_user(user.id)
     
-    return Card(
+    # Build user dict for Layout
+    user_dict = {
+        "username": getattr(user_data, 'username', user_data.email.split('@')[0]),
+        "email": user_data.email,
+        "role": user_data.role,
+        "_id": str(user.id)
+    }
+    
+    content = Card(
         Div(
             H2("My Profile", cls="text-2xl font-bold mb-6"),
             
@@ -40,7 +50,7 @@ async def view_profile(request: Request):
                 ),
                 Div(
                     Label("Role", cls="block text-sm font-bold mb-1"),
-                    Badge(user_data.role.title(), cls="badge-primary mb-4")
+                    Span(user_data.role.title(), cls="badge badge-primary mb-4")
                 ),
                 Div(
                     Label("Member Since", cls="block text-sm font-bold mb-1"),
@@ -53,23 +63,26 @@ async def view_profile(request: Request):
             ),
             
             # Edit profile button
-            ButtonPrimary(
+            Button(
                 "Edit Profile",
                 hx_get="/profile/edit",
                 hx_target="#profile-content",
-                cls="mr-2"
+                cls="btn btn-primary mr-2"
             ),
             
-            ButtonSecondary(
+            Button(
                 "Change Password",
                 hx_get="/profile/password",
-                hx_target="#profile-content"
+                hx_target="#profile-content",
+                cls="btn btn-secondary"
             ),
             
             cls="p-6"
         ),
         id="profile-content"
     )
+    
+    return Layout(content, title="My Profile | FastApp", current_path="/profile", user=user_dict, show_auth=True, demo=demo)
 
 
 @router_profile.get("/profile/edit")
@@ -79,7 +92,7 @@ async def edit_profile_form(request: Request):
     user = request.state.user
     user_service = request.app.state.user_service
     
-    user_data = await user_service.get_user_by_id(user.id)
+    user_data = await user_service.get_user(user.id)
     
     return Card(
         Div(
@@ -109,8 +122,8 @@ async def edit_profile_form(request: Request):
                 ),
                 
                 Div(
-                    ButtonPrimary("Save Changes", type="submit", cls="mr-2"),
-                    ButtonSecondary(
+                    Button("Save Changes", type="submit", cls="mr-2"),
+                    Button(
                         "Cancel",
                         hx_get="/profile",
                         hx_target="#profile-content"
@@ -167,8 +180,8 @@ async def change_password_form(request: Request):
                 ),
                 
                 Div(
-                    ButtonPrimary("Update Password", type="submit", cls="mr-2"),
-                    ButtonSecondary(
+                    Button("Update Password", type="submit", cls="mr-2"),
+                    Button(
                         "Cancel",
                         hx_get="/profile",
                         hx_target="#profile-content"
@@ -208,7 +221,7 @@ async def update_profile(request: Request):
         if result["success"]:
             return Div(
                 Alert("✓ Profile updated successfully!", cls="alert-success mb-4"),
-                ButtonPrimary(
+                Button(
                     "Back to Profile",
                     hx_get="/profile",
                     hx_target="#profile-content"
@@ -243,7 +256,7 @@ async def change_password(request: Request):
     
     try:
         # Verify current password
-        login_result = await auth_service.login(user.email, current_password, create_session=False)
+        login_result = await auth_service.authenticate_user(user.email, current_password)
         if not login_result:
             return Alert("Current password is incorrect", cls="alert-error")
         
@@ -253,7 +266,7 @@ async def change_password(request: Request):
         if result["success"]:
             return Div(
                 Alert("✓ Password updated successfully!", cls="alert-success mb-4"),
-                ButtonPrimary(
+                Button(
                     "Back to Profile",
                     hx_get="/profile",
                     hx_target="#profile-content"

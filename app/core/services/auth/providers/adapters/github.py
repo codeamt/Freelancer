@@ -1,4 +1,5 @@
 # app/core/services/auth/providers/adapters/github.py
+import httpx
 from typing import Dict, Optional
 from fasthtml.common import Request
 from core.utils.logger import get_logger
@@ -36,3 +37,39 @@ class GitHubOAuth:
             )
             response.raise_for_status()
             return response.json().get("access_token")
+
+    async def _get_user_info(self, token: str) -> Dict:
+        """Get standardized user info from GitHub"""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://api.github.com/user",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github.v3+json"
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            # Get email (may need separate call if email is private)
+            email = data.get("email")
+            if not email:
+                email_response = await client.get(
+                    "https://api.github.com/user/emails",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/vnd.github.v3+json"
+                    }
+                )
+                if email_response.status_code == 200:
+                    emails = email_response.json()
+                    primary = next((e for e in emails if e.get("primary")), None)
+                    email = primary["email"] if primary else (emails[0]["email"] if emails else None)
+            
+            return {
+                "id": str(data["id"]),
+                "email": email,
+                "name": data.get("name") or data.get("login", ""),
+                "picture": data.get("avatar_url", ""),
+                "token": token
+            }

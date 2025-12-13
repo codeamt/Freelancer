@@ -38,37 +38,105 @@ def ProductCard(product: dict, user, base_path: str):
 
 
 def CartItem(item: dict, base_path: str):
-    """Cart item component."""
+    """Cart item component with quantity controls."""
     return Div(
         Div(
-            Img(
-                src=item["image"],
-                alt=item["name"],
-                cls="w-24 h-24 object-cover rounded"
+            # Product image
+            A(
+                Img(
+                    src=item["image"],
+                    alt=item["name"],
+                    cls="w-24 h-24 object-cover rounded"
+                ),
+                href=f"{base_path}/product/{item['id']}"
             ),
+            
+            # Product info
             Div(
-                H3(item["name"], cls="font-semibold text-lg"),
-                P(f"${item['price']}", cls="text-blue-600"),
-                P(f"Quantity: {item['quantity']}", cls="text-sm text-gray-600"),
+                A(
+                    H3(item["name"], cls="font-semibold text-lg hover:text-blue-600"),
+                    href=f"{base_path}/product/{item['id']}"
+                ),
+                P(f"${item['price']:.2f} each", cls="text-gray-600 text-sm"),
+                
+                # Quantity controls
+                Div(
+                    Button(
+                        "−",
+                        cls="btn btn-sm btn-outline",
+                        hx_post=f"{base_path}/cart/update/{item['id']}?action=decrease",
+                        hx_target="#cart-content",
+                        hx_swap="innerHTML"
+                    ),
+                    Span(str(item['quantity']), cls="px-4 font-semibold"),
+                    Button(
+                        "+",
+                        cls="btn btn-sm btn-outline",
+                        hx_post=f"{base_path}/cart/update/{item['id']}?action=increase",
+                        hx_target="#cart-content",
+                        hx_swap="innerHTML"
+                    ),
+                    cls="flex items-center mt-2"
+                ),
                 cls="flex-1 ml-4"
             ),
+            
+            # Price and remove
             Div(
                 P(
                     f"${item['price'] * item['quantity']:.2f}",
-                    cls="font-bold text-xl"
+                    cls="font-bold text-xl text-blue-600"
                 ),
                 Button(
-                    "Remove",
-                    cls="btn btn-sm btn-error mt-2",
+                    UkIcon("trash-2", width="16", height="16"),
+                    " Remove",
+                    cls="btn btn-sm btn-ghost text-error mt-2",
                     hx_post=f"{base_path}/cart/remove/{item['id']}",
-                    hx_swap="outerHTML",
-                    hx_target="closest div.card"
+                    hx_target="#cart-content",
+                    hx_swap="innerHTML"
                 ),
                 cls="text-right"
             ),
             cls="flex items-center gap-4"
         ),
-        cls="card bg-base-100 shadow p-4"
+        cls="card bg-base-100 shadow p-4",
+        id=f"cart-item-{item['id']}"
+    )
+
+
+def CartSummary(subtotal: float, tax: float, total: float, base_path: str):
+    """Cart summary component."""
+    return Div(
+        H2("Order Summary", cls="text-2xl font-bold mb-4"),
+        Div(
+            Div(
+                Span("Subtotal:", cls="text-gray-600"),
+                Span(f"${subtotal:.2f}", cls="font-semibold"),
+                cls="flex justify-between mb-2"
+            ),
+            Div(
+                Span("Tax (10%):", cls="text-gray-600"),
+                Span(f"${tax:.2f}", cls="font-semibold"),
+                cls="flex justify-between mb-2"
+            ),
+            Div(cls="divider my-2"),
+            Div(
+                Span("Total:", cls="font-bold text-xl"),
+                Span(f"${total:.2f}", cls="font-bold text-xl text-blue-600"),
+                cls="flex justify-between mb-6"
+            ),
+            A(
+                "Proceed to Checkout",
+                href=f"{base_path}/checkout",
+                cls="btn btn-primary btn-lg w-full"
+            ),
+            A(
+                "Continue Shopping",
+                href=f"{base_path}/",
+                cls="btn btn-ghost btn-sm w-full mt-2"
+            ),
+            cls="bg-base-200 p-6 rounded-lg"
+        )
     )
 
 
@@ -139,7 +207,7 @@ def EShopLoginPage(base_path: str = "/eshop-example", error: str = None):
                 ),
                 
                 method="post",
-                action=f"{base_path}/auth/login?redirect={base_pathl}"
+                action=f"{base_path}/auth/login"
             ),
             cls="max-w-md mx-auto p-8"
         ),

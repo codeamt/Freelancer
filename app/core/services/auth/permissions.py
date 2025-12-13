@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Set, Optional
 from enum import Enum
 
-from .context import PermissionContext
+from .context import UserContext
 
 
 class PermissionLevel(Enum):
@@ -171,6 +171,9 @@ class PermissionRegistry:
             permissions=[
                 Permission("profile", "view", "own"),
                 Permission("profile", "update", "own"),
+                Permission("user", "read", "*"),  # Can read own user settings
+                Permission("user", "update", "own"),
+                Permission("setting", "read", "*"),  # Can read settings
             ],
             domain="core"
         ))

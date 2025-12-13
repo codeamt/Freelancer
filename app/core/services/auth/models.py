@@ -18,6 +18,9 @@ class UserRole(str, Enum):
     USER = "user"
     INSTRUCTOR = "instructor"
     STUDENT = "student"
+    SHOP_OWNER = "shop_owner"
+    MERCHANT = "merchant"
+    COURSE_CREATOR = "course_creator"
 
 
 class UserStatus(str, Enum):

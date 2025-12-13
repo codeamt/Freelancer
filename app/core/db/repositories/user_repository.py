@@ -94,7 +94,6 @@ class UserRepository(PostgresRepository[User]):
     # Custom User Operations
     # ========================================================================
     
-    @transactional
     async def create_user(
         self,
         email: str,
@@ -116,6 +115,10 @@ class UserRepository(PostgresRepository[User]):
             ['email', 'password']
         )
         
+        # Additional validation for password
+        if not password or password is None:
+            raise ValueError("Password cannot be None or empty")
+        
         # Hash password
         salt = bcrypt.gensalt(rounds=12)
         password_hash = bcrypt.hashpw(password.encode(), salt).decode()
@@ -127,14 +130,8 @@ class UserRepository(PostgresRepository[User]):
             'role': role
         })
         
-        # Insert into Postgres
-        user_id = await self.execute_in_transaction(
-            tm,
-            self.postgres,
-            'insert',
-            self.get_table_name(),
-            user_data
-        )
+        # Insert into Postgres directly
+        user_id = await self.postgres.insert(self.get_table_name(), user_data)
         
         # Insert profile into MongoDB if provided
         if self.mongodb and profile_data:
@@ -451,15 +448,12 @@ class UserRepository(PostgresRepository[User]):
             return
         
         session_key = f"session:{session_token}"
-        await self.redis.setex(
+        import json
+        await self.redis.set(
             session_key,
-            ttl_seconds,
-            {'user_id': user_id, 'created_at': datetime.utcnow().isoformat()}
+            json.dumps({'user_id': user_id, 'created_at': datetime.utcnow().isoformat()}),
+            ex=ttl_seconds
         )
-        
-        # Track user's sessions
-        await self.redis.sadd(f"user_sessions:{user_id}", session_token)
-        await self.redis.expire(f"user_sessions:{user_id}", ttl_seconds)
     
     async def get_session(self, session_token: str) -> Optional[Dict]:
         """Get session from Redis."""

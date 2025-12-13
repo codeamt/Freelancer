@@ -1,6 +1,7 @@
 # app/core/services/auth/providers/adapters/google.py
 import httpx
 from typing import Dict, Optional
+from fasthtml.common import Request
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)

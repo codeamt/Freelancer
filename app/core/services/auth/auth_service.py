@@ -98,7 +98,7 @@ class AuthService:
         user = await self.user_repo.verify_password(request.username, request.password)
         
         if not user:
-            logger.warning(f"Login failed for {email}")
+            logger.warning(f"Login failed for {request.username}")
             raise InvalidCredentialsError()
         
         # Check if user is active (if you have that field)
@@ -115,7 +115,7 @@ class AuthService:
         }
         
         expires_hours = 24
-        token = self.jwt.create(token_data, expires_hours=expires_hours)
+        token = self.jwt.create(token_data)
         
         # Create session in Redis if remember_me is enabled
         if request.remember_me:
@@ -137,10 +137,10 @@ class AuthService:
         user_model = User(
             _id=str(user.id),
             email=user.email,
-            username=user.get('username', user.email.split('@')[0]),
-            roles=user.get('roles', [user.role]) if hasattr(user, 'role') else [],
-            created_at=user.get('created_at', datetime.utcnow()),
-            status=user.get('status', 'active')
+            username=getattr(user, 'username', user.email.split('@')[0]),
+            roles=getattr(user, 'roles', [user.role]) if hasattr(user, 'role') else [],
+            created_at=getattr(user, 'created_at', datetime.utcnow()),
+            status=getattr(user, 'status', 'active')
         )
         
         return LoginResponse(
@@ -270,13 +270,25 @@ class AuthService:
         Returns:
             User entity or None
         """
-        payload = await self.verify_token(token)
+        try:
+            payload = await self.verify_token(token)
+        except Exception as e:
+            logger.warning(f"Token verification failed: {e}")
+            return None
         
         if not payload:
             return None
         
-        user_id = payload.get("user_id")
+        # TokenPayload uses 'sub' for user_id
+        user_id = getattr(payload, 'sub', None)
         if not user_id:
+            return None
+        
+        # Ensure user_id is an integer
+        try:
+            user_id = int(user_id)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid user_id format: {user_id}")
             return None
         
         if self.user_repo:

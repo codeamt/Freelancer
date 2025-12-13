@@ -1,10 +1,10 @@
 # Dependency Injection Migration Guide
 
-Complete guide for migrating from global singletons to `app.state` dependency injection.
+Complete guide for migrating from global singletons to `app.state` dependency injection in FastHTML.
 
 ## Overview
 
-This guide covers migrating from global singleton pattern to FastAPI's `app.state` dependency injection pattern.
+This guide covers migrating from global singleton pattern to FastHTML's `app.state` dependency injection pattern.
 
 ---
 
@@ -33,27 +33,29 @@ def get_db_service():
 ### Benefits of app.state
 
 ```python
-# ✅ app.state benefits
-def get_db_service(request: Request):
-    return request.app.state.db_service
+# ✅ app.state benefits (FastHTML)
+@router.get("/endpoint")
+async def endpoint(request: Request):
+    db = request.app.state.db_service
+    return await db.query(...)
 
 # Benefits:
 # 1. Isolated per app instance
 # 2. Easy to mock in tests
 # 3. Clear dependency injection
 # 4. No global state
-# 5. Type-safe with FastAPI Depends
+# 5. Simple, direct access
 ```
 
 ---
 
 ## Quick Start
 
-### Step 1: Import Dependencies
+### Step 1: Import Request
 
 ```python
-from fastapi import Depends, Request
-from core.di.dependencies import get_db_service, get_auth_service
+from fasthtml.common import *
+# No special imports needed - just access request.app.state
 ```
 
 ### Step 2: Update Route Handlers
@@ -68,16 +70,13 @@ async def create_user(data: dict):
     return await db.insert("users", data)
 ```
 
-**After:**
+**After (FastHTML):**
 ```python
-from fastapi import Depends
-from core.di.dependencies import get_db_service
+from fasthtml.common import *
 
 @router.post("/users")
-async def create_user(
-    data: dict,
-    db = Depends(get_db_service)  # ✅ Dependency injection
-):
+async def create_user(request: Request, data: dict):
+    db = request.app.state.db_service  # ✅ Dependency injection
     return await db.insert("users", data)
 ```
 
@@ -156,18 +155,14 @@ async def get_config():
     return {"env": settings.environment}
 ```
 
-**After:**
+**After (FastHTML):**
 ```python
-# core/di/dependencies.py
-def get_settings(request: Request):
-    return request.app.state.settings
-
 # routes/config.py
-from fastapi import Depends
-from core.di.dependencies import get_settings
+from fasthtml.common import *
 
 @router.get("/config")
-async def get_config(settings = Depends(get_settings)):  # ✅ Injected
+async def get_config(request: Request):
+    settings = request.app.state.settings  # ✅ Injected
     return {"env": settings.environment}
 ```
 
@@ -187,17 +182,14 @@ async def login(credentials: LoginRequest):
     return await auth.login(credentials)
 ```
 
-**After:**
+**After (FastHTML):**
 ```python
 # routes/auth.py
-from fastapi import Depends
-from core.di.dependencies import get_auth_service
+from fasthtml.common import *
 
 @router.post("/login")
-async def login(
-    credentials: LoginRequest,
-    auth = Depends(get_auth_service)  # ✅ Reused instance
-):
+async def login(request: Request, credentials: LoginRequest):
+    auth = request.app.state.auth_service  # ✅ Reused instance
     return await auth.login(credentials)
 ```
 
@@ -259,56 +251,50 @@ def test_create_user(client, test_app):
 
 ## Advanced Patterns
 
-### Nested Dependencies
+### Multiple Service Access
 
 ```python
-from fastapi import Depends
-
-def get_user_service(
-    db = Depends(get_db_service),
-    auth = Depends(get_auth_service)
-):
-    """UserService depends on DB and Auth"""
-    return UserService(db, auth)
+from fasthtml.common import *
 
 @router.get("/users/{user_id}")
-async def get_user(
-    user_id: str,
-    user_svc = Depends(get_user_service)  # Auto-resolves dependencies
-):
-    return await user_svc.get_user(user_id)
+async def get_user(request: Request, user_id: str):
+    # Access multiple services from app.state
+    db = request.app.state.db_service
+    auth = request.app.state.auth_service
+    
+    # Use services
+    user = await db.get_user(user_id)
+    return user
 ```
 
-### Optional Dependencies
+### Optional Service Access
 
 ```python
-from core.di.dependencies import get_settings_optional
+from fasthtml.common import *
 
 @router.get("/feature")
-async def feature_endpoint(
-    settings = Depends(get_settings_optional)
-):
+async def feature_endpoint(request: Request):
+    # Check if service exists
+    settings = getattr(request.app.state, 'settings', None)
     if settings and settings.feature_enabled:
         return {"enabled": True}
     return {"enabled": False}
 ```
 
-### Class-Based Dependencies
+### Helper Functions
 
 ```python
-from fastapi import Depends
+from fasthtml.common import *
 
-class UserDependency:
-    def __init__(self, request: Request):
-        self.auth = request.app.state.auth_service
-    
-    async def __call__(self, token: str):
-        return await self.auth.verify_token(token)
+async def get_current_user(request: Request, token: str):
+    """Helper to get current user from token"""
+    auth = request.app.state.auth_service
+    return await auth.verify_token(token)
 
 @router.get("/profile")
-async def get_profile(
-    user = Depends(UserDependency())
-):
+async def get_profile(request: Request):
+    token = request.cookies.get("auth_token")
+    user = await get_current_user(request, token)
     return {"user_id": user.sub}
 ```
 
@@ -327,57 +313,50 @@ async def get_profile(
 
 ### For Each Route File
 
-- [ ] Import `Depends` from `fastapi`
-- [ ] Import dependency functions from `core.di.dependencies`
-- [ ] Add dependency parameters to route handlers
+- [ ] Import `Request` from `fasthtml.common`
+- [ ] Add `request: Request` parameter to route handlers
+- [ ] Access services via `request.app.state.service_name`
 - [ ] Remove direct service instantiation
-- [ ] Update function signatures with type hints
+- [ ] Remove global singleton calls
 - [ ] Test routes with new dependency injection
 
 ---
 
 ## Common Patterns
 
-### Pattern 1: Simple Dependency
+### Pattern 1: Direct Access (FastHTML)
 
 ```python
-# Dependency function
-def get_service(request: Request):
-    return request.app.state.service
-
-# Usage
 @router.get("/endpoint")
-async def endpoint(svc = Depends(get_service)):
+async def endpoint(request: Request):
+    svc = request.app.state.service_name
     return await svc.do_something()
 ```
 
-### Pattern 2: Multiple Dependencies
+### Pattern 2: Multiple Services (FastHTML)
 
 ```python
 @router.post("/complex")
-async def complex_endpoint(
-    db = Depends(get_db_service),
-    auth = Depends(get_auth_service),
-    storage = Depends(get_storage_service)
-):
+async def complex_endpoint(request: Request, data: dict):
+    # Access multiple services
+    db = request.app.state.db_service
+    auth = request.app.state.auth_service
+    storage = request.app.state.storage_service
     # Use all three services
     pass
 ```
 
-### Pattern 3: Dependency with Parameters
+### Pattern 3: Helper Functions (FastHTML)
 
 ```python
-def get_user_by_id(user_id: str):
-    def dependency(
-        user_svc = Depends(get_user_service)
-    ):
-        return user_svc.get_user(user_id)
-    return Depends(dependency)
+async def get_user_by_id(request: Request, user_id: str):
+    """Helper function to get user"""
+    user_svc = request.app.state.user_service
+    return await user_svc.get_user(user_id)
 
 @router.get("/users/{user_id}/profile")
-async def user_profile(
-    user = Depends(get_user_by_id)
-):
+async def user_profile(request: Request, user_id: str):
+    user = await get_user_by_id(request, user_id)
     return user
 ```
 
@@ -405,15 +384,16 @@ initialize_app_state(app, db_service=db_service)
 
 **Problem:**
 ```python
-# ❌ Trying to use dependency outside route
-db = get_db_service()  # No request available!
+# ❌ Trying to access app.state outside route
+db = request.app.state.db_service  # No request available!
 ```
 
 **Solution:**
 ```python
-# ✅ Use dependency in route handler
+# ✅ Access in route handler (FastHTML)
 @router.get("/data")
-async def get_data(db = Depends(get_db_service)):
+async def get_data(request: Request):
+    db = request.app.state.db_service
     return await db.query()
 ```
 
@@ -440,14 +420,16 @@ def test_app():
 
 ## Best Practices
 
-### 1. Always Use Type Hints
+### 1. Always Use Type Hints (FastHTML)
 
 ```python
 # ✅ Good - Type hints help IDE
+from starlette.requests import Request
 from core.services.db_service import DBService
 
 @router.get("/data")
-async def get_data(db: DBService = Depends(get_db_service)):
+async def get_data(request: Request):
+    db: DBService = request.app.state.db_service
     return await db.query()
 ```
 
@@ -474,19 +456,16 @@ def create_app():
     return app
 ```
 
-### 3. Use Dependency Functions, Not Direct Access
+### 3. Direct Access is Recommended (FastHTML)
 
 ```python
-# ❌ Bad - Direct access
+# ✅ Good - Direct access in FastHTML
 @router.get("/data")
 async def get_data(request: Request):
     db = request.app.state.db_service
     return await db.query()
 
-# ✅ Good - Use dependency function
-@router.get("/data")
-async def get_data(db = Depends(get_db_service)):
-    return await db.query()
+# This is the FastHTML pattern - simple and direct
 ```
 
 ### 4. Test with Isolated App Instances
@@ -513,11 +492,11 @@ def test_feature_b(test_app):
 - ❌ Race conditions
 - ❌ Difficult to reset
 
-### After (app.state)
+### After (app.state in FastHTML)
 - ✅ Isolated per app instance
 - ✅ Easy to mock in tests
 - ✅ Clear dependency injection
-- ✅ Type-safe with Depends
+- ✅ Simple, direct access
 - ✅ No global state
 
 ---

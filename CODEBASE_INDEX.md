@@ -1,35 +1,39 @@
 # Codebase Index for LLM Navigation
 
-Quick reference guide for navigating the codebase. Optimized for LLM context scanning.
+Quick reference guide for navigating the codebase. Updated December 13, 2025.
+
+---
+
+## Current Working Features
+
+- ✅ **Authentication** - Login, registration, JWT, role-based access
+- ✅ **E-Shop** - Product catalog, cart, checkout, admin dashboard
+- ✅ **LMS** - Course catalog, enrollment, lessons, instructor dashboard
+- ✅ **Web Admin** - Dedicated admin portal with site/theme editor
+- ✅ **Role-Based Dashboards** - Admin, Instructor, Shop Owner
 
 ---
 
 ## Core Concepts
 
-### 1. State Management
-- **Pattern**: Immutable state with actions and transitions
-- **Files**: `app/core/state/*.py`
-- **Key Classes**: `State`, `Action`, `StateMachineApplication`
+### 1. Authentication
+- **Pattern**: JWT tokens in httponly cookies
+- **Files**: `app/core/services/auth/*.py`
+- **Key Classes**: `AuthService`, `UserRepository`, `UserRole`
 
 ### 2. Database Layer
-- **Pattern**: Polyglot persistence with repository pattern
-- **Files**: `app/core/db/*.py`
-- **Databases**: PostgreSQL, MongoDB, Redis, DuckDB, MinIO
+- **Pattern**: PostgreSQL with repository pattern
+- **Files**: `app/core/db/adapters/`, `app/core/db/repositories/`
+- **Primary**: PostgreSQL (users, products, orders, enrollments)
 
-### 3. Authentication & Authorization
-- **Pattern**: RBAC with UserContext and permissions
-- **Files**: `app/core/services/auth/*.py`
-- **Key Classes**: `AuthService`, `UserContext`, `Permission`
+### 3. Dependency Injection
+- **Pattern**: Services on `app.state`, accessed via `request.app.state`
+- **Services**: `auth_service`, `cart_service`, `db_service`, `user_service`
 
-### 4. Dependency Injection
-- **Pattern**: app.state with direct access in route handlers
-- **Files**: `app/core/di/*.py`
-- **Key Pattern**: Access services via `request.app.state.service_name`
-
-### 5. Error Handling
-- **Pattern**: Custom exception hierarchy with middleware
-- **Files**: `app/core/exceptions.py`, `app/core/middleware/error_handler.py`
-- **Base Class**: `AppException`
+### 4. UI Layer
+- **Pattern**: FastHTML + MonsterUI components
+- **Files**: `app/core/ui/layout.py`, `app/core/ui/pages/`, `app/core/ui/components/`
+- **Key**: Role-based navigation in Layout component
 
 ---
 
@@ -37,300 +41,118 @@ Quick reference guide for navigating the codebase. Optimized for LLM context sca
 
 ```
 app/
-├── core/                      # Framework core (reusable)
+├── app.py                    # Main entry point
+├── core/                     # Shared infrastructure
 │   ├── config/               # Configuration & validation
-│   ├── db/                   # Database adapters & repositories
-│   ├── di/                   # Dependency injection
-│   ├── exceptions.py         # Exception hierarchy
-│   ├── integrations/         # External services (storage, email, AI)
-│   ├── middleware/           # Request/response middleware
-│   ├── services/             # Business logic
-│   ├── state/                # State management
-│   ├── ui/                   # UI components & theme
-│   └── workflows/            # Workflow orchestration
+│   ├── db/                   # Database (adapters/, repositories/, models/)
+│   ├── middleware/           # Security, auth context
+│   ├── routes/               # Core routes (auth, main, admin)
+│   ├── services/             # Business logic (auth/, cart/, editor/)
+│   └── ui/                   # UI (layout.py, pages/, components/)
 │
-├── add_ons/                  # Domain modules (LMS, commerce, etc.)
-│   └── domains/
-│       ├── commerce/
-│       ├── lms/
-│       ├── social/
-│       └── stream/
+├── add_ons/                  # Domain modules
+│   ├── domains/              # commerce/, lms/, social/, stream/
+│   ├── services/             # Shared addon services
+│   └── webhooks/             # Stripe webhooks
 │
-└── routes/                   # HTTP route handlers
-
-docs/                         # Documentation
-├── ARCHITECTURE.md           # This file
-├── CODEBASE_INDEX.md         # Quick navigation (this file)
-├── FILE_MANIFEST.md          # All important files
-├── TYPE_SAFETY.md            # Pydantic models guide
-├── PYDANTIC_USAGE.md         # Usage examples
-├── ERROR_HANDLING.md         # Exception handling guide
-├── DEPENDENCY_INJECTION_GUIDE.md  # DI migration guide
-└── GLOBAL_SINGLETONS_AUDIT.md     # Singleton audit
+└── examples/                 # Working example apps
+    ├── eshop/                # E-Shop (app.py, admin.py)
+    ├── lms/                  # LMS (app.py, admin.py)
+    ├── social/               # Social (scaffolded)
+    └── streaming/            # Streaming (scaffolded)
 ```
 
 ---
 
 ## Key File Locations
 
-### Configuration & Security
-- `app/core/config/validation.py` - Startup validation
-- `app/core/config/settings_facade.py` - Role-aware settings
-- `env.example.txt` - Required environment variables
-
-### Authentication
-- `app/core/services/auth/auth_service.py` - Auth business logic
-- `app/core/services/auth/models.py` - Pydantic models (User, LoginRequest, etc.)
-- `app/core/services/auth/context.py` - UserContext
-- `app/core/services/auth/permissions.py` - Permission definitions
-- `app/core/services/auth/decorators.py` - @require_auth, @requires_permission
-
-### Database
-- `app/core/db/adapters/` - Database adapters (PostgreSQL, MongoDB, Redis)
-- `app/core/db/repositories/` - Repository implementations
-- `app/core/db/session.py` - Session management
-- `app/core/db/transaction_manager.py` - 2PC coordinator
-- `app/core/db/connection_pool.py` - Connection pooling
-
-### Services
-- `app/core/services/db_service.py` - Database service
-- `app/core/services/auth/user_service.py` - User management
-- `app/core/services/settings/service.py` - Settings service
-
-### Integrations
-- `app/core/integrations/storage/s3_client.py` - S3/MinIO storage
-- `app/core/integrations/storage/models.py` - Storage Pydantic models
-- `app/core/integrations/huggingface/huggingface_client.py` - AI client
-- `app/core/integrations/huggingface/models.py` - AI Pydantic models
-- `app/core/integrations/email/` - Email providers
-- `app/core/integrations/payment/` - Payment gateways
-
-### State Management
-- `app/core/state/state.py` - Immutable State container
-- `app/core/state/actions.py` - Action base class
-- `app/core/state/builder.py` - StateMachineApplication builder
-- `app/core/state/persistence.py` - MongoDB persistence
-- `app/core/state/transitions.py` - Transition conditions
-
-### Middleware
-- `app/core/middleware/error_handler.py` - Error handling middleware
-- `app/core/middleware/security.py` - Security headers, CSRF, rate limiting
-- `app/core/middleware/auth_context.py` - User context injection
-- `app/core/middleware/redis_session.py` - Redis sessions
-
-### Dependency Injection
-- `app/core/di/dependencies.py` - DI helper functions
-- `app/core/di/container.py` - ExecutionContext, ServiceContainer
-
-### UI & Components
-- `app/core/ui/layout.py` - Layout components
-- `app/core/ui/components/` - Reusable UI components
-- `app/core/ui/theme/editor.py` - Theme system
-- `app/core/ui/state/` - UI state management
-
-### Utilities
-- `app/core/utils/logger.py` - Centralized logging
-- `app/core/utils/security.py` - Security utilities
-- `app/core/utils/helpers.py` - General helpers
+### Authentication (Most Important)
+- `app/core/services/auth/auth_service.py` - AuthService (login, register, JWT)
+- `app/core/services/auth/models.py` - UserRole enum, Pydantic models
+- `app/core/services/auth/helpers.py` - get_current_user_from_request()
+- `app/core/db/repositories/base_repository.py` - UserRepository
 
 ### Routes
-- `app/routes/auth.py` - Authentication routes
-- `app/routes/main.py` - Main routes
-- `app/routes/admin_sites.py` - Admin routes
-- `app/routes/settings.py` - Settings routes
-- `app/routes/editor.py` - Editor routes
+- `app/core/routes/auth.py` - /auth, /admin/login, /admin/dashboard
+- `app/core/routes/main.py` - Home, landing pages
+- `app/core/routes/admin_sites.py` - Site/theme editor
 
-### Add-ons
-- `app/add_ons/domains/commerce/` - E-commerce domain
-- `app/add_ons/domains/lms/` - Learning management system
-- `app/add_ons/domains/social/` - Social networking
-- `app/add_ons/domains/stream/` - Streaming platform
+### UI Components
+- `app/core/ui/layout.py` - Global Layout with role-based nav
+- `app/core/ui/pages/auth.py` - AuthPage, AuthTabContent
+- `app/core/ui/pages/admin_auth.py` - WebAdminAuthPage, WebAdminDashboard
 
----
+### Example Apps
+- `app/examples/eshop/app.py` - E-Shop routes
+- `app/examples/eshop/admin.py` - EShopAdminDashboard
+- `app/examples/lms/app.py` - LMS routes
+- `app/examples/lms/admin.py` - InstructorDashboard
 
-## Common Tasks
+### Middleware
+- `app/core/middleware/security.py` - SecurityMiddleware (sanitization, rate limiting)
 
-### Adding a New Service
-1. Create service class in `app/core/services/{domain}/`
-2. Create Pydantic models in `{service}_models.py`
-3. Add dependency function in `app/core/di/dependencies.py`
-4. Initialize in `app/app.py` and store in `app.state`
-5. Export from `__init__.py`
-
-### Adding a New Route
-1. Create route file in `app/routes/{name}.py`
-2. Use `Depends()` for service injection
-3. Use Pydantic models for request/response
-4. Add permission decorators if needed
-5. Register in route loader
-
-### Adding a New Exception
-1. Add exception class to `app/core/exceptions.py`
-2. Inherit from appropriate base exception
-3. Set correct `status_code`
-4. Add to `__all__` export
-
-### Adding a New Pydantic Model
-1. Create model in appropriate `models.py` file
-2. Add validation rules
-3. Export from `__init__.py`
-4. Update service methods to use model
-5. Document in TYPE_SAFETY.md
-
-### Adding a New Database Operation
-1. Add method to repository in `app/core/db/repositories/`
-2. Use `@transactional` for multi-database operations
-3. Choose appropriate database for data type
-4. Handle exceptions properly
+### Database
+- `app/core/db/adapters/postgres_adapter.py` - PostgreSQL adapter
+- `app/core/db/init_schema.py` - Schema initialization
 
 ---
 
-## Search Patterns
+## Common Patterns
 
-### Find Authentication Code
-```
-app/core/services/auth/
-app/core/middleware/auth_context.py
-```
-
-### Find Database Code
-```
-app/core/db/
-app/core/db/adapters/
-app/core/db/repositories/
-```
-
-### Find Error Handling
-```
-app/core/exceptions.py
-app/core/middleware/error_handler.py
-```
-
-### Find Pydantic Models
-```
-app/core/services/auth/models.py
-app/core/integrations/storage/models.py
-app/core/integrations/huggingface/models.py
-```
-
-### Find Dependency Injection
-```
-app/core/di/dependencies.py
-app/app.py (initialization)
-```
-
-### Find State Management
-```
-app/core/state/
-app/core/workflows/
-```
-
-### Find UI Components
-```
-app/core/ui/components/
-app/core/ui/theme/
-```
-
----
-
-## Important Patterns
-
-### Service Method Pattern (FastHTML)
+### Route Handler Pattern
 ```python
-from fasthtml.common import *
-
-@router.post("/endpoint")
-async def endpoint(request: Request, data: RequestModel) -> ResponseModel:
-    # Access service from app.state
-    service = request.app.state.service_name
-    return await service.method(data)
+@app.get("/path")
+async def handler(request: Request):
+    auth_service = request.app.state.auth_service
+    user = await get_current_user_from_request(request, auth_service)
+    if not user:
+        return RedirectResponse("/auth?tab=login")
+    return Layout(content, user=user)
 ```
 
-### Exception Pattern
+### Form Data Pattern
 ```python
-from core.exceptions import SpecificError
-
-def method():
-    if error_condition:
-        raise SpecificError("message", details={...})
+# Always use this pattern for form handling
+form = getattr(request.state, 'sanitized_form', None) or await request.form()
+email = form.get("email")
+password = form.get("password")
 ```
 
-### Repository Pattern
+### Role Check Pattern
 ```python
-class Repository:
-    def __init__(self, postgres, mongodb, redis):
-        self.postgres = postgres
-        self.mongodb = mongodb
-        self.redis = redis
-    
-    @transactional
-    async def method(self, tm):
-        # Multi-database operation
-        await tm.execute(self.postgres, ...)
-        await tm.execute(self.mongodb, ...)
-```
-
-### Action Pattern
-```python
-class MyAction(Action):
-    async def run(self, state: State, **inputs) -> ActionResult:
-        # Transform state immutably
-        new_data = state.get("key")
-        # Modify new_data
-        return ActionResult(success=True, data={"key": new_data})
+user_role = user.get("role", "user")
+if user_role in ["admin", "super_admin"]:
+    # Admin access
+elif user_role in ["instructor", "course_creator"]:
+    # Instructor access
+elif user_role in ["shop_owner", "merchant"]:
+    # Shop owner access
 ```
 
 ---
 
-## Testing Locations
+## Test Credentials
 
-### Unit Tests
-- `tests/unit/` - Unit tests for individual components
-
-### Integration Tests
-- `tests/integration/` - Integration tests for services
-
-### Test Fixtures
-- `tests/conftest.py` - Shared fixtures
-- `tests/fixtures/` - Test data
+| Role | Email | Password | Dashboard |
+|------|-------|----------|-----------|
+| Admin | `admin@test.com` | `Admin123!` | `/admin/dashboard` |
+| Instructor | `instructor@test.com` | `Instructor123!` | `/lms-example/instructor` |
+| Shop Owner | `shopowner@test.com` | `Shopowner123!` | `/eshop-example/admin` |
 
 ---
 
-## Configuration Files
+## Quick Start
 
-- `.env` - Environment variables (not in repo)
-- `env.example.txt` - Example environment variables
-- `docker-compose.yml` - Local development services
-- `requirements.txt` - Python dependencies
-- `pyproject.toml` - Project configuration
+```bash
+# Start database
+docker compose up -d
 
----
+# Run app
+cd app && uv run python app.py
 
-## Documentation Files
-
-- `ARCHITECTURE.md` - Architecture overview
-- `CODEBASE_INDEX.md` - This file (navigation guide)
-- `FILE_MANIFEST.md` - Complete file listing
-- `README.md` - Project overview
-- `docs/TYPE_SAFETY.md` - Type safety guide
-- `docs/PYDANTIC_USAGE.md` - Pydantic usage examples
-- `docs/ERROR_HANDLING.md` - Error handling guide
-- `docs/DEPENDENCY_INJECTION_GUIDE.md` - DI migration guide
-- `docs/GLOBAL_SINGLETONS_AUDIT.md` - Singleton audit
+# Access at http://localhost:5001
+```
 
 ---
 
-## Quick Tips for LLMs
-
-1. **Start with ARCHITECTURE.md** for high-level understanding
-2. **Use this file (CODEBASE_INDEX.md)** for quick navigation
-3. **Check FILE_MANIFEST.md** for complete file listing
-4. **Read Pydantic models** to understand data structures
-5. **Check exceptions.py** to understand error types
-6. **Look at dependencies.py** to understand service injection
-7. **Review middleware/** to understand request flow
-8. **Check routes/** to understand API endpoints
-
----
-
-**Last Updated**: December 12, 2025
+**Last Updated**: December 13, 2025

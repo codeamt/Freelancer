@@ -3,17 +3,10 @@ from fasthtml.common import *
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
 from core.services.auth import get_current_user_from_context
-from core.services import CartService, OrderService, PaymentService, ProductService, get_db_service
-
 logger = get_logger(__name__)
 
-# Initialize router and services
+# Initialize router
 router_lms_checkout = APIRouter()
-cart_service = CartService()
-order_service = OrderService()
-payment_service = PaymentService()
-product_service = ProductService()
-db = get_db_service()  # Multi-database service with state integration
 
 
 @router_lms_checkout.get("/lms/course/{course_id}/enroll")

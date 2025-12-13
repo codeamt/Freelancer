@@ -149,7 +149,9 @@ class BaseRepository(ABC, Generic[T]):
             return
         
         try:
-            await self.redis.setex(key, ttl_seconds, value)
+            import json
+            value_str = json.dumps(value) if not isinstance(value, str) else value
+            await self.redis.set(key, value_str, ex=ttl_seconds)
         except Exception as e:
             logger.warning(f"Cache write error for {key}: {e}")
     

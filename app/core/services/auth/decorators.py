@@ -5,7 +5,7 @@ from typing import List, Optional
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, JSONResponse
 from core.services.auth.auth_service import AnonymousUser
-from core.services.auth.utils import get_current_user_from_request
+from core.services.auth.helpers import get_current_user_from_request
 from core.utils.logger import get_logger
 
 from .context import current_user_context

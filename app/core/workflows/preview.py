@@ -13,6 +13,7 @@ from datetime import datetime
 from core.state.actions import Action, ActionResult
 from core.state.state import State
 from core.state.transitions import condition
+from core.state.persistence import StatePersister
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)

@@ -11,14 +11,44 @@ from core.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def create_streaming_app(auth_service=None, user_service=None, postgres=None, mongodb=None, redis=None):
-    """Create and configure the streaming platform example app"""
+def create_streaming_app(auth_service=None, user_service=None, postgres=None, mongodb=None, redis=None, demo=False):
+    """Create streaming platform example app."""
+    from core.services.auth.helpers import get_current_user
+    from core.services.auth.context import set_user_context
+    from core.services.auth.context import create_user_context
+    
+    logger.info(f"Initializing Streaming example app (demo={demo})...")
     
     app = FastHTML(hdrs=[*Theme.slate.headers()])
     
+    # Store demo flag in app state
+    app.state.demo = demo
+    
+    # Base path
+    BASE = "/streaming-example"
+    
+    async def get_user_with_context(request: Request):
+        """Get current user from request and set context."""
+        user = await get_current_user(request, auth_service)
+        if user:
+            # Set user context for state system using factory
+            
+            # Create a simple user object for the factory
+            class SimpleUser:
+                def __init__(self, user_dict):
+                    self.id = user_dict.get("id") or int(user_dict.get("_id", 0))
+                    self.role = user_dict.get("role", "user")
+                    self.email = user_dict.get("email", "")
+            
+            user_obj = SimpleUser(user)
+            user_context = create_user_context(user_obj, request)
+            set_user_context(user_context)
+        return user
+    
     @app.get("/")
-    def streaming_home():
+    async def streaming_home(request: Request):
         """Streaming platform coming soon page"""
+        user = await get_user_with_context(request)
         
         content = Div(
             # Hero Section
@@ -124,7 +154,7 @@ def create_streaming_app(auth_service=None, user_service=None, postgres=None, mo
             )
         )
         
-        return Layout(content, title="Streaming Platform Example | FastApp")
+        return Layout(content, title="Streaming Platform Example | FastApp", current_path=f"{BASE}/", user=user, show_auth=True, demo=demo)
     
     def FeatureCard(icon: str, title: str, description: str):
         """Feature card component"""

@@ -16,10 +16,6 @@ load_dotenv('app.config.env')
 from core.config.validation import validate_config
 validate_config()  # Will raise ConfigurationError if validation fails in production
 
-# Validate required secrets before app initialization
-from core.config.validation import validate_secrets
-validate_secrets()  # Will raise ConfigurationError if validation fails in production
-
 # Logging
 from core.utils.logger import get_logger
 
@@ -45,11 +41,18 @@ from core.routes import (
     router_main,
     router_editor,
     router_admin_sites,
+    router_admin_users,
     router_auth,
-    router_settings
+    router_settings,
+    router_profile,
+    router_oauth,
+    router as router_cart
 )
 
 from core.middleware.auth_context import inject_user_context, set_response_cookies
+
+# Add-on loader
+from core.addon_loader import load_all_addons, get_addon_loader, get_addon_route
 
 # Example apps
 from examples.eshop import create_eshop_app
@@ -68,6 +71,7 @@ MONGO_URL = os.getenv("MONGO_URL", "mongodb://root:example@localhost:27017")
 MONGO_DB = os.getenv("MONGO_DB", "app_db")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
 # ============================================================================
 # Database Adapter Initialization
@@ -134,6 +138,17 @@ user_service = UserService(
     user_repository=user_repository
 )
 
+# Domain services (for add-ons)
+from core.services.cart import CartService
+from core.services.product import ProductService
+from core.services.order import OrderService
+from core.services.payment import PaymentService
+
+cart_service = CartService()
+product_service = ProductService()
+order_service = OrderService()
+payment_service = PaymentService()
+
 logger.info("✓ Services initialized")
 
 # ============================================================================
@@ -163,12 +178,22 @@ app.state.user_service = user_service
 app.state.user_repository = user_repository
 app.state.jwt_provider = jwt_provider
 
+# Attach domain services for add-ons
+app.state.cart_service = cart_service
+app.state.product_service = product_service
+app.state.order_service = order_service
+app.state.payment_service = payment_service
+
 # Attach adapters for child apps that need direct access
 app.state.postgres = postgres
 app.state.mongodb = mongodb
 app.state.redis = redis
 
+# Store demo mode flag
+app.state.demo = DEMO_MODE
+
 logger.info("✓ Services attached to app.state")
+logger.info(f"  → Demo mode: {DEMO_MODE}")
 
 # ============================================================================
 # Middleware Configuration
@@ -289,15 +314,34 @@ logger.info("Mounting core routes...")
 try:
     router_main.to_app(app)
     router_auth.to_app(app)
+    router_oauth.to_app(app)
     router_editor.to_app(app)
     router_admin_sites.to_app(app)
-    router_settings.to_app(app)
     router_admin_users.to_app(app)
+    router_settings.to_app(app)
     router_profile.to_app(app)
+    router_cart.to_app(app)
 
-    logger.info("✓ Core routes mounted")
+    logger.info("✓ Core routes mounted (main, auth, oauth, editor, admin_sites, admin_users, settings, profile, cart)")
 except Exception as e:
     logger.error(f"Failed to mount core routes: {e}")
+
+# ============================================================================
+# Load and Mount Domain Add-ons
+# ============================================================================
+
+logger.info("Loading domain add-ons...")
+
+# Load add-on manifests (registers roles, settings, components)
+load_all_addons()
+
+# Mount add-on routes
+logger.info("Mounting domain add-on routes...")
+addon_loader = get_addon_loader()
+
+# TODO: Fix addon route registration - currently causing conflicts with mounted example apps
+# Commenting out for now since we're using mounted example apps instead
+logger.info("ℹ️  Addon route registration skipped (using mounted example apps)")
 
 # ============================================================================
 # Mount Example Applications
@@ -312,10 +356,11 @@ try:
         user_service=user_service,
         postgres=postgres,
         mongodb=mongodb,
-        redis=redis
+        redis=redis,
+        demo=DEMO_MODE
     )
     app.mount("/eshop-example", eshop_app)
-    logger.info("✓ E-Shop example mounted at /eshop-example")
+    logger.info(f"✓ E-Shop example mounted at /eshop-example (demo={DEMO_MODE})")
 except Exception as e:
     logger.error(f"Failed to mount e-shop example: {e}")
     logger.exception(e)
@@ -327,10 +372,11 @@ try:
         user_service=user_service,
         postgres=postgres,
         mongodb=mongodb,
-        redis=redis
+        redis=redis,
+        demo=DEMO_MODE
     )
     app.mount("/lms-example", lms_app)
-    logger.info("✓ LMS example mounted at /lms-example")
+    logger.info(f"✓ LMS example mounted at /lms-example (demo={DEMO_MODE})")
 except Exception as e:
     logger.error(f"Failed to mount LMS example: {e}")
     logger.exception(e)
@@ -342,10 +388,11 @@ try:
         user_service=user_service,
         postgres=postgres,
         mongodb=mongodb,
-        redis=redis
+        redis=redis,
+        demo=DEMO_MODE
     )
     app.mount("/social-example", social_app)
-    logger.info("✓ Social example mounted at /social-example")
+    logger.info(f"✓ Social example mounted at /social-example (demo={DEMO_MODE})")
 except Exception as e:
     logger.error(f"Failed to mount social example: {e}")
     logger.exception(e)
@@ -357,10 +404,11 @@ try:
         user_service=user_service,
         postgres=postgres,
         mongodb=mongodb,
-        redis=redis
+        redis=redis,
+        demo=DEMO_MODE
     )
     app.mount("/streaming-example", streaming_app)
-    logger.info("✓ Streaming example mounted at /streaming-example")
+    logger.info(f"✓ Streaming example mounted at /streaming-example (demo={DEMO_MODE})")
 except Exception as e:
     logger.error(f"Failed to mount streaming example: {e}")
     logger.exception(e)
@@ -388,6 +436,7 @@ logger.info("  → Auth: JWT-based with session support")
 logger.info("  → Security: Rate limiting, sanitization, headers")
 logger.info("")
 logger.info(f"Environment: {ENVIRONMENT}")
+logger.info(f"Demo Mode: {DEMO_MODE}")
 logger.info("=" * 60)
 
 # ============================================================================

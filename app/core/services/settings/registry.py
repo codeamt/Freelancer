@@ -473,6 +473,121 @@ class SettingsRegistry:
             read_permission=("user", "read"),
             write_permission=("user", "update")
         ))
+        
+        self.register(SettingDefinition(
+            key="user.language",
+            name="Language",
+            description="Preferred language for the interface",
+            type=SettingType.STRING,
+            scope=SettingScope.USER,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default="en",
+            category="preferences",
+            ui_component="select",
+            options=["en", "es", "fr", "de", "pt", "zh", "ja"],
+            read_permission=("user", "read"),
+            write_permission=("user", "update")
+        ))
+        
+        self.register(SettingDefinition(
+            key="user.timezone",
+            name="Timezone",
+            description="Your local timezone for displaying dates and times",
+            type=SettingType.STRING,
+            scope=SettingScope.USER,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default="UTC",
+            category="preferences",
+            ui_component="select",
+            options=["UTC", "America/New_York", "America/Los_Angeles", "America/Chicago", "Europe/London", "Europe/Paris", "Asia/Tokyo", "Asia/Shanghai", "Australia/Sydney"],
+            read_permission=("user", "read"),
+            write_permission=("user", "update")
+        ))
+        
+        self.register(SettingDefinition(
+            key="user.accessibility.reduced_motion",
+            name="Reduce Motion",
+            description="Minimize animations and transitions",
+            type=SettingType.BOOLEAN,
+            scope=SettingScope.USER,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default=False,
+            category="preferences",
+            read_permission=("user", "read"),
+            write_permission=("user", "update")
+        ))
+        
+        self.register(SettingDefinition(
+            key="user.accessibility.high_contrast",
+            name="High Contrast",
+            description="Use high contrast colors for better visibility",
+            type=SettingType.BOOLEAN,
+            scope=SettingScope.USER,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default=False,
+            category="preferences",
+            read_permission=("user", "read"),
+            write_permission=("user", "update")
+        ))
+        
+        self.register(SettingDefinition(
+            key="user.accessibility.font_size",
+            name="Font Size",
+            description="Preferred text size",
+            type=SettingType.STRING,
+            scope=SettingScope.USER,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default="medium",
+            category="preferences",
+            ui_component="select",
+            options=["small", "medium", "large", "x-large"],
+            read_permission=("user", "read"),
+            write_permission=("user", "update")
+        ))
+        
+        # ====================================================================
+        # Cookie Consent Settings
+        # ====================================================================
+        
+        self.register(SettingDefinition(
+            key="user.cookies.essential",
+            name="Essential Cookies",
+            description="Required for the site to function (cannot be disabled)",
+            type=SettingType.BOOLEAN,
+            scope=SettingScope.USER,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default=True,
+            category="cookies",
+            read_permission=("user", "read"),
+            write_permission=("user", "update"),
+            help_text="These cookies are necessary for basic site functionality"
+        ))
+        
+        self.register(SettingDefinition(
+            key="user.cookies.consent_given",
+            name="Cookie Consent Given",
+            description="Whether user has acknowledged cookie notice",
+            type=SettingType.BOOLEAN,
+            scope=SettingScope.USER,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default=False,
+            category="cookies",
+            read_permission=("user", "read"),
+            write_permission=("user", "update")
+        ))
+        
+        self.register(SettingDefinition(
+            key="user.cookies.consent_date",
+            name="Consent Date",
+            description="When cookie consent was given",
+            type=SettingType.STRING,
+            scope=SettingScope.USER,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default="",
+            category="cookies",
+            read_permission=("user", "read"),
+            write_permission=("user", "update")
+        ))
     
     def register(self, definition: SettingDefinition):
         """Register a setting definition"""
