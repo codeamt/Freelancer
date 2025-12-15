@@ -14,8 +14,8 @@ def EditorLayout(
     return Html(
         Head(
             Title("Omniview Editor"),
-            Link(rel="stylesheet", href="/static/editor.css"),
-            Script(src="/static/editor.js")
+            Link(rel="stylesheet", href="/static/css/editor.css"),
+            Script(src="/static/js/editor.js")
         ),
         Body(
             # Top toolbar

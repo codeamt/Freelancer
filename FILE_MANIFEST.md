@@ -12,6 +12,10 @@ Complete listing of important files in the codebase, organized by category.
 | `CODEBASE_INDEX.md` | Quick navigation guide for LLMs |
 | `FILE_MANIFEST.md` | This file - complete file listing |
 | `README.md` | Project overview and setup |
+| `app/core/WEB_ADMIN_TODOS.md` | Web admin add-on management TODOs (including future git/submodule sync plan) |
+| `app/core/TEST_PLAN.md` | Current test plan and test backlog |
+| `app/add_ons/domains/blog/CMS_PLAN.md` | Blog CMS roadmap and milestones |
+| `app/add_ons/domains/stream/TODO.md` | Stream add-on remaining work |
 | `docs/TYPE_SAFETY.md` | Type safety with Pydantic guide |
 | `docs/PYDANTIC_USAGE.md` | Pydantic usage examples |
 | `docs/ERROR_HANDLING.md` | Error handling guide |
@@ -57,12 +61,12 @@ Complete listing of important files in the codebase, organized by category.
 ### Database Layer
 | File | Purpose |
 |------|---------|
-| `app/core/db/adapters/postgres.py` | PostgreSQL adapter |
-| `app/core/db/adapters/mongodb.py` | MongoDB adapter |
-| `app/core/db/adapters/redis.py` | Redis adapter |
-| `app/core/db/adapters/duckdb.py` | DuckDB adapter |
+| `app/core/db/adapters/postgres_adapter.py` | PostgreSQL adapter |
+| `app/core/db/adapters/mongodb_adapter.py` | MongoDB adapter |
+| `app/core/db/adapters/redis_adapter.py` | Redis adapter |
+| `app/core/db/adapters/duckdb_adapter.py` | DuckDB adapter |
+| `app/core/db/adapters/minio_adapter.py` | MinIO (S3-compatible) adapter |
 | `app/core/db/repositories/user_repository.py` | User repository |
-| `app/core/db/repositories/product_repository.py` | Product repository |
 | `app/core/db/session.py` | Session management |
 | `app/core/db/transaction_manager.py` | 2PC transaction coordinator |
 | `app/core/db/connection_pool.py` | Connection pooling |
@@ -171,16 +175,16 @@ Complete listing of important files in the codebase, organized by category.
 ### Routes
 | File | Purpose |
 |------|---------|
-| `app/routes/auth.py` | Authentication routes |
-| `app/routes/main.py` | Main routes |
-| `app/routes/admin_sites.py` | Admin site management routes |
-| `app/routes/admin_users.py` | Admin user management routes |
-| `app/routes/settings.py` | Settings routes |
-| `app/routes/editor.py` | Visual editor routes |
-| `app/routes/oauth.py` | OAuth routes |
-| `app/routes/profile.py` | User profile routes |
-| `app/routes/cart.py` | Cart routes |
-| `app/routes/__init__.py` | Route exports |
+| `app/core/routes/auth.py` | Authentication routes (including web admin login/dashboard) |
+| `app/core/routes/main.py` | Main routes |
+| `app/core/routes/admin_sites.py` | Admin site management routes (component editor, theme editor, preview/publish) |
+| `app/core/routes/admin_users.py` | Admin user management routes |
+| `app/core/routes/settings.py` | Settings routes |
+| `app/core/routes/editor.py` | Visual editor routes |
+| `app/core/routes/oauth.py` | OAuth routes |
+| `app/core/routes/profile.py` | User profile routes |
+| `app/core/routes/cart.py` | Cart routes |
+| `app/core/routes/__init__.py` | Route exports |
 
 ### Add-on System
 | File | Purpose |
@@ -192,6 +196,14 @@ Complete listing of important files in the codebase, organized by category.
 ---
 
 ## Domain Add-ons
+
+### Blog Domain
+| File | Purpose |
+|------|---------|
+| `app/add_ons/domains/blog/manifest.py` | Blog domain manifest |
+| `app/add_ons/domains/blog/services/post_service.py` | Blog PostService (demo + optional DB mode) |
+| `app/add_ons/domains/blog/routes/posts.py` | Blog routes (`/blog`, create/view) |
+| `app/add_ons/domains/blog/ui/` | Blog pages/components |
 
 ### Commerce Domain
 | File | Purpose |
@@ -225,9 +237,9 @@ Complete listing of important files in the codebase, organized by category.
 |------|---------|
 | `app/add_ons/domains/stream/manifest.py` | Stream domain manifest |
 | `app/add_ons/domains/stream/models/` | Stream domain models |
-| `app/add_ons/domains/stream/repositories/` | Stream repositories |
 | `app/add_ons/domains/stream/services/` | Stream services |
 | `app/add_ons/domains/stream/routes/` | Stream routes |
+| `app/add_ons/domains/stream/TODO.md` | Stream remaining work list |
 
 ---
 
@@ -236,7 +248,7 @@ Complete listing of important files in the codebase, organized by category.
 | File | Purpose |
 |------|---------|
 | `app/app.py` | Main application initialization |
-| `app/main.py` | Application entry point |
+| `app/core/app_factory.py` | App factory used by example apps/tests and non-demo Blog mounting
 
 ---
 
@@ -300,7 +312,7 @@ Complete listing of important files in the codebase, organized by category.
 **State Management**: `app/core/state/`
 **UI Components**: `app/core/ui/`
 **Integrations**: `app/core/integrations/`
-**Routes**: `app/routes/`
+**Routes**: `app/core/routes/`
 **Add-ons**: `app/add_ons/domains/`
 
 ### Find by Pattern
@@ -310,9 +322,9 @@ Complete listing of important files in the codebase, organized by category.
 **Services**: Search in `app/core/services/`
 **Middleware**: Search in `app/core/middleware/`
 **Actions**: Search in `app/core/state/actions.py` or `*/actions.py`
-**Routes**: Search in `app/routes/`
+**Routes**: Search in `app/core/routes/`
 
 ---
 
-**Last Updated**: December 12, 2025
+**Last Updated**: December 14, 2025
 **Total Files Documented**: 200+

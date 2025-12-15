@@ -1,6 +1,6 @@
 # Codebase Index for LLM Navigation
 
-Quick reference guide for navigating the codebase. Updated December 13, 2025.
+Quick reference guide for navigating the codebase. Updated December 14, 2025.
 
 ---
 
@@ -11,6 +11,8 @@ Quick reference guide for navigating the codebase. Updated December 13, 2025.
 - ✅ **LMS** - Course catalog, enrollment, lessons, instructor dashboard
 - ✅ **Web Admin** - Dedicated admin portal with site/theme editor
 - ✅ **Role-Based Dashboards** - Admin, Instructor, Shop Owner
+- ✅ **Blog (default non-demo add-on)** - `/blog` routes + minimal post creation
+- ✅ **Stream (domain add-on)** - Streaming feature set (routes/services/UI)
 
 ---
 
@@ -51,7 +53,7 @@ app/
 │   └── ui/                   # UI (layout.py, pages/, components/)
 │
 ├── add_ons/                  # Domain modules
-│   ├── domains/              # commerce/, lms/, social/, stream/
+│   ├── domains/              # blog/, commerce/, lms/, social/, stream/
 │   ├── services/             # Shared addon services
 │   └── webhooks/             # Stripe webhooks
 │
@@ -77,6 +79,13 @@ app/
 - `app/core/routes/main.py` - Home, landing pages
 - `app/core/routes/admin_sites.py` - Site/theme editor
 
+### Web Admin workflow + state system
+- `app/core/ui/pages/admin_auth.py` - Web admin dashboard UI
+- `app/core/workflows/preview.py` - Draft/publish/preview workflow
+- `app/core/workflows/admin.py` - Site workflow manager
+- `app/core/ui/theme/editor.py` - Theme editor manager
+- `app/core/WEB_ADMIN_TODOS.md` - Add-on switches + future git/submodule sync plan
+
 ### UI Components
 - `app/core/ui/layout.py` - Global Layout with role-based nav
 - `app/core/ui/pages/auth.py` - AuthPage, AuthTabContent
@@ -93,7 +102,23 @@ app/
 
 ### Database
 - `app/core/db/adapters/postgres_adapter.py` - PostgreSQL adapter
+- `app/core/db/adapters/mongodb_adapter.py` - MongoDB adapter
+- `app/core/db/adapters/redis_adapter.py` - Redis adapter
 - `app/core/db/init_schema.py` - Schema initialization
+
+### Add-on system
+- `app/core/addon_loader.py` - Manifest-based add-on loader + enabled/disabled registry
+- `app/core/app_factory.py` - `create_app(demo=...)` (non-demo mounts Blog)
+- `app/core/ui/layout.py` - Demo nav uses example-app dropdown; non-demo nav links to `/blog`
+
+### Blog (default add-on)
+- `app/add_ons/domains/blog/routes/posts.py` - blog routes
+- `app/add_ons/domains/blog/services/post_service.py` - PostService
+
+### Stream (domain add-on)
+- `app/add_ons/domains/stream/routes/` - stream routes
+- `app/add_ons/domains/stream/services/` - stream services
+- `app/add_ons/domains/stream/ui/` - stream UI
 
 ---
 
@@ -144,15 +169,25 @@ elif user_role in ["shop_owner", "merchant"]:
 ## Quick Start
 
 ```bash
-# Start database
+# Start dependencies
 docker compose up -d
 
 # Run app
-cd app && uv run python app.py
+uv run python app/app.py
 
 # Access at http://localhost:5001
 ```
 
+### Run tests
+
+```bash
+docker compose up -d
+uv run pytest -q
+
+# integration (requires Postgres; skipped unless enabled)
+RUN_INTEGRATION_TESTS=1 uv run pytest -q tests/integration
+```
+
 ---
 
-**Last Updated**: December 13, 2025
+**Last Updated**: December 14, 2025

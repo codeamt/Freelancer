@@ -1,6 +1,7 @@
 """Stream domain actions - encapsulated business logic"""
 from abc import ABC, abstractmethod
-from typing import Tuple, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Tuple, Optional
 from datetime import datetime, timedelta
 from core.utils.logger import get_logger
 from app.add_ons.domains.stream.state.stream_state import (

@@ -1,0 +1,13 @@
+/* Minimal editor CSS placeholder.
+   The editor currently references /static/css/editor.css.
+   Keep this lightweight to avoid layout breakage when the file is missing.
+*/
+
+.hidden { display: none; }
+
+#editor-toolbar {
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 10;
+}

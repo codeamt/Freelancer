@@ -11,11 +11,13 @@ logger = get_logger(__name__)
 class PaywallService:
     """Determine stream access and paywall requirements"""
     
-    def __init__(self):
-        self.membership_service = MembershipService()
-        self.purchase_service = PurchaseService()
+    def __init__(self, use_db: bool = False):
+        self.membership_service = MembershipService(use_db=use_db)
+        self.purchase_service = PurchaseService(use_db=use_db)
+
+        self._platform_membership_owner_id = 0
     
-    def can_access_stream(self, user_id: Optional[int], stream: dict) -> Tuple[bool, str, dict]:
+    async def can_access_stream(self, user_id: Optional[int], stream: dict) -> Tuple[bool, str, dict]:
         """
         Check if user can access stream
         
@@ -26,6 +28,13 @@ class PaywallService:
         owner_id = stream.get('owner_id')
         stream_id = stream.get('id')
         required_tier = stream.get('required_tier', MembershipTier.BASIC)
+        if required_tier is None:
+            required_tier = MembershipTier.BASIC
+        if isinstance(required_tier, str):
+            try:
+                required_tier = MembershipTier(required_tier)
+            except Exception:
+                required_tier = MembershipTier.BASIC
         price = stream.get('price', 0.00)
         
         # 1. Owner always has access
@@ -45,8 +54,8 @@ class PaywallService:
         
         # 4. Check membership access
         if visibility == 'member':
-            has_membership = self.membership_service.has_membership(
-                user_id, owner_id, required_tier
+            has_membership = await self.membership_service.has_membership(
+                user_id, self._platform_membership_owner_id, required_tier
             )
             
             if has_membership:
@@ -56,28 +65,34 @@ class PaywallService:
             return False, "membership_required", {
                 "type": "membership",
                 "required_tier": required_tier.value,
-                "channel_owner_id": owner_id,
+                "channel_owner_id": self._platform_membership_owner_id,
                 "message": f"Subscribe to access this stream",
-                "tiers": self._get_tier_options(owner_id, required_tier)
+                "tiers": self._get_tier_options(self._platform_membership_owner_id, required_tier)
             }
         
-        # 5. Check PPV purchase
+        # 5. Paid streams: members OR PPV
         if visibility == 'paid' or price > 0:
-            has_purchased = self.purchase_service.has_purchased(user_id, stream_id)
-            
+            has_membership = await self.membership_service.has_membership(
+                user_id, self._platform_membership_owner_id, MembershipTier.BASIC
+            )
+            if has_membership:
+                return True, "membership", {}
+
+            has_purchased = await self.purchase_service.has_purchased(user_id, stream_id)
             if has_purchased:
                 return True, "purchased", {}
-            
-            # No purchase - show PPV paywall
+
             return False, "payment_required", {
                 "type": "ppv",
                 "price": price,
                 "stream_id": stream_id,
+                "channel_owner_id": self._platform_membership_owner_id,
                 "message": f"Purchase access for ${price}",
                 "options": [
                     {"type": "rental", "price": price, "duration": "48 hours"},
                     {"type": "lifetime", "price": price * 2, "duration": "Lifetime"}
-                ]
+                ],
+                "tiers": self.get_membership_options(self._platform_membership_owner_id, MembershipTier.BASIC),
             }
         
         # Default deny
@@ -113,13 +128,16 @@ class PaywallService:
             })
         
         return tiers
+
+    def get_membership_options(self, channel_owner_id: int, min_tier: MembershipTier = MembershipTier.BASIC) -> list:
+        return self._get_tier_options(channel_owner_id, min_tier)
     
-    def get_access_badge(self, user_id: Optional[int], stream: dict) -> Optional[str]:
+    async def get_access_badge(self, user_id: Optional[int], stream: dict) -> Optional[str]:
         """Get badge/label for user's access level"""
         if not user_id:
             return None
-        
-        has_access, reason, _ = self.can_access_stream(user_id, stream)
+
+        has_access, reason, _ = await self.can_access_stream(user_id, stream)
         
         if not has_access:
             return None
@@ -127,8 +145,8 @@ class PaywallService:
         if reason == "owner":
             return "👑 Owner"
         elif reason == "membership":
-            membership = self.membership_service.get_membership(
-                user_id, stream.get('owner_id')
+            membership = await self.membership_service.get_membership(
+                user_id, self._platform_membership_owner_id
             )
             if membership:
                 return f"⭐ {membership.tier.value.title()} Member"

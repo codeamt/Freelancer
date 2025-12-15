@@ -26,9 +26,9 @@ class PurchaseService:
     async def has_purchased(self, user_id: int, stream_id: int) -> bool:
         """Check if user has active purchase for stream"""
         if self.use_db:
-            purchase_data = await self.db.find_one(
+            purchase_data = await self.db.find_document(
                 "stream_purchases",
-                {"user_id": user_id, "stream_id": stream_id, "status": "completed"}
+                {"user_id": user_id, "stream_id": stream_id, "status": "completed"},
             )
             if purchase_data:
                 purchase = self._dict_to_purchase(purchase_data)
@@ -68,7 +68,18 @@ class PurchaseService:
         }
         
         if self.use_db:
-            result = await self.db.insert("stream_purchases", purchase_data)
+            existing = await self.db.find_documents("stream_purchases", {}, limit=2000)
+            new_id = (
+                max(
+                    (int(p.get("id")) for p in existing if p.get("id") is not None),
+                    default=0,
+                )
+                + 1
+            )
+            result = await self.db.insert_document(
+                "stream_purchases",
+                {"id": new_id, **purchase_data},
+            )
             logger.info(f"Created purchase in DB: user={user_id}, stream={stream_id}, amount=${amount}")
             return self._dict_to_purchase(result)
         
@@ -91,10 +102,10 @@ class PurchaseService:
     async def get_user_purchases(self, user_id: int) -> List[StreamPurchase]:
         """Get all purchases for user"""
         if self.use_db:
-            purchases_data = await self.db.find_many(
+            purchases_data = await self.db.find_documents(
                 "stream_purchases",
                 {"user_id": user_id},
-                limit=100
+                limit=100,
             )
             return [self._dict_to_purchase(p) for p in purchases_data]
         
@@ -104,7 +115,7 @@ class PurchaseService:
     def _dict_to_purchase(self, data: dict) -> StreamPurchase:
         """Convert database dict to StreamPurchase model"""
         return StreamPurchase(
-            id=data.get("id"),
+            id=int(data.get("id") or 0),
             user_id=data["user_id"],
             stream_id=data["stream_id"],
             amount=data["amount"],

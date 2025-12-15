@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a **modular monolith** web application built with FastHTML/HTMX and MonsterUI, following Domain-Driven Design (DDD) principles. The architecture supports multiple domain add-ons (E-Shop, LMS, Social, Streaming) with shared core infrastructure.
+This is a **modular monolith** web application built with FastHTML/HTMX and MonsterUI, following Domain-Driven Design (DDD) principles. The architecture supports multiple domain add-ons (Commerce, LMS, Blog, Stream, Social) with shared core infrastructure.
 
 ## Current State (December 2025)
 
@@ -12,11 +12,13 @@ This is a **modular monolith** web application built with FastHTML/HTMX and Mons
 - ✅ **LMS Example** - Course catalog, enrollment, lessons, instructor dashboard  
 - ✅ **Web Admin Portal** - Dedicated admin login, site/theme editor access
 - ✅ **Role-Based Dashboards** - Admin, Instructor, Shop Owner dashboards
-- ✅ **Security Middleware** - Input sanitization, rate limiting, CSRF protection
+- ✅ **Security Middleware** - Input sanitization, rate limiting, security headers (CSP intentionally not enforced for FastHTML inline styles)
+- ✅ **State System + Site Editing Workflow** - Draft/publish workflow for site components and theme
+- ✅ **Blog Domain (default non-demo add-on)** - `/blog` routes + minimal post creation
+- ✅ **Streaming Domain** - Implemented routes/services/UI (paywall, attendance, chat gating)
 
 ### Pending Implementation
 - 🔄 **Social Domain** - Posts, comments, likes, follows (scaffolded)
-- 🔄 **Streaming Domain** - Live streaming, chat, subscriptions (scaffolded)
 - 🔄 **Stripe Integration** - Payment processing (UI ready, backend pending)
 
 ## Core Architectural Principles
@@ -91,10 +93,11 @@ app/
 │
 ├── add_ons/                       # Domain modules
 │   ├── domains/
+│   │   ├── blog/                  # Blog domain (default non-demo add-on)
 │   │   ├── commerce/              # E-commerce domain logic
 │   │   ├── lms/                   # LMS domain logic
 │   │   ├── social/                # Social domain (scaffolded)
-│   │   └── stream/                # Streaming domain (scaffolded)
+│   │   └── stream/                # Streaming domain
 │   ├── services/                  # Shared addon services
 │   └── webhooks/                  # Stripe webhooks
 │
@@ -116,7 +119,7 @@ app/
 #### Components
 - **AuthService** (`auth_service.py`) - Login, registration, JWT token management
 - **UserRepository** (`app/core/db/repositories/`) - User CRUD operations
-- **JWT Helper** (`jwt_helper.py`) - Token creation and verification
+- **JWT Provider** (`app/core/services/auth/providers/jwt.py`) - Token creation and verification
 - **Models** (`models.py`) - Pydantic models for type safety
 
 #### User Roles (UserRole enum)
@@ -185,8 +188,11 @@ Both examples use shared core services:
 Features:
 - **Input Sanitization** - XSS prevention, SQL injection protection
 - **Rate Limiting** - Request throttling per IP
-- **CSRF Protection** - Token validation for forms
+- **CSRF** - Middleware exists, but may be disabled in some flows due to HTMX integration needs
 - **Security Headers** - CSP, X-Frame-Options, etc.
+
+Notes:
+- CSP is intentionally not enforced in `SecurityHeaders` because FastHTML/MonsterUI uses inline styles and CDN resources.
 
 Form data access pattern:
 ```python
@@ -289,6 +295,9 @@ For testing admin dashboards:
 **Services:**
 - **PostgreSQL** (port 5432) - Primary database
 - **Redis** (port 6379) - Caching and sessions
+- **MongoDB** (port 27017) - Document/state storage
+- **DuckDB** (optional) - Analytics container
+- **MinIO** (9000/9001) - S3-compatible object storage
 
 **Quick start:**
 ```bash
@@ -304,17 +313,20 @@ cd app && uv run python app.py
 ### Required Environment Variables
 ```bash
 JWT_SECRET=your-secret-key-here
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app_db
+POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/app_db
+MONGO_URL=mongodb://root:example@localhost:27017
+REDIS_URL=redis://localhost:6379
 ```
 
 ---
 
 ## Next Steps (Roadmap)
 
-### Immediate (Social & Streaming)
-1. Implement Social domain routes and UI
-2. Implement Streaming domain routes and UI
-3. Connect Stripe webhooks for payments
+### Immediate (Web Admin Add-ons + Blog/Stream hardening)
+1. Add add-on enable/disable switches to Web Admin dashboard
+2. Persist add-on config and apply safely (restart-required first)
+3. Expand Blog and Stream test coverage (see `app/core/TEST_PLAN.md`)
+4. Connect Stripe webhooks for payments
 
 ### Short-term
 1. Add comprehensive test suite
@@ -328,5 +340,5 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app_db
 
 ---
 
-**Last Updated**: December 13, 2025
+**Last Updated**: December 14, 2025
 **Version**: 2.0

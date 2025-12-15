@@ -130,7 +130,13 @@ class MongoDBAdapter:
         """Update single document"""
         session = self._sessions.get(transaction_id) if transaction_id else None
         coll = self.db[collection]
-        result = await coll.update_one(filter, {"$set": update}, session=session)
+        update_doc = update
+        # Allow full Mongo update documents (e.g. {"$set": {...}, "$inc": {...}}).
+        # If no operator keys are present, default to $set.
+        if not any(str(k).startswith("$") for k in update.keys()):
+            update_doc = {"$set": update}
+
+        result = await coll.update_one(filter, update_doc, session=session)
         return result.modified_count
         
     async def delete_one(

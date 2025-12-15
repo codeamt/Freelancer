@@ -3,7 +3,6 @@ from fasthtml.common import *
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
 from core.services.auth import get_current_user_from_context
-from core.services import PaymentService, get_db_service
 from app.add_ons.domains.stream.services.membership_service import MembershipService
 from app.add_ons.domains.stream.models.membership import MembershipTier
 
@@ -20,8 +19,9 @@ async def membership_page(request: Request):
     if not user:
         return RedirectResponse("/auth/login?redirect=/stream/membership")
     
-    service = MembershipService()
-    memberships = service.get_user_memberships(user['id'])
+    use_db = not getattr(request.app.state, "demo", False)
+    service = MembershipService(use_db=use_db)
+    memberships = await service.get_user_memberships(user['id'])
     
     content = Div(
         H1("My Memberships", cls="text-3xl font-bold mb-8"),
@@ -83,84 +83,57 @@ async def subscribe(
     tier: str = Form(...),
     channel_owner_id: int = Form(...)
 ):
-    """Subscribe using state system"""
+    """Subscribe to a channel (MVP: direct DB write; Stripe integration comes later)."""
     user = get_current_user_from_context()
     
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     
-    # Execute action via state manager
-    action = SubscribeToChannelAction(
+    use_db = not getattr(request.app.state, "demo", False)
+    service = MembershipService(use_db=use_db)
+
+    try:
+        tier_enum = MembershipTier(tier)
+    except Exception:
+        tier_enum = MembershipTier.BASIC
+
+    membership = await service.create_membership(
         user_id=user['id'],
         channel_owner_id=channel_owner_id,
-        tier=tier
+        tier=tier_enum,
     )
-    
-    new_state, result = await state_manager.execute(action, user_context=user)
-    
-    if result.success:
-        membership_id = result.data['membership_id']
-        return Response(
-            status_code=303,
-            headers={"HX-Redirect": f"/stream/membership/success?id={membership_id}"}
-        )
-    else:
-        return Div(
-            H3("Subscription Failed", cls="font-bold mb-2"),
-            *[P(error, cls="text-error") for error in result.errors],
-            P(result.message, cls="mt-2"),
-            cls="alert alert-error"
-        )
+
+    return Response(
+        status_code=303,
+        headers={"HX-Redirect": f"/stream/membership/success?id={membership.id}"},
+    )
 
 
 @router_membership.post("/stream/membership/cancel/{membership_id}")
 async def cancel_membership(request: Request, membership_id: int):
-    """Cancel membership using state system"""
+    """Cancel membership (MVP: mark canceled)."""
     user = get_current_user_from_context()
     
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     
-    # Get current membership state
-    from app.add_ons.domains.stream.services.membership_service import MembershipService
-    service = MembershipService()
-    
-    # Find membership (in production, load from DB)
-    membership = None
-    for m in service.memberships:
-        if m.id == membership_id:
-            membership = m
-            break
-    
+    use_db = not getattr(request.app.state, "demo", False)
+    service = MembershipService(use_db=use_db)
+
+    membership = await service.get_membership_by_id(membership_id)
     if not membership:
         return Div("Membership not found", cls="alert alert-error")
-    
-    # Convert to MembershipState
-    from app.add_ons.domains.stream.state.stream_state import MembershipState
-    current_state = MembershipState(
-        membership_id=membership.id,
-        user_id=membership.user_id,
-        channel_owner_id=membership.channel_owner_id,
-        tier=membership.tier.value,
-        status=membership.status,
-        stripe_subscription_id=membership.stripe_subscription_id,
-        current_period_end=membership.current_period_end
+    if membership.user_id != user['id']:
+        return Div("Permission denied", cls="alert alert-error")
+
+    ok = await service.cancel_membership(membership_id)
+    if not ok:
+        return Div("Failed to cancel membership", cls="alert alert-error")
+
+    return Div(
+        "Membership canceled. Access continues until period end.",
+        cls="alert alert-info",
     )
-    
-    # Execute action
-    action = CancelMembershipAction(membership_id=membership_id, user_id=user['id'])
-    new_state, result = await state_manager.execute(action, current_state, user_context=user)
-    
-    if result.success:
-        return Div(
-            result.message,
-            cls="alert alert-info"
-        )
-    else:
-        return Div(
-            result.message,
-            cls="alert alert-error"
-        )
 
 
 @router_membership.get("/stream/membership/success")

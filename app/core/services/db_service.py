@@ -5,6 +5,7 @@ Provides simplified access to the multi-transactional database system.
 Integrates with UserContext for user-aware operations and audit logging.
 """
 from typing import Dict, List, Any, Optional
+import os
 from core.db import (
     TransactionManager,
     transactional,
@@ -13,6 +14,7 @@ from core.db import (
     MongoDBAdapter,
     RedisAdapter
 )
+from core.db.session import get_session_manager
 from core.services.auth.context import current_user_context, UserContext
 from core.utils.logger import get_logger
 
@@ -43,11 +45,50 @@ class DBService:
             # Auto-commits on success, auto-rollbacks on error
     """
     
-    def __init__(self):
-        """Initialize database service with adapters."""
-        self.postgres = PostgresAdapter()
-        self.mongodb = MongoDBAdapter()
-        self.redis = RedisAdapter()
+    def __init__(
+        self,
+        postgres: Optional[PostgresAdapter] = None,
+        mongodb: Optional[MongoDBAdapter] = None,
+        redis: Optional[RedisAdapter] = None,
+    ):
+        """Initialize database service with adapters.
+
+        Prefers adapters from the global SessionManager (initialized during app startup),
+        falling back to environment-based adapters when running outside the main app.
+        """
+
+        if postgres is None or mongodb is None or redis is None:
+            try:
+                sm = get_session_manager()
+                postgres = postgres or sm.postgres
+                mongodb = mongodb or sm.mongodb
+                redis = redis or sm.redis
+            except RuntimeError:
+                # Session manager not initialized (e.g. CLI / some tests)
+                pass
+
+        self.postgres = postgres or PostgresAdapter(
+            connection_string=os.getenv(
+                "POSTGRES_URL",
+                "postgresql://postgres:postgres@localhost:5432/app_db",
+            ),
+            min_size=int(os.getenv("POSTGRES_POOL_MIN", "1")),
+            max_size=int(os.getenv("POSTGRES_POOL_MAX", "5")),
+        )
+        self.mongodb = mongodb or MongoDBAdapter(
+            connection_string=os.getenv(
+                "MONGO_URL",
+                "mongodb://root:example@localhost:27017",
+            ),
+            database=os.getenv("MONGO_DB", "app_db"),
+        )
+        self.redis = redis or RedisAdapter(
+            connection_string=os.getenv(
+                "REDIS_URL",
+                "redis://localhost:6379",
+            )
+        )
+
         logger.info("DBService initialized with multi-database support")
     
     def _get_user_context(self) -> Optional[UserContext]:
@@ -56,6 +97,14 @@ class DBService:
             return current_user_context.get(None)
         except Exception:
             return None
+
+    async def _ensure_mongodb_connected(self) -> None:
+        if not getattr(self.mongodb, "client", None):
+            await self.mongodb.connect()
+
+    async def _ensure_redis_connected(self) -> None:
+        if not getattr(self.redis, "client", None):
+            await self.redis.connect()
     
     def _enrich_with_audit(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -259,14 +308,18 @@ class DBService:
         # Enrich with audit fields if enabled
         if audit:
             document = self._enrich_with_audit(document)
+
+        await self._ensure_mongodb_connected()
         
         if transaction_manager:
-            return await transaction_manager.execute(
+            inserted_id = await transaction_manager.execute(
                 self.mongodb, "insert_one", collection, document
             )
-        
-        async with TransactionManager() as tm:
-            return await tm.execute(self.mongodb, "insert_one", collection, document)
+        else:
+            async with TransactionManager() as tm:
+                inserted_id = await tm.execute(self.mongodb, "insert_one", collection, document)
+
+        return {**document, "_id": inserted_id}
     
     async def find_document(
         self,
@@ -283,6 +336,7 @@ class DBService:
         Returns:
             Document or None
         """
+        await self._ensure_mongodb_connected()
         return await self.mongodb.find_one(collection, filters)
     
     async def find_documents(
@@ -290,7 +344,8 @@ class DBService:
         collection: str,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
-        skip: int = 0
+        skip: int = 0,
+        sort: Optional[List[tuple]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Find multiple documents in MongoDB collection.
@@ -304,7 +359,14 @@ class DBService:
         Returns:
             List of documents
         """
-        return await self.mongodb.find(collection, filters, limit, skip)
+        await self._ensure_mongodb_connected()
+        return await self.mongodb.find_many(
+            collection,
+            filters or {},
+            limit=limit,
+            skip=skip,
+            sort=sort,
+        )
     
     async def update_document(
         self,
@@ -334,14 +396,18 @@ class DBService:
                 if '$set' not in update:
                     update['$set'] = {}
                 update['$set']['updated_by'] = user_context.user_id
+
+        await self._ensure_mongodb_connected()
         
         if transaction_manager:
-            return await transaction_manager.execute(
+            await transaction_manager.execute(
                 self.mongodb, "update_one", collection, filters, update
             )
-        
-        async with TransactionManager() as tm:
-            return await tm.execute(self.mongodb, "update_one", collection, filters, update)
+        else:
+            async with TransactionManager() as tm:
+                await tm.execute(self.mongodb, "update_one", collection, filters, update)
+
+        return await self.find_document(collection, filters)
     
     async def delete_document(
         self,
@@ -360,13 +426,16 @@ class DBService:
         Returns:
             True if deleted
         """
+        await self._ensure_mongodb_connected()
         if transaction_manager:
-            return await transaction_manager.execute(
+            deleted_count = await transaction_manager.execute(
                 self.mongodb, "delete_one", collection, filters
             )
-        
-        async with TransactionManager() as tm:
-            return await tm.execute(self.mongodb, "delete_one", collection, filters)
+        else:
+            async with TransactionManager() as tm:
+                deleted_count = await tm.execute(self.mongodb, "delete_one", collection, filters)
+
+        return bool(deleted_count)
     
     # ========================================================================
     # Redis Operations (Cache)
@@ -374,6 +443,7 @@ class DBService:
     
     async def cache_get(self, key: str) -> Optional[Any]:
         """Get value from Redis cache."""
+        await self._ensure_redis_connected()
         return await self.redis.get(key)
     
     async def cache_set(
@@ -395,6 +465,7 @@ class DBService:
         Returns:
             True if set successfully
         """
+        await self._ensure_redis_connected()
         if transaction_manager:
             return await transaction_manager.execute(
                 self.redis, "set", key, value, ttl
@@ -418,6 +489,7 @@ class DBService:
         Returns:
             True if deleted
         """
+        await self._ensure_redis_connected()
         if transaction_manager:
             return await transaction_manager.execute(
                 self.redis, "delete", key
@@ -428,6 +500,7 @@ class DBService:
     
     async def cache_exists(self, key: str) -> bool:
         """Check if key exists in Redis cache."""
+        await self._ensure_redis_connected()
         return await self.redis.exists(key)
     
     # ========================================================================

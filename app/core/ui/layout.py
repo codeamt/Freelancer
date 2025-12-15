@@ -70,7 +70,7 @@ def Layout(
             A(
                 UkIcon("file-text", cls="mr-1"),
                 "Blog",
-                href='#',
+                href='/blog',
                 cls="flex items-center gap-1"
             )
         )

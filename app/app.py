@@ -165,8 +165,13 @@ app, rt = fast_app(
             href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
         ),
     ],
-    live=ENVIRONMENT == "development"
+    live=ENVIRONMENT == "development",
+    static_path="app/core/ui/static",
 )
+
+# Serve JS/CSS assets under /static/* from app/core/ui/static
+app.static_route_exts(prefix='/static/js/', static_path='app/core/ui/static/js', exts='js')
+app.static_route_exts(prefix='/static/css/', static_path='app/core/ui/static/css', exts='css')
 
 # ============================================================================
 # Dependency Injection (App State)

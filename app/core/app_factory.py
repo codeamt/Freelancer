@@ -72,8 +72,13 @@ def create_app(
             ),
         ],
         live=environment == "development",
+        static_path="app/core/ui/static",
         **kwargs
     )
+
+    # Serve JS/CSS assets under /static/* from app/core/ui/static
+    app.static_route_exts(prefix='/static/js/', static_path='app/core/ui/static/js', exts='js')
+    app.static_route_exts(prefix='/static/css/', static_path='app/core/ui/static/css', exts='css')
     
     # Initialize database adapters
     logger.info("Initializing database adapters...")
@@ -182,6 +187,11 @@ def create_app(
     # Call setup_routes callback if provided
     if setup_routes:
         setup_routes(app, rt)
+
+    # Mount default blog addon for non-demo apps
+    if not demo:
+        from add_ons.domains.blog import router_blog
+        router_blog.to_app(app)
     
     # Return app and services dict
     services = {

@@ -2,10 +2,16 @@
 from fasthtml.common import *
 from core.ui.layout import Layout
 from .components import StreamCard, VideoPlayer, ChatWidget, BroadcastControls, StreamAnalytics
+from typing import List, Optional
+import json
 
 
 def streams_list_page(streams: List[dict], user: dict = None):
     """List all streams page"""
+    live_streams = [s for s in streams if s.get('is_live')]
+    upcoming_streams = [s for s in streams if (not s.get('is_live')) and s.get('scheduled_start')]
+    recorded_streams = [s for s in streams if (not s.get('is_live')) and not s.get('scheduled_start')]
+
     content = Div(
         # Header
         Div(
@@ -33,10 +39,22 @@ def streams_list_page(streams: List[dict], user: dict = None):
         Div(
             H2("🔴 Live Now", cls="text-2xl font-bold mb-6"),
             Div(
-                *[StreamCard(stream, user) for stream in streams if stream.get('is_live')],
+                *[StreamCard(stream, user) for stream in live_streams],
                 cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"
-            ) if any(s.get('is_live') for s in streams) else P(
+            ) if live_streams else P(
                 "No live streams at the moment. Check back soon!",
+                cls="text-center text-gray-500 py-8"
+            ),
+        ),
+
+        # Upcoming streams section
+        Div(
+            H2("🗓 Upcoming", cls="text-2xl font-bold mb-6"),
+            Div(
+                *[StreamCard(stream, user) for stream in upcoming_streams],
+                cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"
+            ) if upcoming_streams else P(
+                "No upcoming streams scheduled.",
                 cls="text-center text-gray-500 py-8"
             ),
         ),
@@ -45,7 +63,7 @@ def streams_list_page(streams: List[dict], user: dict = None):
         Div(
             H2("📼 Recordings", cls="text-2xl font-bold mb-6"),
             Div(
-                *[StreamCard(stream, user) for stream in streams if not stream.get('is_live')],
+                *[StreamCard(stream, user) for stream in recorded_streams],
                 cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             ),
         ),
@@ -56,7 +74,7 @@ def streams_list_page(streams: List[dict], user: dict = None):
     return Layout(content, title="Live Streams | FastApp")
 
 
-def watch_page(stream: dict, ice_servers: List[dict], user: dict = None):
+def watch_page(stream: dict, ice_servers: List[dict], user: dict = None, access_badge: Optional[str] = None):
     """Watch stream page"""
     content = Div(
         Div(
@@ -87,17 +105,133 @@ def watch_page(stream: dict, ice_servers: List[dict], user: dict = None):
         cls="container mx-auto px-4 py-8"
     )
     
+    ice_json = json.dumps(ice_servers or [])
+
+    player_js = """
+    window.addEventListener('DOMContentLoaded', () => {
+      const streamId = __STREAM_ID__;
+      const iceServers = __ICE_SERVERS__;
+
+      async function waitIce(pc) {
+        if (pc.iceGatheringState === 'complete') return;
+        await new Promise((resolve) => {
+          const onChange = () => {
+            if (pc.iceGatheringState === 'complete') {
+              pc.removeEventListener('icegatheringstatechange', onChange);
+              resolve();
+            }
+          };
+          pc.addEventListener('icegatheringstatechange', onChange);
+          setTimeout(resolve, 3000);
+        });
+      }
+
+      async function initPlayer() {
+        const video = document.getElementById('stream-video');
+        if (!video) return;
+
+        const room = String(streamId);
+        const viewerId = (window.crypto && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : (Math.random().toString(16).slice(2) + Date.now());
+
+        const pc = new RTCPeerConnection({ iceServers: iceServers || [] });
+        pc.addTransceiver('video', { direction: 'recvonly' });
+        pc.addTransceiver('audio', { direction: 'recvonly' });
+
+        pc.ontrack = (event) => {
+          if (event.streams && event.streams[0]) video.srcObject = event.streams[0];
+        };
+
+        video.autoplay = true;
+        video.playsInline = true;
+
+        const postCandidate = async (cand) => {
+          await fetch(`/stream/webrtc/${encodeURIComponent(room)}/candidates/from-viewer/${encodeURIComponent(viewerId)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(cand),
+          });
+        };
+
+        pc.onicecandidate = (ev) => {
+          if (ev.candidate) postCandidate(ev.candidate).catch(() => {});
+        };
+
+        let candPollStop = false;
+        const pollBroadcasterCandidates = async () => {
+          while (!candPollStop) {
+            try {
+              const resp = await fetch(`/stream/webrtc/${encodeURIComponent(room)}/candidates/from-broadcaster/${encodeURIComponent(viewerId)}?max=50`, {
+                credentials: 'same-origin',
+              });
+              const data = await resp.json();
+              const cands = (data && data.candidates) ? data.candidates : [];
+              for (const c of cands) {
+                try { await pc.addIceCandidate(c); } catch (_) {}
+              }
+            } catch (_) {}
+            await new Promise((r) => setTimeout(r, 500));
+          }
+        };
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await waitIce(pc);
+
+        await fetch(`/stream/webrtc/${encodeURIComponent(room)}/offer/${encodeURIComponent(viewerId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(pc.localDescription),
+        });
+
+        const pollAnswer = async () => {
+          const resp = await fetch(`/stream/webrtc/${encodeURIComponent(room)}/answer/${encodeURIComponent(viewerId)}`, { credentials: 'same-origin' });
+          const answer = await resp.json();
+          if (answer && answer.type && answer.sdp) return answer;
+          return null;
+        };
+
+        let answer = null;
+        for (let i = 0; i < 60; i++) {
+          answer = await pollAnswer();
+          if (answer) break;
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+
+        if (!answer) return;
+        await pc.setRemoteDescription(answer);
+        window.__STREAM_PLAYER_PC__ = pc;
+
+        pollBroadcasterCandidates();
+
+        const cleanup = () => {
+          candPollStop = true;
+          fetch(`/stream/webrtc/${encodeURIComponent(room)}/disconnect/${encodeURIComponent(viewerId)}`, {
+            method: 'POST',
+            credentials: 'same-origin',
+          }).catch(() => {});
+          try { pc.close(); } catch (_) {}
+        };
+
+        window.addEventListener('beforeunload', cleanup);
+        pc.onconnectionstatechange = () => {
+          if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') cleanup();
+        };
+      }
+
+      initPlayer();
+    });
+    """
+
+    player_js = player_js.replace("__STREAM_ID__", str(stream["id"])).replace("__ICE_SERVERS__", ice_json)
+
     # Add WebRTC script
     content = Div(
         content,
-        Script(src="/static/js/webrtc-player.js"),
-        Script(
-            f"""
-            window.addEventListener('DOMContentLoaded', () => {{
-                initPlayer({stream['id']}, {ice_servers});
-            }});
-            """
-        )
+        Script(player_js),
     )
     
     return Layout(content, title=f"{stream['title']} | FastApp")
@@ -132,17 +266,132 @@ def broadcast_page(stream: dict, ice_servers: List[dict]):
         cls="container mx-auto px-4 py-8"
     )
     
+    ice_json = json.dumps(ice_servers or [])
+
+    broadcast_js = """
+    window.addEventListener('DOMContentLoaded', () => {
+      const streamId = __STREAM_ID__;
+      const iceServers = __ICE_SERVERS__;
+
+      async function waitIce(pc) {
+        if (pc.iceGatheringState === 'complete') return;
+        await new Promise((resolve) => {
+          const onChange = () => {
+            if (pc.iceGatheringState === 'complete') {
+              pc.removeEventListener('icegatheringstatechange', onChange);
+              resolve();
+            }
+          };
+          pc.addEventListener('icegatheringstatechange', onChange);
+          setTimeout(resolve, 3000);
+        });
+      }
+
+      async function initBroadcast() {
+        const preview = document.getElementById('preview-video');
+        if (!preview) return;
+        const room = String(streamId);
+
+        const media = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        preview.srcObject = media;
+
+        const peers = new Map();
+
+        async function answerViewer(viewerId, offer) {
+          if (!viewerId || !offer) return;
+          if (peers.has(viewerId)) return;
+
+          const pc = new RTCPeerConnection({ iceServers: iceServers || [] });
+          media.getTracks().forEach((t) => pc.addTrack(t, media));
+
+          const postCandidate = async (cand) => {
+            await fetch(`/stream/webrtc/${encodeURIComponent(room)}/candidates/from-broadcaster/${encodeURIComponent(viewerId)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify(cand),
+            });
+          };
+          pc.onicecandidate = (ev) => {
+            if (ev.candidate) postCandidate(ev.candidate).catch(() => {});
+          };
+
+          let candPollStop = false;
+          const pollViewerCandidates = async () => {
+            while (!candPollStop) {
+              try {
+                const resp = await fetch(`/stream/webrtc/${encodeURIComponent(room)}/candidates/from-viewer/${encodeURIComponent(viewerId)}?max=50`, {
+                  credentials: 'same-origin',
+                });
+                const data = await resp.json();
+                const cands = (data && data.candidates) ? data.candidates : [];
+                for (const c of cands) {
+                  try { await pc.addIceCandidate(c); } catch (_) {}
+                }
+              } catch (_) {}
+              await new Promise((r) => setTimeout(r, 300));
+            }
+          };
+
+          await pc.setRemoteDescription(offer);
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          await waitIce(pc);
+
+          await fetch(`/stream/webrtc/${encodeURIComponent(room)}/answer/${encodeURIComponent(viewerId)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(pc.localDescription),
+          });
+
+          peers.set(viewerId, pc);
+
+          pollViewerCandidates();
+
+          const cleanupPeer = () => {
+            candPollStop = true;
+            peers.delete(viewerId);
+            fetch(`/stream/webrtc/${encodeURIComponent(room)}/disconnect/${encodeURIComponent(viewerId)}`, {
+              method: 'POST',
+              credentials: 'same-origin',
+            }).catch(() => {});
+            try { pc.close(); } catch (_) {}
+          };
+          pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') cleanupPeer();
+          };
+        }
+
+        async function pollLoop() {
+          while (true) {
+            try {
+              const resp = await fetch(`/stream/webrtc/${encodeURIComponent(room)}/offers/next`, { credentials: 'same-origin' });
+              const data = await resp.json();
+              if (data && data.viewer_id && data.offer) {
+                await answerViewer(data.viewer_id, data.offer);
+              }
+            } catch (e) {
+              console.warn('Offer poll error', e);
+            }
+            await new Promise((r) => setTimeout(r, 500));
+          }
+        }
+
+        pollLoop();
+        window.__STREAM_BROADCAST_PEERS__ = peers;
+      }
+
+      initBroadcast();
+    });
+    """
+
+    broadcast_js = broadcast_js.replace("__STREAM_ID__", str(stream["id"])).replace("__ICE_SERVERS__", ice_json)
+
     # Add WebRTC broadcast script
     content = Div(
         content,
-        Script(src="/static/js/webrtc-broadcast.js"),
-        Script(
-            f"""
-            window.addEventListener('DOMContentLoaded', () => {{
-                initBroadcast({stream['id']}, {ice_servers});
-            }});
-            """
-        )
+        Script(broadcast_js),
     )
     
     return Layout(content, title=f"Broadcast: {stream['title']} | FastApp")

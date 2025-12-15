@@ -29,10 +29,10 @@ class MembershipService:
     async def get_user_memberships(self, user_id: int) -> List[Membership]:
         """Get all active memberships for user"""
         if self.use_db:
-            memberships_data = await self.db.find_many(
+            memberships_data = await self.db.find_documents(
                 "memberships",
                 {"user_id": user_id, "status": "active"},
-                limit=50
+                limit=50,
             )
             return [self._dict_to_membership(m) for m in memberships_data]
         
@@ -45,9 +45,9 @@ class MembershipService:
     async def get_membership(self, user_id: int, channel_owner_id: int) -> Optional[Membership]:
         """Get user's membership to specific channel"""
         if self.use_db:
-            membership_data = await self.db.find_one(
+            membership_data = await self.db.find_document(
                 "memberships",
-                {"user_id": user_id, "channel_owner_id": channel_owner_id}
+                {"user_id": user_id, "channel_owner_id": channel_owner_id},
             )
             return self._dict_to_membership(membership_data) if membership_data else None
         
@@ -56,11 +56,29 @@ class MembershipService:
             if m.user_id == user_id and m.channel_owner_id == channel_owner_id:
                 return m
         return None
+
+    async def get_membership_by_id(self, membership_id: int) -> Optional[Membership]:
+        """Get membership by numeric ID."""
+        if self.use_db:
+            membership_data = await self.db.find_document(
+                "memberships",
+                {"id": membership_id},
+            )
+            return self._dict_to_membership(membership_data) if membership_data else None
+
+        for m in self.memberships:
+            if m.id == membership_id:
+                return m
+        return None
     
-    def has_membership(self, user_id: int, channel_owner_id: int, 
-                       min_tier: MembershipTier = MembershipTier.BASIC) -> bool:
+    async def has_membership(
+        self,
+        user_id: int,
+        channel_owner_id: int,
+        min_tier: MembershipTier = MembershipTier.BASIC,
+    ) -> bool:
         """Check if user has active membership at or above tier"""
-        membership = self.get_membership(user_id, channel_owner_id)
+        membership = await self.get_membership(user_id, channel_owner_id)
         
         if not membership or not membership.is_active():
             return False
@@ -87,7 +105,18 @@ class MembershipService:
         }
         
         if self.use_db:
-            result = await self.db.insert("memberships", membership_data)
+            existing = await self.db.find_documents("memberships", {}, limit=1000)
+            new_id = (
+                max(
+                    (int(m.get("id")) for m in existing if m.get("id") is not None),
+                    default=0,
+                )
+                + 1
+            )
+            result = await self.db.insert_document(
+                "memberships",
+                {"id": new_id, **membership_data},
+            )
             logger.info(f"Created membership in DB: user={user_id}, channel={channel_owner_id}, tier={tier}")
             return self._dict_to_membership(result)
         
@@ -106,8 +135,16 @@ class MembershipService:
         logger.info(f"Created membership: user={user_id}, channel={channel_owner_id}, tier={tier}")
         return membership
     
-    def cancel_membership(self, membership_id: int) -> bool:
+    async def cancel_membership(self, membership_id: int) -> bool:
         """Cancel membership (access until period end)"""
+        if self.use_db:
+            updated = await self.db.update_document(
+                "memberships",
+                {"id": membership_id},
+                {"$set": {"status": "canceled", "canceled_at": datetime.utcnow()}},
+            )
+            return bool(updated)
+
         for m in self.memberships:
             if m.id == membership_id:
                 m.status = "canceled"
@@ -128,7 +165,7 @@ class MembershipService:
     def _dict_to_membership(self, data: dict) -> Membership:
         """Convert database dict to Membership model"""
         return Membership(
-            id=data.get("id"),
+            id=int(data.get("id") or 0),
             user_id=data["user_id"],
             channel_owner_id=data["channel_owner_id"],
             tier=MembershipTier(data["tier"]) if isinstance(data["tier"], str) else data["tier"],

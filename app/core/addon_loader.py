@@ -27,6 +27,7 @@ ENABLED_ADDONS = {
     "commerce": True,      # E-commerce / Shop
     "social": False,       # Social networking (coming soon)
     "stream": False,       # Streaming platform (coming soon)
+    "blog": False,         # Blog (coming soon)
     "analytics": False,    # Analytics (coming soon)
     "media": False,        # Media management (coming soon)
 }
@@ -37,6 +38,7 @@ ADDON_DEPENDENCIES = {
     "commerce": [],
     "social": [],
     "stream": [],
+    "blog": [],
 }
 
 # Add-on Mount Points - Where routes will be mounted
@@ -45,6 +47,7 @@ ADDON_ROUTES = {
     "commerce": "/shop",
     "social": "/social",
     "stream": "/stream",
+    "blog": "/blog",
     "analytics": "/analytics",
     "media": "/media",
 }
