@@ -1,5 +1,5 @@
 from fasthtml.oauth import GoogleAppClient, OAuth
-from fastapi import Request
+from starlette.requests import Request
 from starlette.responses import RedirectResponse
 import os
 from core.utils.logger import get_logger

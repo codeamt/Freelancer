@@ -4,12 +4,12 @@ LMS Domain Models
 PostgreSQL models for Learning Management System.
 """
 
-from .course import Course, CourseStatus, CourseDifficulty
-from .lesson import Lesson, LessonType
-from .enrollment import Enrollment, EnrollmentStatus
-from .progress import Progress
-from .assessment import Assessment, AssessmentType, AssessmentSubmission
-from .certificate import Certificate
+from .sql.course import Course, CourseStatus, CourseDifficulty
+from .sql.lesson import Lesson, LessonType
+from .sql.enrollment import Enrollment, EnrollmentStatus
+from .sql.progress import Progress
+from .sql.assessment import Assessment, AssessmentType, AssessmentSubmission
+from .sql.certificate import Certificate
 
 __all__ = [
     "Course",

@@ -1,4 +1,4 @@
-from .__init__ import ComponentConfig, ComponentType, VisibilityCondition
+from . import ComponentConfig, ComponentType, VisibilityCondition
 
 class ComponentLibrary:
     """Library of pre-defined component templates."""

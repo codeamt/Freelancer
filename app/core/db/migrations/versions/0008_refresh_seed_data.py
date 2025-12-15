@@ -29,7 +29,7 @@ def upgrade() -> None:
     # Reinsert demo courses
     connection.execute(sa.text("""
         INSERT INTO courses (id, title, description) VALUES
-        ('c1', 'Intro to FastAPI', 'Build powerful APIs using FastAPI.'),
+        ('c1', 'Intro to FastHTML', 'Build powerful web apps using FastHTML.'),
         ('c2', 'HTMX for Developers', 'Reactive UIs with minimal JavaScript.'),
         ('c3', 'MonsterUI Design System', 'Learn to design sleek components.');
     """))

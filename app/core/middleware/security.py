@@ -8,11 +8,11 @@ from datetime import datetime
 import time
 import secrets
 import jwt
-from typing import Callable
+from typing import Callable, Any
 from collections import defaultdict
-from fastapi import HTTPException, FastAPI # , Request
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from core.ui.utils.security import sanitize_html, sanitize_sql_input
 from core.utils.logger import get_logger
@@ -100,7 +100,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         b["tokens"] = min(_CAP, b["tokens"] + elapsed * (_CAP / _WINDOW))
         b["ts"] = now
         if b["tokens"] < 1:
-            raise HTTPException(429, "Too Many Requests")
+            return PlainTextResponse("Too Many Requests", status_code=429)
         b["tokens"] -= 1
         return await call_next(request)
 
@@ -255,7 +255,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
 # --- Apply to app ------------------------------------------------------------
 
-def apply_security(app: FastAPI):
+def apply_security(app: Any):
     app.add_middleware(SecurityHeaders)
     app.add_middleware(CSRFMiddleware)
     app.add_middleware(RateLimitMiddleware)
@@ -266,13 +266,13 @@ def apply_security(app: FastAPI):
 # Example Usage (in main.py)
 # ------------------------------------------------------------------------------
 """
-from fastapi import FastAPI, Request
-from app.middleware.security_middleware import apply_security
+from fasthtml.common import fast_app, Request
+from core.middleware.security import apply_security
 
-app = FastAPI()
+app, _rt = fast_app()
 apply_security(app)
 
 @app.get("/status")
 async def status(request: Request):
-    return {"message": "OK", "trace_id": request.headers.get('x-trace-id', 'n/a')}
+    return {"message": "OK"}
 """

@@ -19,18 +19,24 @@ class JWTProvider:
         self.algorithm = "HS256"
         self.exp_hours = 24
 
-    def create(self, payload: Dict) -> str:
+    def create(self, payload: Dict, expires_hours: Optional[int] = None) -> str:
         """Create JWT token with expiration"""
+        exp_hours = self.exp_hours if expires_hours is None else expires_hours
         return jwt.encode(
-            {**payload, "exp": datetime.utcnow() + timedelta(hours=self.exp_hours)},
+            {**payload, "exp": datetime.utcnow() + timedelta(hours=exp_hours)},
             self.secret,
             algorithm=self.algorithm
         )
 
-    def verify(self, token: str) -> Optional[Dict]:
+    def verify(self, token: str, allow_expired: bool = False) -> Optional[Dict]:
         """Verify and decode JWT token"""
         try:
-            return jwt.decode(token, self.secret, algorithms=[self.algorithm])
+            return jwt.decode(
+                token,
+                self.secret,
+                algorithms=[self.algorithm],
+                options={"verify_exp": not allow_expired},
+            )
         except jwt.ExpiredSignatureError:
             logger.warning("Token expired")
             return None

@@ -9,7 +9,7 @@ from .profile import router_profile
 from .editor import router_editor
 from .settings import router_settings
 from .oauth import router_oauth
-from .cart import router
+from .cart import router_cart
 
 __all__ = [
     'router_main',
@@ -20,5 +20,5 @@ __all__ = [
     'router_editor',
     'router_settings',
     'router_oauth',
-    'router',  # cart router
+    'router_cart',  # cart router
 ]

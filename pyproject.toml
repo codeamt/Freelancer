@@ -1,10 +1,9 @@
 [project]
 name = "freelancer"
 version = "1.0.0"
-description = "Modular FastAPI + FastHTML + MonsterUI app with GraphQL and Stripe"
+description = "ModularFastHTML + MonsterUI app with GraphQL and Stripe"
 requires-python = ">=3.12"
 dependencies = [
-  "fastapi",
   "uvicorn[standard]",
   "sqlalchemy[asyncio]",
   "asyncpg",
@@ -16,7 +15,7 @@ dependencies = [
   "argon2-cffi",
   "bcrypt",
   "python-dotenv",
-  "strawberry-graphql[fastapi]",
+  "strawberry-graphql",
   "alembic",
   "python-fasthtml",
   "MonsterUI",
@@ -31,8 +30,17 @@ dependencies = [
   "pillow>=12.0.0",
   "reportlab>=4.4.5",
   "cryptography>=41.0.0", 
-  "httpx"
+  "httpx",
+  "email-validator",
+  "python-multipart"
 ]
+
+[project.optional-dependencies]
+ test = [
+   "pytest>=7.0",
+   "pytest-asyncio>=0.21",
+   "pytest-cov>=4.0",
+ ]
 
 [build-system]
 requires = ["setuptools>=45", "wheel"]
@@ -41,3 +49,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*", "config*", "infrastructure*", "scripts*"]
+
+[tool.pytest.ini_options]
+ testpaths = ["tests"]
+ addopts = "-ra"
+ asyncio_mode = "auto"
+ markers = [
+   "async: marks tests as async",
+ ]

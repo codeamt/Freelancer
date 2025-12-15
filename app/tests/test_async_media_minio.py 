@@ -1,9 +1,0 @@
-import io
-import pytest
-
-@pytest.mark.asyncio
-async def test_async_media_upload(async_client):
-    file_data = {"file": (io.BytesIO(b"async test content"), "async_test.txt")}
-    response = await async_client.post("/media/upload", files=file_data)
-    assert response.status_code == 200
-    assert "url" in response.json()

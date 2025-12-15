@@ -77,7 +77,10 @@ async def login(request: Request):
     redirect_url = form.get("redirect") or "/"
     
     from core.services.auth.auth_service import LoginRequest
-    result = await auth_service.login(LoginRequest(username=email, password=password))
+    try:
+        result = await auth_service.login(LoginRequest(username=email, password=password))
+    except Exception:
+        result = None
     
     if result:
         response = RedirectResponse(redirect_url, status_code=303)

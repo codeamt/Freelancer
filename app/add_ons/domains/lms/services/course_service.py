@@ -5,9 +5,11 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional, TYPE_CHECKING
 import math
 
-if TYPE_CHECKING:
-    from core.db.models import Course, Lesson, Enrollment, User
-    from add_ons.lms.schemas import CourseCreate, CourseUpdate, CourseStatus
+from app.add_ons.domains.lms.models.sql.course import Course
+from app.add_ons.domains.lms.models.sql.lesson import Lesson
+from app.add_ons.domains.lms.models.sql.enrollment import Enrollment
+from core.db.models import User
+from app.add_ons.domains.lms.schemas import CourseCreate, CourseUpdate, CourseStatus
 
 
 class CourseService:

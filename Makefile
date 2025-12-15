@@ -103,15 +103,15 @@ minio-reset:
 .PHONY: test test-async test-e2e
 test:
 	@echo "🧪 Running unit and integration tests..."
-	@$(UV) run pytest -q --disable-warnings -m "not async"
+	@export PYTHONDONTWRITEBYTECODE=1; $(UV) run pytest tests/ -q --disable-warnings -m "not async"
 
 test-async:
 	@echo "⚡ Running async tests..."
-	@$(UV) run pytest -q -m async --disable-warnings
+	@export PYTHONDONTWRITEBYTECODE=1; $(UV) run pytest tests/ -q -m "asyncio or async" --disable-warnings
 
 test-e2e:
 	@echo "🧩 Running full end-to-end test suite..."
-	@$(UV) run pytest tests/test_end_to_end.py -q --disable-warnings
+	@export PYTHONDONTWRITEBYTECODE=1; $(UV) run pytest tests/ -q --disable-warnings
 
 # --- Performance / Load Testing ---
 .PHONY: perf-test perf-scale perf-down

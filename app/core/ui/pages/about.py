@@ -31,7 +31,7 @@ def AboutPage():
                 ),
                 Div(
                     H5("Backend", cls="card-title"),
-                    P("Python + FastAPI + SQLAlchemy", cls="card-text"),
+                    P("Python + FastHTML + SQLAlchemy", cls="card-text"),
                     cls="card-body"
                 ),
                 Div(

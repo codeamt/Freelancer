@@ -2,8 +2,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 from typing import List, Optional
-from app.core.db.models import Lesson, Course
-from app.add_ons.lms.schemas import LessonCreate, LessonUpdate
+from app.add_ons.domains.lms.models.sql.lesson import Lesson
+from app.add_ons.domains.lms.models.sql.course import Course
+from app.add_ons.domains.lms.schemas import LessonCreate, LessonUpdate
 
 
 class LessonService:

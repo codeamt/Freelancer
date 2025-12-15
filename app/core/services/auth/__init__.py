@@ -107,7 +107,7 @@ __all__ = [
     'get_current_user',
     'get_current_user_from_context',
     
-    # Helper decorators (FastAPI compatible)
+    # Helper decorators (framework compatible)
     'helper_require_role',
     'helper_require_permission',
     

@@ -46,7 +46,7 @@ from core.routes import (
     router_settings,
     router_profile,
     router_oauth,
-    router as router_cart
+    router_cart
 )
 
 from core.middleware.auth_context import inject_user_context, set_response_cookies

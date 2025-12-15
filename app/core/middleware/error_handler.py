@@ -3,8 +3,9 @@ Error Handler Middleware
 
 Centralized error handling for consistent API responses.
 """
-from fastapi import Request, status
-from fastapi.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette import status
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Callable
 import traceback
@@ -80,14 +81,14 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
 
 def handle_app_exception(request: Request, exc: AppException) -> JSONResponse:
     """
-    Exception handler for FastAPI exception handlers.
+    Exception handler for ASGI/Starlette exception handlers.
     
     Usage:
-        from fastapi import FastAPI
+        from fasthtml.common import fast_app
         from core.exceptions import AppException
         from core.middleware.error_handler import handle_app_exception
         
-        app = FastAPI()
+        app, _rt = fast_app()
         app.add_exception_handler(AppException, handle_app_exception)
     """
     logger.warning(

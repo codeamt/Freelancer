@@ -6,7 +6,7 @@ Consolidated module providing:
 - Request utilities (merged from utils.py)
 """
 from typing import Optional, Dict
-from fastapi import HTTPException
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from functools import wraps
 from core.services.auth.auth_service import AuthService, AnonymousUser
@@ -118,7 +118,7 @@ async def get_current_user(request: Request, auth_service: AuthService = None) -
     Get current user from request (cookie or header).
     
     Args:
-        request: FastAPI/Starlette request
+        request: Starlette request
         auth_service: AuthService instance (optional)
         
     Returns:

@@ -1,10 +1,10 @@
-"""
-Cart Routes
-
-Handles shopping cart operations and checkout.
-"""
-from fastapi import APIRouter, Request, Form, HTTPException
-from fastapi.responses import RedirectResponse, JSONResponse
+"""Cart Routes
+ 
+ Handles shopping cart operations and checkout.
+ """
+from fasthtml.common import *
+from starlette.exceptions import HTTPException
+from starlette.responses import RedirectResponse, JSONResponse
 from typing import Optional
 from decimal import Decimal
 from core.services.cart import CartService
@@ -13,26 +13,34 @@ from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/cart", tags=["cart"])
+router_cart = APIRouter()
 
 # Initialize cart service (should be injected via dependency injection in production)
 cart_service = CartService()
 
 
-@router.post("/add")
-async def add_to_cart(
-    request: Request,
-    product_id: str = Form(...),
-    name: str = Form(...),
-    price: float = Form(...),
-    quantity: int = Form(1),
-):
+@router_cart.post("/cart/add")
+async def add_to_cart(request: Request):
     """
     Add item to cart.
     
     Returns JSON response for HTMX updates.
     """
     user = get_current_user_from_context()
+
+    form = getattr(request.state, "sanitized_form", None) or await request.form()
+    product_id = form.get("product_id")
+    name = form.get("name")
+    price = form.get("price")
+    quantity_raw = form.get("quantity", 1)
+
+    if product_id is None or name is None or price is None:
+        return JSONResponse({"success": False, "error": "Missing required fields"}, status_code=422)
+
+    try:
+        quantity = int(quantity_raw) if quantity_raw is not None else 1
+    except (TypeError, ValueError):
+        return JSONResponse({"success": False, "error": "Invalid quantity"}, status_code=422)
     
     # Use user ID if authenticated, otherwise use session ID
     cart_id = str(user['id']) if user else request.session.get('cart_id', str(request.client.host))
@@ -64,7 +72,7 @@ async def add_to_cart(
         }, status_code=500)
 
 
-@router.delete("/remove/{product_id}")
+@router_cart.delete("/cart/remove/{product_id}")
 async def remove_from_cart(request: Request, product_id: str):
     """Remove item from cart."""
     user = get_current_user_from_context()
@@ -89,18 +97,21 @@ async def remove_from_cart(request: Request, product_id: str):
     }, status_code=404)
 
 
-@router.put("/update/{product_id}")
-async def update_quantity(
-    request: Request,
-    product_id: str,
-    quantity: int = Form(...)
-):
+@router_cart.put("/cart/update/{product_id}")
+async def update_quantity(request: Request, product_id: str):
     """Update item quantity in cart."""
     user = get_current_user_from_context()
     cart_id = str(user['id']) if user else request.session.get('cart_id')
     
     if not cart_id:
         raise HTTPException(status_code=404, detail="Cart not found")
+
+    form = getattr(request.state, "sanitized_form", None) or await request.form()
+    quantity_raw = form.get("quantity")
+    try:
+        quantity = int(quantity_raw)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="Invalid quantity")
     
     success = cart_service.update_quantity(cart_id, product_id, quantity)
     
@@ -118,7 +129,7 @@ async def update_quantity(
     }, status_code=400)
 
 
-@router.get("/view")
+@router_cart.get("/cart/view")
 async def view_cart(request: Request):
     """View cart contents."""
     user = get_current_user_from_context()
@@ -143,7 +154,7 @@ async def view_cart(request: Request):
     })
 
 
-@router.delete("/clear")
+@router_cart.delete("/cart/clear")
 async def clear_cart(request: Request):
     """Clear all items from cart."""
     user = get_current_user_from_context()
@@ -160,7 +171,7 @@ async def clear_cart(request: Request):
     })
 
 
-@router.post("/checkout")
+@router_cart.post("/cart/checkout")
 async def checkout(request: Request):
     """
     Create Stripe checkout session for cart.
@@ -170,7 +181,7 @@ async def checkout(request: Request):
     user = get_current_user_from_context()
     
     if not user:
-        return RedirectResponse("/auth/login?redirect=/cart/checkout", status_code=303)
+        return RedirectResponse("/login?redirect=/cart/checkout", status_code=303)
     
     cart_id = str(user['id'])
     cart = cart_service.get_cart(cart_id)
@@ -196,7 +207,7 @@ async def checkout(request: Request):
     return RedirectResponse(checkout_session['session_url'], status_code=303)
 
 
-@router.get("/success")
+@router_cart.get("/cart/success")
 async def checkout_success(request: Request, session_id: Optional[str] = None):
     """
     Handle successful checkout.
@@ -217,7 +228,7 @@ async def checkout_success(request: Request, session_id: Optional[str] = None):
     })
 
 
-@router.get("/cancel")
+@router_cart.get("/cart/cancel")
 async def checkout_cancel(request: Request):
     """
     Handle cancelled checkout.
@@ -230,7 +241,7 @@ async def checkout_cancel(request: Request):
     })
 
 
-@router.post("/merge")
+@router_cart.post("/cart/merge")
 async def merge_carts(request: Request):
     """
     Merge session cart into user cart on login.

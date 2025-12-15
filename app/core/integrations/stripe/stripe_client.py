@@ -1,6 +1,6 @@
 import os
 import stripe
-from fastapi import HTTPException
+from starlette.exceptions import HTTPException
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)

@@ -8,13 +8,7 @@ from .components import (
     CourseHeader,
     InstructorInfo,
 )
-from .pages import (
-    CourseCatalogPage,
-    CourseDetailPage,
-    MyCoursesPage,
-    LessonViewPage,
-    InstructorDashboardPage,
-)
+from .pages import CourseCatalog, InstructorDashboard, StudentDashboard
 
 __all__ = [
     # Components
@@ -26,9 +20,7 @@ __all__ = [
     "CourseHeader",
     "InstructorInfo",
     # Pages
-    "CourseCatalogPage",
-    "CourseDetailPage",
-    "MyCoursesPage",
-    "LessonViewPage",
-    "InstructorDashboardPage",
+    "CourseCatalog",
+    "InstructorDashboard",
+    "StudentDashboard",
 ]
