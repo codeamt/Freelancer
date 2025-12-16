@@ -12,16 +12,11 @@ from core.db.adapters import PostgresAdapter, MongoDBAdapter, RedisAdapter
 from core.db.repositories import UserRepository
 from core.db import initialize_session_manager, get_pool_manager
 
-from core.services.auth import AuthService, UserService
-from core.services.auth.providers.jwt import JWTProvider
-
-from core.middleware.security import SecurityHeaders, RateLimitMiddleware, SecurityMiddleware
-from core.middleware import RedisSessionMiddleware
+from core.middleware.redis_session import RedisSessionMiddleware
 
 
 def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     load_dotenv('app.config.env')
-    validate_config()
 
     logger = get_logger(__name__)
 
@@ -30,6 +25,14 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     mongo_db = os.getenv("MONGO_DB", "app_db")
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
     environment = os.getenv("ENVIRONMENT", "development")
+
+    if environment != "production":
+        if not os.getenv("JWT_SECRET"):
+            os.environ["JWT_SECRET"] = secrets.token_hex(32)
+        if not os.getenv("APP_MEDIA_KEY"):
+            os.environ["APP_MEDIA_KEY"] = secrets.token_hex(32)
+
+    validate_config()
 
     if os.getenv("RESET_COOKIE_CONSENT_ON_RESTART", "").lower() in {"1", "true", "yes"}:
         os.environ["COOKIE_CONSENT_RESET_TOKEN"] = secrets.token_hex(8)
@@ -51,6 +54,9 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     logger.info("✓ Repositories initialized")
 
     logger.info("Initializing services...")
+
+    from core.services.auth import AuthService, UserService
+    from core.services.auth.providers.jwt import JWTProvider
 
     jwt_provider = JWTProvider()
 
@@ -109,6 +115,10 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     logger.info("Applying middleware...")
 
     try:
+        from core.middleware.auth_context import AuthContextMiddleware
+        from core.middleware.security import SecurityHeaders, RateLimitMiddleware, SecurityMiddleware
+
+        app.add_middleware(AuthContextMiddleware)
         app.add_middleware(SecurityMiddleware)
         app.add_middleware(RateLimitMiddleware)
         app.add_middleware(SecurityHeaders)

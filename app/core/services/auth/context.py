@@ -16,6 +16,32 @@ if TYPE_CHECKING:
     from core.services.auth.permissions import Permission
 
 
+_ROLE_PRIORITY: dict[str, int] = {
+    "super_admin": 1000,
+    "site_owner": 900,
+    "admin": 800,
+    "support_staff": 700,
+    "web_admin": 650,
+    "editor": 600,
+    "stream_admin": 550,
+    "shop_owner": 520,
+    "merchant": 510,
+    "course_creator": 505,
+    "instructor": 500,
+    "streamer": 450,
+    "member": 100,
+    "user": 90,
+    "student": 80,
+    "anonymous": 0,
+}
+
+
+def _select_primary_role(roles: List[str]) -> str:
+    if not roles:
+        return "anonymous"
+    return max(roles, key=lambda r: (_ROLE_PRIORITY.get(r, 1), r))
+
+
 @dataclass
 class UserContext:
     """
@@ -29,11 +55,18 @@ class UserContext:
     permissions: List['Permission']  # Dataclass-based from permissions.py
     request_cookies: dict
     ip_address: str
+    roles: List[str] = field(default_factory=list)
     _outgoing_cookies: dict = field(default_factory=dict)
     
     # Resource ownership context (merged from PermissionContext)
     resource_owner_id: Optional[int] = None
     resource_type: Optional[str] = None
+
+    def __post_init__(self):
+        if not self.roles and self.role:
+            self.roles = [self.role]
+        if self.roles:
+            self.role = _select_primary_role(self.roles)
       
     def has_permission(self, resource: str, action: str, scope_context: Optional[Dict] = None) -> bool:
         """
@@ -132,8 +165,12 @@ def create_user_context(
     
     logger = get_logger(__name__)
     
+    roles = getattr(user, "roles", None) or [getattr(user, "role", "user")]
+    roles = [r for r in roles if r]
+    primary_role = _select_primary_role(roles)
+
     # Resolve permissions from role(s)
-    permissions = permission_registry.resolve_permissions([user.role])
+    permissions = permission_registry.resolve_permissions(roles)
     
     # Get client IP
     ip_address = request.client.host if request.client else "unknown"
@@ -141,7 +178,8 @@ def create_user_context(
     # Create context
     context = UserContext(
         user_id=user.id,
-        role=user.role,
+        role=primary_role,
+        roles=roles,
         permissions=permissions,
         request_cookies=dict(request.cookies),
         ip_address=ip_address,
@@ -150,7 +188,7 @@ def create_user_context(
     )
     
     logger.debug(
-        f"Created UserContext for user {user.id} ({user.role}) "
+        f"Created UserContext for user {user.id} ({context.role}) "
         f"with {len(permissions)} permissions"
     )
     
@@ -172,6 +210,7 @@ def create_anonymous_context(request: Request) -> UserContext:
     return UserContext(
         user_id=0,
         role="anonymous",
+        roles=["anonymous"],
         permissions=[],
         request_cookies=dict(request.cookies),
         ip_address=ip_address

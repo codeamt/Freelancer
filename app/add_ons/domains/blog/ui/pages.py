@@ -11,10 +11,6 @@ def blog_list_page(posts: list[dict], *, demo: bool = False):
         Div(
             H1("Blog", cls="text-4xl font-bold mb-2"),
             P("Posts", cls="text-gray-500 mb-6"),
-            Div(
-                A("New Post", href="/blog/new", cls="btn btn-primary"),
-                cls="mb-8",
-            ),
             cls="mb-8",
         ),
         (Div(*[PostCard(p) for p in posts], cls="grid grid-cols-1 gap-4") if posts else Div(P("No posts yet"))),

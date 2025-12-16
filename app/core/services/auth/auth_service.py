@@ -31,16 +31,6 @@ from core.services.auth.models import (
 
 logger = get_logger(__name__)
 
-# JWT configuration - JWT_SECRET MUST be set via environment variable
-JWT_SECRET = os.getenv("JWT_SECRET")
-if not JWT_SECRET:
-    raise ValueError(
-        "JWT_SECRET environment variable is required. "
-        "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
-    )
-JWT_ALGORITHM = "HS256"
-TOKEN_EXPIRATION_HOURS = int(os.getenv("TOKEN_EXPIRATION_HOURS", "12"))
-
 
 class AuthService:
     """

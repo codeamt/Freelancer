@@ -107,6 +107,7 @@ def get_current_user_from_context() -> Optional[Dict]:
             "id": user_context.user_id,
             "_id": str(user_context.user_id),
             "role": user_context.role,
+            "roles": list(getattr(user_context, "roles", []) or []),
         }
     except Exception as e:
         logger.warning(f"Failed to get user from context: {e}")

@@ -102,10 +102,12 @@ def requires_role(*roles: str):
             user_context = current_user_context.get(None)
             if not user_context:
                 raise RuntimeError("UserContext not set")
-              
-            if user_context.role not in roles:
+
+            user_roles = set(getattr(user_context, "roles", None) or ([user_context.role] if user_context.role else []))
+
+            if not user_roles.intersection(set(roles)):
                 raise PermissionDeniedError(
-                    f"User role {user_context.role} not allowed. Required: {roles}"
+                    f"User role(s) {sorted(user_roles) or [user_context.role]} not allowed. Required: {roles}"
                 )
               
             return await func(*args, **kwargs)

@@ -30,7 +30,15 @@ async def new_post(request: Request):
     demo = getattr(request.app.state, "demo", False)
     user = get_current_user_from_context()
     if not user:
-        return RedirectResponse("/auth/login?redirect=/blog/new")
+        return RedirectResponse("/auth?tab=login&redirect=/blog/new")
+
+    if user.get("role") not in {"admin", "super_admin", "editor"}:
+        return Layout(
+            Div(P("Admin access required", cls="text-error"), cls="alert alert-error"),
+            title="Forbidden",
+            current_path="/blog/new",
+            demo=demo,
+        )
 
     return blog_new_page(demo=demo)
 
@@ -40,6 +48,9 @@ async def create_post(request: Request, title: str = Form(...), body: str = Form
     user = get_current_user_from_context()
     if not user:
         return Div(P("Please sign in", cls="text-error"), cls="alert alert-error")
+
+    if user.get("role") not in {"admin", "super_admin", "editor"}:
+        return Div(P("Admin access required", cls="text-error"), cls="alert alert-error")
 
     if not title or len(title) < 3:
         return Div(P("Title must be at least 3 characters", cls="text-error"), cls="alert alert-error")
