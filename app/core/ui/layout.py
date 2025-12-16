@@ -1,4 +1,6 @@
 """Clean Layout using FastHTML and MonsterUI"""
+import os
+
 from fasthtml.common import *
 from monsterui.all import *
 from typing import Optional, Dict
@@ -47,6 +49,14 @@ def Layout(
     
     # Add demo-specific navigation: Addons dropdown for demo mode, Blog link otherwise
     if demo:
+        nav_items.append(
+            A(
+                UkIcon("file-text", cls="mr-1"),
+                "Blog",
+                href='/blog',
+                cls="flex items-center gap-1"
+            )
+        )
         nav_items.append(
             # Dropdown for example add-on apps
             Details(
@@ -175,6 +185,10 @@ def Layout(
             ])
     
     # Return Title and body content - FastHTML will wrap in proper structure
+    _first_path_segment = (current_path or "/").lstrip("/").split("/", 1)[0]
+    _cookie_base_path = f"/{_first_path_segment}" if _first_path_segment.endswith("-example") else ""
+    _cookie_reset_token = os.getenv("COOKIE_CONSENT_RESET_TOKEN", "")
+
     return (
         Title(title),
         # Sticky nav wrapper
@@ -189,8 +203,6 @@ def Layout(
             page_content, 
             cls="container mx-auto px-4 py-8 pb-20"
         ),
-        # Cookie consent banner (shows at very bottom, above footer)
-        CookieConsentBanner(base_path=current_path.split('/')[1] if '/' in current_path and len(current_path) > 1 else ""),
         # Footer (fixed at bottom, below cookie banner when visible)
         Footer(
             Div(
@@ -199,5 +211,7 @@ def Layout(
             ),
             id="main-footer",
             cls="fixed bottom-0 left-0 right-0 border-t bg-base-100 z-40"
-        )
+        ),
+        # Cookie consent banner (shows at very bottom, above footer)
+        CookieConsentBanner(base_path=_cookie_base_path, reset_token=_cookie_reset_token),
     )

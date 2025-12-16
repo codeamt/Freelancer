@@ -76,20 +76,20 @@ services:
 
   # DuckDB - Analytics (Optional)
   # Note: DuckDB is typically embedded, this is for shared analytics workloads
-  duckdb:
-    image: ghcr.io/duckdb/duckdb:latest
-    container_name: freelancer-duckdb
-    volumes:
-      - duckdb_data:/var/lib/duckdb
-      - ./data:/data:ro  # Mount for CSV/Parquet files
-    networks:
-      - app_network
-    healthcheck:
-      test: ["CMD", "duckdb", "-c", "SELECT 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    restart: unless-stopped
+  # duckdb:
+  #   image: ghcr.io/duckdb/duckdb:latest
+  #   container_name: freelancer-duckdb
+  #   volumes:
+  #     - duckdb_data:/var/lib/duckdb
+  #     - ./data:/data:ro  # Mount for CSV/Parquet files
+  #   networks:
+  #     - app_network
+  #   healthcheck:
+  #     test: ["CMD", "duckdb", "-c", "SELECT 1"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
+  #   restart: unless-stopped
 
   # MinIO - Object Storage (S3-compatible)
   minio:

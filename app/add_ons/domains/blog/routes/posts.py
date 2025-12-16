@@ -19,18 +19,20 @@ def _use_db(request: Request) -> bool:
 
 @router_posts.get("/blog")
 async def list_posts(request: Request):
+    demo = getattr(request.app.state, "demo", False)
     service = PostService(use_db=_use_db(request))
     posts = await service.list_posts()
-    return blog_list_page(posts)
+    return blog_list_page(posts, demo=demo)
 
 
 @router_posts.get("/blog/new")
 async def new_post(request: Request):
+    demo = getattr(request.app.state, "demo", False)
     user = get_current_user_from_context()
     if not user:
         return RedirectResponse("/auth/login?redirect=/blog/new")
 
-    return blog_new_page()
+    return blog_new_page(demo=demo)
 
 
 @router_posts.post("/blog/posts")
@@ -50,9 +52,15 @@ async def create_post(request: Request, title: str = Form(...), body: str = Form
 
 @router_posts.get("/blog/posts/{post_id}")
 async def view_post(request: Request, post_id: int):
+    demo = getattr(request.app.state, "demo", False)
     service = PostService(use_db=_use_db(request))
     post = await service.get_post(post_id)
     if not post:
-        return Layout(Div("Post not found", cls="alert alert-error"), title="Not Found")
+        return Layout(
+            Div("Post not found", cls="alert alert-error"),
+            title="Not Found",
+            current_path=f"/blog/posts/{post_id}",
+            demo=demo,
+        )
 
-    return blog_detail_page(post)
+    return blog_detail_page(post, demo=demo)

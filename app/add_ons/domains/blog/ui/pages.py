@@ -6,7 +6,7 @@ from core.ui.layout import Layout
 from add_ons.domains.blog.ui.components import PostCard
 
 
-def blog_list_page(posts: list[dict]):
+def blog_list_page(posts: list[dict], *, demo: bool = False):
     content = Div(
         Div(
             H1("Blog", cls="text-4xl font-bold mb-2"),
@@ -20,10 +20,10 @@ def blog_list_page(posts: list[dict]):
         (Div(*[PostCard(p) for p in posts], cls="grid grid-cols-1 gap-4") if posts else Div(P("No posts yet"))),
         cls="container mx-auto px-4 py-8",
     )
-    return Layout(content, title="Blog")
+    return Layout(content, title="Blog", current_path="/blog", demo=demo)
 
 
-def blog_new_page():
+def blog_new_page(*, demo: bool = False):
     content = Div(
         H1("New Post", cls="text-3xl font-bold mb-6"),
         Form(
@@ -44,10 +44,10 @@ def blog_new_page():
         Div(id="blog-result", cls="mt-4"),
         cls="container mx-auto px-4 py-8",
     )
-    return Layout(content, title="New Post")
+    return Layout(content, title="New Post", current_path="/blog/new", demo=demo)
 
 
-def blog_detail_page(post: dict):
+def blog_detail_page(post: dict, *, demo: bool = False):
     content = Div(
         Div(
             A("← Back", href="/blog", cls="link"),
@@ -57,4 +57,4 @@ def blog_detail_page(post: dict):
         P(post.get("body", ""), cls="prose max-w-none"),
         cls="container mx-auto px-4 py-8",
     )
-    return Layout(content, title=post.get("title", "Post"))
+    return Layout(content, title=post.get("title", "Post"), current_path=f"/blog/posts/{post.get('id', '')}", demo=demo)
