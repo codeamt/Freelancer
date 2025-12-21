@@ -3,6 +3,7 @@ from typing import List, Optional
 from datetime import datetime
 from core.utils.logger import get_logger
 from core.services import get_db_service
+from .video_streaming_service import video_streaming_service
 
 logger = get_logger(__name__)
 
@@ -19,6 +20,7 @@ class StreamService:
         """
         self.use_db = use_db
         self.db = get_db_service() if use_db else None
+        self.video_service = video_streaming_service
     
     async def list_live_streams(self) -> List[dict]:
         """Get all live streams"""
@@ -156,7 +158,7 @@ class StreamService:
         if self.use_db:
             return await self.db.find_documents("streams", {"owner_id": owner_id}, limit=200)
 
-        from app.add_ons.domains.stream import DEMO_STREAMS
+        from add_ons.domains.stream import DEMO_STREAMS
         return [s for s in DEMO_STREAMS if s['owner_id'] == owner_id]
 
     async def get_streams_by_ids(self, stream_ids: List[int]) -> List[dict]:
@@ -171,6 +173,33 @@ class StreamService:
                 limit=len(stream_ids),
             )
 
-        from app.add_ons.domains.stream import DEMO_STREAMS
+        from add_ons.domains.stream import DEMO_STREAMS
         sset = set(stream_ids)
         return [s for s in DEMO_STREAMS if s.get('id') in sset]
+    
+    # Video streaming methods
+    def initialize_camera(self, camera_url=None):
+        """Initialize camera for video streaming."""
+        self.video_service.initialize_camera(camera_url or 0)
+        logger.info("Camera initialized for streaming service")
+    
+    def release_camera(self):
+        """Release camera resources."""
+        self.video_service.release_camera()
+        logger.info("Camera resources released")
+    
+    async def get_camera_stream(self):
+        """Get camera video stream."""
+        return await self.video_service.stream_camera_frames()
+    
+    async def get_camera_snapshot(self):
+        """Get camera snapshot."""
+        return await self.video_service.get_camera_snapshot()
+    
+    async def stream_video_file(self, file_path: str, range_header: str = None):
+        """Stream video file with range header support."""
+        return await self.video_service.stream_video_file(file_path, range_header)
+    
+    def is_camera_available(self) -> bool:
+        """Check if camera is initialized and available."""
+        return self.video_service.camera is not None

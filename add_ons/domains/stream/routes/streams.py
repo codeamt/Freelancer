@@ -14,6 +14,12 @@ from add_ons.domains.stream.services.chat_service import ChatService
 from add_ons.domains.stream.services.youtube_service import YouTubeService
 from add_ons.domains.stream.services.membership_service import MembershipService
 from add_ons.domains.stream.services.attendance_service import AttendanceService
+from add_ons.domains.stream.services.video_streaming_service import (
+    get_video_stream, 
+    get_snapshot, 
+    get_video_file_stream,
+    video_streaming_service
+)
 from core.integrations.storage.s3_client import StorageService
 from core.integrations.storage.models import UploadUrlRequest
 
@@ -936,3 +942,87 @@ async def api_send_chat(
         ),
         cls="chat-message p-2 border-b",
     )
+
+
+# ============================================================================
+# Video Streaming Routes (Server-side streaming without ICE)
+# ============================================================================
+
+@router_streams.get("/video-stream")
+async def video_stream():
+    """Stream live camera video feed using async generators."""
+    return await get_video_stream()
+
+
+@router_streams.get("/video-snapshot")
+async def video_snapshot():
+    """Get a single camera frame as snapshot."""
+    return await get_snapshot()
+
+
+@router_streams.get("/video-file/{file_path:path}")
+async def video_file_stream(file_path: str, request: Request):
+    """Stream video file with range header support."""
+    try:
+        return await get_video_file_stream(file_path, request)
+    except FileNotFoundError:
+        return Response(
+            content="Video file not found", 
+            status_code=404
+        )
+    except Exception as e:
+        logger.error(f"Video streaming error: {e}")
+        return Response(
+            content=f"Streaming error: {str(e)}", 
+            status_code=500
+        )
+
+
+@router_streams.post("/video-upload")
+async def upload_video_file(request: Request):
+    """Handle video file upload and return streaming URL."""
+    user = await get_current_user_from_context(request)
+    if not user:
+        return Response("Unauthorized", status_code=401)
+    
+    try:
+        form = await request.form()
+        video_file = form.get("video")
+        
+        if not video_file:
+            return Response("No video file uploaded", status_code=400)
+        
+        # Save uploaded file
+        import uuid
+        
+        upload_dir = "uploads/videos"
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        file_id = str(uuid.uuid4())
+        file_extension = os.path.splitext(video_file.filename)[1]
+        file_path = os.path.join(upload_dir, f"{file_id}{file_extension}")
+        
+        # Save file asynchronously
+        import aiofiles
+        async with aiofiles.open(file_path, 'wb') as f:
+            content = await video_file.read()
+            await f.write(content)
+        
+        # Return success response with streaming URL
+        streaming_url = f"/stream/video-file/{file_path}"
+        
+        logger.info(f"Video uploaded: {file_path} by user {user.get('id')}")
+        return Response(
+            content=f"Video uploaded successfully! Stream it here: {streaming_url}",
+            status_code=200
+        )
+        
+    except Exception as e:
+        logger.error(f"Video upload error: {e}")
+        return Response(f"Upload failed: {str(e)}", status_code=500)
+
+
+@router_streams.get("/streaming-health")
+async def streaming_health():
+    """Health check endpoint for video streaming service."""
+    return {"status": "healthy", "service": "video_streaming"}

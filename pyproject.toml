@@ -32,7 +32,9 @@ dependencies = [
   "cryptography>=41.0.0", 
   "httpx",
   "email-validator",
-  "python-multipart"
+  "python-multipart",
+  "opencv-python",
+  "aiofiles"
 ]
 
 [project.optional-dependencies]
