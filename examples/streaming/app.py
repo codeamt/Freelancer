@@ -69,7 +69,7 @@ def create_streaming_app(
     app.state.stream_service = stream_service
     
     # Register stream domain routes
-    app.include_router(router_streams, prefix="/stream")
+    router_streams.to_app(app)
     
     # Initialize camera for demo
     if demo:
