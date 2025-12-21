@@ -12,6 +12,7 @@ Complete listing of important files in the codebase, organized by category.
 | `CODEBASE_INDEX.md` | Quick navigation guide for LLMs |
 | `FILE_MANIFEST.md` | This file - complete file listing |
 | `README.md` | Project overview and setup |
+| `DEVELOPMENT_TODOS.md` | Prioritized development roadmap with admin fixes, core features, and optional add-ons |
 | `app/core/WEB_ADMIN_TODOS.md` | Web admin add-on management TODOs (including future git/submodule sync plan) |
 | `app/core/TEST_PLAN.md` | Current test plan and test backlog |
 | `app/add_ons/domains/blog/CMS_PLAN.md` | Blog CMS roadmap and milestones |
@@ -76,7 +77,8 @@ Complete listing of important files in the codebase, organized by category.
 | File | Purpose |
 |------|---------|
 | `app/core/services/auth/auth_service.py` | Auth business logic (login, refresh, verify) |
-| `app/core/services/auth/models.py` | Pydantic models (User, LoginRequest/Response, TokenPayload) |
+| `app/core/services/auth/enforcement.py` | Role-based enforcement decorators and permission checking |
+| `app/core/services/auth/models.py` | Pydantic models (User, LoginRequest/Response, TokenPayload, UserRole enum) |
 | `app/core/services/auth/user_service.py` | User management |
 | `app/core/services/auth/context.py` | UserContext, PermissionContext |
 | `app/core/services/auth/decorators.py` | @require_auth, @requires_permission |
@@ -326,5 +328,6 @@ Complete listing of important files in the codebase, organized by category.
 
 ---
 
-**Last Updated**: December 14, 2025
+**Last Updated**: December 20, 2025
 **Total Files Documented**: 200+
+**Recent Changes**: Added DEVELOPMENT_TODOS.md, updated auth enforcement models

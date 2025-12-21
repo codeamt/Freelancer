@@ -1,6 +1,6 @@
 # Codebase Index for LLM Navigation
 
-Quick reference guide for navigating the codebase. Updated December 14, 2025.
+Quick reference guide for navigating the codebase. Updated December 20, 2025.
 
 ---
 
@@ -19,9 +19,10 @@ Quick reference guide for navigating the codebase. Updated December 14, 2025.
 ## Core Concepts
 
 ### 1. Authentication
-- **Pattern**: JWT tokens in httponly cookies
+- **Pattern**: JWT tokens in httponly cookies with role-based enforcement
 - **Files**: `app/core/services/auth/*.py`
-- **Key Classes**: `AuthService`, `UserRepository`, `UserRole`
+- **Key Classes**: `AuthService`, `UserRepository`, `UserRole`, `RoleEnforcement`
+- **Recent Updates**: Added role enforcement decorators, multi-role support, JWT role versioning
 
 ### 2. Database Layer
 - **Pattern**: PostgreSQL with repository pattern
@@ -70,9 +71,10 @@ app/
 
 ### Authentication (Most Important)
 - `app/core/services/auth/auth_service.py` - AuthService (login, register, JWT)
-- `app/core/services/auth/models.py` - UserRole enum, Pydantic models
+- `app/core/services/auth/enforcement.py` - Role enforcement decorators and permission checking
+- `app/core/services/auth/models.py` - UserRole enum, Pydantic models, multi-role support
 - `app/core/services/auth/helpers.py` - get_current_user_from_request()
-- `app/core/db/repositories/base_repository.py` - UserRepository
+- `app/core/db/repositories/user_repository.py` - UserRepository
 
 ### Routes
 - `app/core/routes/auth.py` - /auth, /admin/login, /admin/dashboard
@@ -190,4 +192,19 @@ RUN_INTEGRATION_TESTS=1 uv run pytest -q tests/integration
 
 ---
 
-**Last Updated**: December 14, 2025
+## Development Roadmap
+
+### Current Status
+- **Core Platform**: Admin fixes and core feature restoration in progress
+- **Role System**: Enhanced with enforcement decorators and multi-role support
+- **Documentation**: DEVELOPMENT_TODOS.md provides prioritized task list
+
+### Key Files for Development
+- `DEVELOPMENT_TODOS.md` - Prioritized development roadmap
+- `docs/FILE_MANIFEST.md` - Complete file listing
+- `app/core/WEB_ADMIN_TODOS.md` - Admin-specific tasks
+
+---
+
+**Last Updated**: December 20, 2025
+**Recent Changes**: Updated role system documentation, added development roadmap section
