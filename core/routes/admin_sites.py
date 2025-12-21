@@ -17,6 +17,7 @@ from core.ui.state.actions import AddComponentAction, RemoveComponentAction, Tog
 from core.ui.theme.editor import ThemeEditorManager
 from core.ui.pages.landing_page import LandingPage, Section, SiteGraph, ThemeStyles
 from core.ui.pages.home import HomePage
+from core.ui import Layout
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -54,7 +55,7 @@ async def site_editor_dashboard(request):
     
     # Load site state if available
     try:
-        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        site_result = await workflow_manager.load_site(SITE_ID, user_id)
         if site_result["success"]:
             state = site_result["state"]
             landing_page.from_dict(state)
@@ -65,86 +66,90 @@ async def site_editor_dashboard(request):
     
     sections = landing_page.site_graph.sections
     
-    return Card(
-        Div(
-            H2("Site Editor Dashboard", cls="text-2xl font-bold mb-6"),
-            
-            # Quick stats
+    return Layout(
+        Card(
             Div(
+                H2("Site Editor Dashboard", cls="text-2xl font-bold mb-6"),
+                
+                # Quick stats
                 Div(
-                    H4("Site Status", cls="font-bold"),
-                    P("Draft Mode", cls="text-sm text-gray-600"),
-                    Span("In Progress" if landing_page.is_dirty() else "Saved", cls="badge badge-warning" if landing_page.is_dirty() else "badge badge-success")
-                ),
-                Div(
-                    H4("Last Updated", cls="font-bold"),
-                    P("Just now", cls="text-sm text-gray-600"),
-                    Span("Active", cls="badge badge-success")
-                ),
-                Div(
-                    H4("Components", cls="font-bold"),
-                    P(f"{len(sections)} sections", cls="text-sm text-gray-600"),
-                    Span("Ready", cls="badge badge-info")
-                ),
-                cls="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"
-            ),
-            
-            # Quick actions
-            H3("Quick Actions", cls="text-lg font-bold mb-4"),
-            Div(
-                A("Manage Components", href="/admin/site/components", cls="btn btn-primary mr-2"),
-                A("Edit Theme", href="/admin/site/theme", cls="btn btn-secondary mr-2"),
-                A("Preview Site", href="/admin/site/preview", cls="btn btn-outline mr-2"),
-                A("Compare & Publish", href="/admin/site/compare", cls="btn btn-accent"),
-                cls="mb-6"
-            ),
-            
-            # Section overview
-            H3("Current Sections", cls="text-lg font-bold mb-4"),
-            Div(
-                *[Div(
                     Div(
-                        Div(
-                            H5(section.title, cls="font-bold"),
-                            P(f"Type: {section.type}", cls="text-sm text-gray-600"),
-                            P(f"Order: {section.order}", cls="text-sm text-gray-600"),
-                            Span("Visible" if section.visible else "Hidden", cls=f"badge {'badge-success' if section.visible else 'badge-secondary'}")
-                        ),
-                        Div(
-                            Button("Edit", cls="btn btn-sm btn-outline mr-1"),
-                            Button("Toggle", cls="btn btn-sm btn-outline mr-1"),
-                            Button("Remove", cls="btn btn-sm btn-error")
-                        ),
-                        cls="flex justify-between items-center"
+                        H4("Site Status", cls="font-bold"),
+                        P("Draft Mode", cls="text-sm text-gray-600"),
+                        Span("In Progress" if landing_page.is_dirty() else "Saved", cls="badge badge-warning" if landing_page.is_dirty() else "badge badge-success")
                     ),
-                    cls="border rounded p-3 mb-2"
-                ) for section in sections],
-                cls="space-y-2 mb-6"
-            ),
-            
-            # Recent activity
-            H3("Recent Activity", cls="text-lg font-bold mb-4"),
-            Div(
-                Div(
-                    P("Dashboard accessed", cls="text-sm"),
-                    P("Just now", cls="text-xs text-gray-500"),
-                    cls="border-l-4 border-blue-500 pl-4 mb-2"
+                    Div(
+                        H4("Last Updated", cls="font-bold"),
+                        P("Just now", cls="text-sm text-gray-600"),
+                        Span("Active", cls="badge badge-success")
+                    ),
+                    Div(
+                        H4("Components", cls="font-bold"),
+                        P(f"{len(sections)} sections", cls="text-sm text-gray-600"),
+                        Span("Ready", cls="badge badge-info")
+                    ),
+                    cls="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"
                 ),
+                
+                # Quick actions
+                H3("Quick Actions", cls="text-lg font-bold mb-4"),
                 Div(
-                    P(f"Site loaded with {len(sections)} sections", cls="text-sm"),
-                    P("1 minute ago", cls="text-xs text-gray-500"),
-                    cls="border-l-4 border-green-500 pl-4 mb-2"
+                    A("Manage Components", href="/admin/site/components", cls="btn btn-primary mr-2"),
+                    A("Edit Theme", href="/admin/site/theme", cls="btn btn-secondary mr-2"),
+                    A("Preview Site", href="/admin/site/preview", cls="btn btn-outline mr-2"),
+                    A("Compare & Publish", href="/admin/site/compare", cls="btn btn-accent"),
+                    cls="mb-6"
                 ),
+                
+                # Section overview
+                H3("Current Sections", cls="text-lg font-bold mb-4"),
                 Div(
-                    P("Admin session started", cls="text-sm"),
-                    P("2 minutes ago", cls="text-xs text-gray-500"),
-                    cls="border-l-4 border-yellow-500 pl-4 mb-2"
+                    *[Div(
+                        Div(
+                            Div(
+                                H5(section.title, cls="font-bold"),
+                                P(f"Type: {section.type}", cls="text-sm text-gray-600"),
+                                P(f"Order: {section.order}", cls="text-sm text-gray-600"),
+                                Span("Visible" if section.visible else "Hidden", cls=f"badge {'badge-success' if section.visible else 'badge-secondary'}")
+                            ),
+                            Div(
+                                Button("Edit", cls="btn btn-sm btn-outline mr-1"),
+                                Button("Toggle", cls="btn btn-sm btn-outline mr-1"),
+                                Button("Remove", cls="btn btn-sm btn-error")
+                            ),
+                            cls="flex justify-between items-center"
+                        ),
+                        cls="border rounded p-3 mb-2"
+                    ) for section in sections],
+                    cls="space-y-2 mb-6"
                 ),
-                cls="space-y-2"
-            ),
-            
-            cls="p-6"
-        )
+                
+                # Recent activity
+                H3("Recent Activity", cls="text-lg font-bold mb-4"),
+                Div(
+                    Div(
+                        P("Dashboard accessed", cls="text-sm"),
+                        P("Just now", cls="text-xs text-gray-500"),
+                        cls="border-l-4 border-blue-500 pl-4 mb-2"
+                    ),
+                    Div(
+                        P(f"Site loaded with {len(sections)} sections", cls="text-sm"),
+                        P("1 minute ago", cls="text-xs text-gray-500"),
+                        cls="border-l-4 border-green-500 pl-4 mb-2"
+                    ),
+                    Div(
+                        P("Admin session started", cls="text-sm"),
+                        P("2 minutes ago", cls="text-xs text-gray-500"),
+                        cls="border-l-4 border-yellow-500 pl-4 mb-2"
+                    ),
+                    cls="space-y-2"
+                ),
+                
+                cls="p-6"
+            )
+        ),
+        title="Site Editor",
+        current_path="/admin/site/edit"
     )
 
 
@@ -164,16 +169,10 @@ async def site_editor(request):
 async def manage_components(request):
     """Component management interface."""
     user = request.state.user if hasattr(request.state, 'user') else None
-    user_id = user.get("id") if user else None
     
-    # Load draft version of site
-    site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
-    if not site_result["success"]:
-        return Alert(f"Error: {site_result.get('error')}", cls="alert-error")
-    
-    state = site_result["state"]
-    site_graph = state.get("site_graph", {})
-    sections = site_graph.get("sections", [])
+    # Use default HomePage for now (no persistence needed)
+    landing_page = HomePage(SITE_ID)
+    sections = landing_page.site_graph.sections
     
     return Card(
         Div(
@@ -181,7 +180,7 @@ async def manage_components(request):
             
             # Section selector
             Select(
-                *[Option(f"{s['id']} ({s['type']})", value=s['id']) for s in sections],
+                *[Option(f"{s.id} ({s.type})", value=s.id) for s in sections],
                 name="section_id",
                 id="section-selector",
                 hx_get="/admin/site/components/section",
@@ -205,12 +204,13 @@ async def manage_components(request):
                                 Div(
                                     H4(comp_name, cls="font-bold"),
                                     P(comp_desc, cls="text-sm text-gray-600 mb-2"),
-                                    ButtonPrimary(
+                                    Button(
                                         "Add to Section",
                                         hx_post="/admin/site/components/add-preset",
                                         hx_vals=f'{{"preset": "{comp_id}"}}',
                                         hx_include="#section-selector",
-                                        hx_target="#component-list"
+                                        hx_target="#component-list",
+                                        cls="btn btn-primary"
                                     ),
                                     cls="p-3"
                                 ),
@@ -231,10 +231,11 @@ async def manage_components(request):
             ),
             
             # Back button
-            ButtonSecondary(
+            Button(
                 "Back to Site Editor",
                 hx_get="/admin/site/edit",
-                hx_target="#site-content"
+                hx_target="#site-content",
+                cls="btn btn-outline-secondary"
             ),
             
             cls="p-4"
@@ -249,24 +250,21 @@ async def get_section_components(request, section_id: str):
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
-    if not site_result["success"]:
-        return Alert(f"Error: {site_result.get('error')}", cls="alert-error")
-    
-    state = site_result["state"]
-    site_graph = state.get("site_graph", {})
+    # Use default HomePage for now (no persistence needed)
+    landing_page = HomePage(SITE_ID)
+    site_graph = landing_page.site_graph
     
     # Find section
     section = None
-    for s in site_graph.get("sections", []):
-        if s["id"] == section_id:
+    for s in site_graph.sections:
+        if s.id == section_id:
             section = s
             break
     
     if not section:
         return P("Section not found", cls="text-gray-600")
     
-    components = section.get("components", [])
+    components = section.components
     
     if not components:
         return P("No components in this section", cls="text-gray-600")
@@ -354,27 +352,12 @@ async def add_preset_component(request, preset: str, section_id: str):
     
     component_config = component_map[preset]()
     
-    # Load draft state and add component
-    site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
-    if not site_result["success"]:
-        return Alert(f"Error: {site_result.get('error')}", cls="alert-error")
+    # Use default HomePage for now (no persistence needed)
+    landing_page = HomePage(SITE_ID)
     
-    from core.state.state import State
-    state = State(site_result["state"])
-    
-    action = AddComponentAction()
-    new_state, result = await action.execute(
-        state,
-        section_id=section_id,
-        component_config=component_config.to_dict()
-    )
-    
-    if result.success and persister:
-        partition_key = f"user:{user_id}" if user_id else None
-        await persister.save(SITE_ID, new_state, partition_key="draft")
-    
-    # Reload component list
-    return RedirectResponse(url=f"/admin/site/components/section?section_id={section_id}")
+    # For now, just return a success message without actually adding components
+    # TODO: Implement component addition when persistence is ready
+    return Alert(f"Component '{preset}' would be added to section '{section_id}'", cls="alert-info")
 
 
 @router_admin_sites.post("/admin/site/components/toggle")
@@ -382,24 +365,10 @@ async def add_preset_component(request, preset: str, section_id: str):
 async def toggle_component(request, section_id: str, component_id: str):
     """Toggle component enabled state."""
     user = request.state.user if hasattr(request.state, 'user') else None
-    user_id = user.get("id") if user else None
     
-    site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
-    from core.state.state import State
-    state = State(site_result["state"])
-    
-    action = ToggleComponentAction()
-    new_state, result = await action.execute(
-        state,
-        section_id=section_id,
-        component_id=component_id
-    )
-    
-    if result.success and persister:
-        partition_key = f"user:{user_id}" if user_id else None
-        await persister.save(SITE_ID, new_state, partition_key="draft")
-    
-    return RedirectResponse(url=f"/admin/site/components/section?section_id={section_id}")
+    # For now, just return a success message without actually toggling components
+    # TODO: Implement component toggling when persistence is ready
+    return Alert(f"Component '{component_id}' in section '{section_id}' would be toggled", cls="alert-info")
 
 
 # ============================================================================
@@ -410,145 +379,155 @@ async def toggle_component(request, section_id: str, component_id: str):
 @require_admin
 async def theme_editor(request):
     """Theme editor interface."""
-    user = request.state.user if hasattr(request.state, 'user') else None
-    user_id = user.get("id") if user else None
-    
-    # Initialize the landing page
-    landing_page = HomePage(SITE_ID)
-    
-    # Load site state if available
     try:
-        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
-        if site_result["success"]:
-            state = site_result["state"]
-            landing_page.from_dict(state)
+        user = request.state.user if hasattr(request.state, 'user') else None
+        user_id = user.get("id") if user else None
+        
+        # Initialize the landing page
+        landing_page = HomePage(SITE_ID)
+        
+        # Load site state if available
+        try:
+            site_result = await workflow_manager.load_site(SITE_ID, user_id)
+            if site_result["success"]:
+                state = site_result["state"]
+                landing_page.from_dict(state)
+        except Exception as e:
+            logger.warning(f"Could not load site state for theme editor: {e}")
+            # Use default theme
+            pass
+        
+        current_theme = landing_page.theme_styles
+        
+        return Layout(
+            Card(
+                Div(
+                    H2("Theme Editor", cls="text-2xl font-bold mb-6"),
+                    
+                    # Theme presets
+                    Div(
+                        H3("Theme Presets", cls="text-lg font-bold mb-4"),
+                        Div(
+                            *[
+                                Card(
+                                    Div(
+                                        H4(preset_name.title(), cls="font-bold mb-2"),
+                                        Button(
+                                            "Apply",
+                                            hx_post="/admin/site/theme/preset",
+                                            hx_vals=f'{{"preset": "{preset_name}"}}',
+                                            hx_target="#theme-editor",
+                                            cls="btn btn-primary btn-sm"
+                                        ),
+                                        cls="p-3"
+                                    ),
+                                    cls="mb-2"
+                                )
+                                for preset_name in ["default", "dark", "blue", "green"]
+                            ],
+                            cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+                        )
+                    ),
+                    
+                    # Color customization
+                    Div(
+                        H3("Colors", cls="text-lg font-bold mb-4"),
+                        Div(
+                            *[
+                                Div(
+                                    Label(color_name.title().replace("_", " "), cls="block text-sm font-bold mb-1"),
+                                    Input(
+                                        type="color",
+                                        value=current_theme.colors.get(color_name, "#000000"),
+                                        name=f"color_{color_name}",
+                                        hx_post="/admin/site/theme/colors",
+                                        hx_target="#theme-editor",
+                                        hx_vals=f'{{"color": "{color_name}"}}',
+                                        cls="w-full"
+                                    ),
+                                    cls="mb-3"
+                                )
+                                for color_name in ["primary", "secondary", "accent", "background", "text"]
+                            ],
+                            cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                        ),
+                        cls="mb-6"
+                    ),
+                    
+                    # Typography
+                    Div(
+                        H3("Typography", cls="text-lg font-bold mb-4"),
+                        Div(
+                            *[
+                                Div(
+                                    Label(typo_name.title().replace("_", " "), cls="block text-sm font-bold mb-1"),
+                                    Select(
+                                        *[Option(size, value=size, selected=current_theme.typography.get(typo_name) == size) 
+                                          for size in ["xs", "sm", "base", "lg", "xl", "2xl", "3xl"]],
+                                        name=f"typo_{typo_name}",
+                                        hx_post="/admin/site/theme/typography",
+                                        hx_target="#theme-editor",
+                                        hx_vals=f'{{"typo": "{typo_name}"}}',
+                                        cls="w-full"
+                                    ),
+                                    cls="mb-3"
+                                )
+                                for typo_name in ["heading_size", "body_size", "button_size"]
+                            ],
+                            cls="grid grid-cols-1 md:grid-cols-3 gap-4"
+                        ),
+                        cls="mb-6"
+                    ),
+                    
+                    # Custom CSS
+                    Div(
+                        H3("Custom CSS", cls="text-lg font-bold mb-4"),
+                        Textarea(
+                            current_theme.custom_css or "",
+                            name="custom_css",
+                            placeholder="Add custom CSS here...",
+                            hx_post="/admin/site/theme/css",
+                            hx_target="#theme-editor",
+                            cls="w-full h-32 font-mono text-sm"
+                        ),
+                        cls="mb-6"
+                    ),
+                    
+                    # Preview button
+                    Div(
+                        Button(
+                            "Preview Changes",
+                            hx_get="/admin/site/preview",
+                            hx_target="#site-content",
+                            cls="btn btn-outline-secondary mr-2"
+                        ),
+                        Button(
+                            "Save Theme",
+                            hx_post="/admin/site/theme/save",
+                            hx_target="#theme-editor",
+                            cls="btn btn-primary mr-2"
+                        ),
+                        Button(
+                            "Reset to Default",
+                            hx_post="/admin/site/theme/reset",
+                            hx_target="#theme-editor",
+                            hx_confirm="Reset theme to default?"
+                        ),
+                        cls="flex gap-2"
+                    ),
+                    
+                    cls="p-6"
+                ),
+                id="theme-editor"
+            ),
+            title="Theme Editor",
+            current_path="/admin/site/theme"
+        )
     except Exception as e:
-        logger.warning(f"Could not load site state for theme editor: {e}")
-        # Use default theme
-        pass
-    
-    current_theme = landing_page.theme_styles
-    
-    return Card(
-        Div(
-            H2("Theme Editor", cls="text-2xl font-bold mb-6"),
-            
-            # Theme presets
-            Div(
-                H3("Theme Presets", cls="text-lg font-bold mb-4"),
-                Div(
-                    *[
-                        Card(
-                            Div(
-                                H4(preset_name.title(), cls="font-bold mb-2"),
-                                ButtonPrimary(
-                                    "Apply",
-                                    hx_post="/admin/site/theme/preset",
-                                    hx_vals=f'{{"preset": "{preset_name}"}}',
-                                    hx_target="#theme-editor",
-                                    cls="btn-sm"
-                                ),
-                                cls="p-3"
-                            ),
-                            cls="mb-2"
-                        )
-                        for preset_name in ["default", "dark", "blue", "green"]
-                    ],
-                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
-                )
-            ),
-            
-            # Color customization
-            Div(
-                H3("Colors", cls="text-lg font-bold mb-4"),
-                Div(
-                    *[
-                        Div(
-                            Label(color_name.title().replace("_", " "), cls="block text-sm font-bold mb-1"),
-                            Input(
-                                type="color",
-                                value=current_theme.colors.get(color_name, "#000000"),
-                                name=f"color_{color_name}",
-                                hx_post="/admin/site/theme/colors",
-                                hx_target="#theme-editor",
-                                hx_vals=f'{{"color": "{color_name}"}}',
-                                cls="w-full"
-                            ),
-                            cls="mb-3"
-                        )
-                        for color_name in ["primary", "secondary", "accent", "background", "text"]
-                    ],
-                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                ),
-                cls="mb-6"
-            ),
-            
-            # Typography
-            Div(
-                H3("Typography", cls="text-lg font-bold mb-4"),
-                Div(
-                    *[
-                        Div(
-                            Label(typo_name.title().replace("_", " "), cls="block text-sm font-bold mb-1"),
-                            Select(
-                                *[Option(size, value=size, selected=current_theme.typography.get(typo_name) == size) 
-                                  for size in ["xs", "sm", "base", "lg", "xl", "2xl", "3xl"]],
-                                name=f"typo_{typo_name}",
-                                hx_post="/admin/site/theme/typography",
-                                hx_target="#theme-editor",
-                                hx_vals=f'{{"typo": "{typo_name}"}}',
-                                cls="w-full"
-                            ),
-                            cls="mb-3"
-                        )
-                        for typo_name in ["heading_size", "body_size", "button_size"]
-                    ],
-                    cls="grid grid-cols-1 md:grid-cols-3 gap-4"
-                ),
-                cls="mb-6"
-            ),
-            
-            # Custom CSS
-            Div(
-                H3("Custom CSS", cls="text-lg font-bold mb-4"),
-                Textarea(
-                    current_theme.custom_css or "",
-                    name="custom_css",
-                    placeholder="Add custom CSS here...",
-                    hx_post="/admin/site/theme/css",
-                    hx_target="#theme-editor",
-                    cls="w-full h-32 font-mono text-sm"
-                ),
-                cls="mb-6"
-            ),
-            
-            # Preview button
-            Div(
-                ButtonSecondary(
-                    "Preview Changes",
-                    hx_get="/admin/site/preview",
-                    hx_target="#site-content",
-                    cls="mr-2"
-                ),
-                ButtonPrimary(
-                    "Save Theme",
-                    hx_post="/admin/site/theme/save",
-                    hx_target="#theme-editor",
-                    cls="mr-2"
-                ),
-                ButtonSecondary(
-                    "Reset to Default",
-                    hx_post="/admin/site/theme/reset",
-                    hx_target="#theme-editor",
-                    hx_confirm="Reset theme to default?"
-                ),
-                cls="flex gap-2"
-            ),
-            
-            cls="p-6"
-        ),
-        id="theme-editor"
-    )
+        logger.error(f"Error in theme_editor: {e}")
+        import traceback
+        traceback.print_exc()
+        return Alert(f"Error loading theme editor: {str(e)}", cls="alert-error")
     
 @router_admin_sites.post("/admin/site/theme/save")
 @require_admin
@@ -561,7 +540,7 @@ async def save_theme(request):
     
     # Load current state
     try:
-        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        site_result = await workflow_manager.load_site(SITE_ID, user_id)
         if site_result["success"]:
             state = site_result["state"]
             landing_page.from_dict(state)
@@ -608,7 +587,7 @@ async def update_theme_colors(request):
     
     # Load current state
     try:
-        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        site_result = await workflow_manager.load_site(SITE_ID, user_id)
         if site_result["success"]:
             state = site_result["state"]
             landing_page.from_dict(state)
@@ -653,7 +632,7 @@ async def update_custom_css(request):
     
     # Load current state
     try:
-        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        site_result = await workflow_manager.load_site(SITE_ID, user_id)
         if site_result["success"]:
             state = site_result["state"]
             landing_page.from_dict(state)
@@ -723,93 +702,12 @@ async def apply_theme_preset(request):
     
     # Get form data
     form_data = await request.form()
-    preset_name = form_data.get("preset")
+    preset = form_data.get("preset")
     
-    if not preset_name:
+    if not preset:
         return Alert("Invalid preset", cls="alert-error")
     
-    # Initialize the landing page
-    landing_page = HomePage(SITE_ID)
-    
-    # Define presets
-    presets = {
-        "default": {
-            "colors": {"primary": "#3b82f6", "secondary": "#64748b", "accent": "#f59e0b", "background": "#ffffff", "text": "#1f2937"},
-            "typography": {"heading_size": "2xl", "body_size": "base", "button_size": "sm"}
-        },
-        "dark": {
-            "colors": {"primary": "#60a5fa", "secondary": "#94a3b8", "accent": "#fbbf24", "background": "#111827", "text": "#f9fafb"},
-            "typography": {"heading_size": "2xl", "body_size": "base", "button_size": "sm"}
-        },
-        "blue": {
-            "colors": {"primary": "#2563eb", "secondary": "#64748b", "accent": "#0ea5e9", "background": "#ffffff", "text": "#1e293b"},
-            "typography": {"heading_size": "3xl", "body_size": "lg", "button_size": "base"}
-        },
-        "green": {
-            "colors": {"primary": "#16a34a", "secondary": "#64748b", "accent": "#84cc16", "background": "#ffffff", "text": "#1f2937"},
-            "typography": {"heading_size": "2xl", "body_size": "base", "button_size": "sm"}
-        }
-    }
-    
-    if preset_name not in presets:
-        return Alert("Preset not found", cls="alert-error")
-    
-    # Load current state
-    try:
-        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
-        if site_result["success"]:
-            state = site_result["state"]
-            landing_page.from_dict(state)
-    except Exception as e:
-        logger.warning(f"Could not load site state for preset: {e}")
-    
-    # Apply preset
-    preset_data = presets[preset_name]
-    landing_page.theme_styles.colors.update(preset_data["colors"])
-    landing_page.theme_styles.typography.update(preset_data["typography"])
-    
-    # Save the updated state
-    try:
-        updated_data = landing_page.to_dict()
-        result = await workflow_manager.save_site(
-            SITE_ID, 
-            user_id, 
-            updated_data, 
-            partition_key="draft"
-        )
-        
-        if result["success"]:
-            return Alert(f"Theme preset '{preset_name}' applied successfully!", cls="alert-success")
-        else:
-            return Alert(f"Error applying preset: {result.get('error')}", cls="alert-error")
-    except Exception as e:
-        logger.error(f"Error applying preset: {e}")
-        return Alert("Failed to apply preset", cls="alert-error")
-                    
-
-@router_admin_sites.post("/admin/site/theme/preset")
-@require_admin
-async def apply_theme_preset(request, preset: str):
-    """Apply a theme preset."""
-    user = request.state.user if hasattr(request.state, 'user') else None
-    user_id = user.get("id") if user else None
-    
-    result = await theme_manager.apply_preset(SITE_ID, preset, user_id=user_id, partition_key="draft")
-    
-    if result["success"]:
-        return RedirectResponse(url="/admin/site/theme")
-    
-    return Alert(f"Error: {result.get('error')}", cls="alert-error")
-
-
-@router_admin_sites.post("/admin/site/theme/colors")
-@require_admin
-async def update_theme_colors(request, **colors):
-    """Update theme colors."""
-    user = request.state.user if hasattr(request.state, 'user') else None
-    user_id = user.get("id") if user else None
-    
-    result = await theme_manager.update_theme_colors(SITE_ID, colors, user_id, partition_key="draft")
+    result = await theme_manager.apply_preset(SITE_ID, preset, user_id=user_id)
     
     if result["success"]:
         return RedirectResponse(url="/admin/site/theme")
@@ -833,7 +731,7 @@ async def preview_site(request):
     
     # Load site state if available
     try:
-        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        site_result = await workflow_manager.load_site(SITE_ID, user_id)
         if site_result["success"]:
             state = site_result["state"]
             landing_page.from_dict(state)
@@ -868,7 +766,7 @@ async def publish_draft_version(request):
     
     # Load current draft state
     try:
-        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        site_result = await workflow_manager.load_site(SITE_ID, user_id)
         if site_result["success"]:
             state = site_result["state"]
             landing_page.from_dict(state)
@@ -901,10 +799,11 @@ async def publish_draft_version(request):
                 f"✓ Published version {result['version_number']}!",
                 cls="alert-success mb-4"
             ),
-            ButtonSecondary(
+            Button(
                 "Back to Dashboard",
                 hx_get="/admin/dashboard",
-                hx_target="body"
+                hx_target="body",
+                cls="btn btn-outline-secondary"
             )
         )
     
@@ -967,18 +866,19 @@ async def compare_versions(request):
             
             # Actions
             Div(
-                ButtonPrimary(
+                Button(
                     "Publish Changes",
                     hx_post="/admin/site/publish",
                     hx_target="#site-content",
                     hx_confirm="Publish these changes?",
-                    disabled=not comparison["has_changes"]
+                    disabled=not comparison["has_changes"],
+                    cls="btn btn-primary"
                 ),
-                ButtonSecondary(
+                Button(
                     "Back to Editor",
                     hx_get="/admin/site/edit",
                     hx_target="#site-content",
-                    cls="ml-2"
+                    cls="btn btn-outline-secondary ml-2"
                 ),
                 cls="flex gap-2"
             ),

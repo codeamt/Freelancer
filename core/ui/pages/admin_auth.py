@@ -228,7 +228,7 @@ def WebAdminDashboard(user: dict, metrics: Optional[dict] = None):
                     P("Manage site structure, sections, and components", cls="text-gray-600 text-sm"),
                     cls="p-6"
                 ),
-                href="/admin/site/components",
+                href="/admin/site/edit",
                 cls="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
             ),
             

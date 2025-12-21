@@ -39,7 +39,20 @@ class AuthContextMiddleware(BaseHTTPMiddleware):
             else:
                 user_context = create_user_context(user, request)
 
+            # Set user context for middleware
             token = current_user_context.set(user_context)
+            
+            # Set user data in request state for backward compatibility with decorators
+            if not isinstance(user, AnonymousUser) and user:
+                request.state.user = {
+                    "id": str(user.id),
+                    "_id": str(user.id),
+                    "email": user.email,
+                    "role": user.role,
+                    "roles": user_context.roles,
+                }
+            else:
+                request.state.user = None
 
             response = await call_next(request)
             return set_response_cookies(request, response)
