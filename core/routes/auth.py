@@ -2,7 +2,8 @@
 from fasthtml.common import *
 from monsterui.all import *
 from starlette.responses import RedirectResponse
-from core.services.auth import require_auth, require_role
+from core.services.auth.decorators import require_auth
+from core.services.admin.decorators import require_role
 from core.services.auth.helpers import get_current_user_from_request
 from core.ui.layout import Layout
 from core.ui.pages import AuthPage, AuthTabContent, WebAdminAuthPage, WebAdminDashboard

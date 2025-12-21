@@ -12,7 +12,7 @@ Routes:
 
 from fasthtml.common import *
 from monsterui.all import *
-from core.services.auth import require_admin, require_super_admin
+from core.services.admin.decorators import require_admin, require_super_admin
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -21,7 +21,7 @@ router_admin_users = APIRouter()
 
 
 @router_admin_users.get("/admin/users")
-@require_admin()
+@require_admin
 async def list_users(request: Request):
     """List all users with filtering and search."""
     user_service = request.app.state.user_service
@@ -134,7 +134,7 @@ async def list_users(request: Request):
 
 
 @router_admin_users.get("/admin/users/create")
-@require_admin()
+@require_admin
 async def create_user_form(request: Request):
     """Show create user form."""
     return Card(
@@ -205,7 +205,7 @@ async def create_user_form(request: Request):
 
 
 @router_admin_users.get("/admin/users/{user_id}")
-@require_admin()
+@require_admin
 async def view_user(request: Request, user_id: int):
     """View user details."""
     user_service = request.app.state.user_service
@@ -274,7 +274,7 @@ async def view_user(request: Request, user_id: int):
 
 
 @router_admin_users.get("/admin/users/{user_id}/edit")
-@require_admin()
+@require_admin
 async def edit_user_form(request: Request, user_id: int):
     """Show edit user form."""
     user_service = request.app.state.user_service
@@ -331,7 +331,7 @@ async def edit_user_form(request: Request, user_id: int):
 
 
 @router_admin_users.get("/admin/users/{user_id}/role")
-@require_super_admin()
+@require_super_admin
 async def change_role_form(request: Request, user_id: int):
     """Show change role form (SuperAdmin only)."""
     user_service = request.app.state.user_service
@@ -393,7 +393,7 @@ async def change_role_form(request: Request, user_id: int):
 # ============================================================================
 
 @router_admin_users.post("/api/admin/users")
-@require_admin()
+@require_admin
 async def create_user(request: Request):
     """Create new user."""
     user_service = request.app.state.user_service
@@ -427,7 +427,7 @@ async def create_user(request: Request):
 
 
 @router_admin_users.put("/api/admin/users/{user_id}")
-@require_admin()
+@require_admin
 async def update_user(request: Request, user_id: int):
     """Update user details."""
     user_service = request.app.state.user_service
@@ -459,7 +459,7 @@ async def update_user(request: Request, user_id: int):
 
 
 @router_admin_users.put("/api/admin/users/{user_id}/role")
-@require_super_admin()
+@require_super_admin
 async def change_user_role(request: Request, user_id: int):
     """Change user role (SuperAdmin only)."""
     user_service = request.app.state.user_service
@@ -493,7 +493,7 @@ async def change_user_role(request: Request, user_id: int):
 
 
 @router_admin_users.delete("/api/admin/users/{user_id}")
-@require_admin()
+@require_admin
 async def delete_user(request: Request, user_id: int):
     """Delete user."""
     user_service = request.app.state.user_service

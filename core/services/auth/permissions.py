@@ -81,30 +81,120 @@ class PermissionRegistry:
         self._initialize_core_roles()
     
     def _initialize_core_roles(self):
-        """Initialize core platform roles"""
-        # Super Admin - full access
+        """Initialize core platform roles with canonical vocabulary"""
+        
+        # Platform ops roles (installation/provider-facing)
         self.register_role(Role(
             id="super_admin",
             name="Super Admin",
-            description="Full platform access",
+            description="Full platform access - break-glass, install-wide",
             permissions=[
                 Permission("*", "*", "*")  # Wildcard: all resources, all actions
             ],
             domain="core"
         ))
         
-        # Admin - site management
         self.register_role(Role(
-            id="admin",
-            name="Administrator",
-            description="Site and user management",
+            id="support_staff",
+            name="Support Staff",
+            description="Platform troubleshooting and read-only access",
             permissions=[
-                Permission("*", "*", "*"),  # Admin has all permissions
+                Permission("site", "read", "*"),
+                Permission("user", "read", "*"),
+                Permission("admin", "access", "*"),
+                Permission("support", "impersonate", "*"),  # Optional, dangerous
             ],
             domain="core"
         ))
         
-        # Instructor - LMS role
+        # Site staff roles (site/operator-facing)
+        self.register_role(Role(
+            id="site_owner",
+            name="Site Owner",
+            description="Highest privilege for a site - full site control",
+            permissions=[
+                Permission("site", "*", "*"),
+                Permission("user", "*", "*"),
+                Permission("content", "*", "*"),
+                Permission("theme", "*", "*"),
+                Permission("addons", "manage", "*"),
+                Permission("billing", "*", "*"),
+            ],
+            domain="core"
+        ))
+        
+        self.register_role(Role(
+            id="site_admin",
+            name="Site Administrator",
+            description="Site management - content + settings, not billing/ownership",
+            permissions=[
+                Permission("site", "manage", "*"),
+                Permission("content", "*", "*"),
+                Permission("user", "manage", "*"),
+                Permission("theme", "update", "*"),
+                Permission("settings", "update", "*"),
+            ],
+            domain="core"
+        ))
+        
+        self.register_role(Role(
+            id="editor",
+            name="Editor",
+            description="Content editing and management",
+            permissions=[
+                Permission("page", "*", "*"),
+                Permission("component", "*", "*"),
+                Permission("theme", "read", "*"),
+                Permission("media", "upload", "*"),
+            ],
+            domain="core"
+        ))
+        
+        # Primary site roles (end-user / customer-facing)
+        self.register_role(Role(
+            id="member",
+            name="Member",
+            description="Paid/entitled user with enhanced access",
+            permissions=[
+                Permission("site", "read", "*"),
+                Permission("page", "read", "*"),
+                Permission("user", "read", "own"),
+                Permission("user", "update", "own"),
+                Permission("profile", "view", "own"),
+                Permission("profile", "update", "own"),
+                Permission("premium", "access", "*"),
+            ],
+            domain="core"
+        ))
+        
+        self.register_role(Role(
+            id="user",
+            name="User",
+            description="Basic authenticated user",
+            permissions=[
+                Permission("profile", "view", "own"),
+                Permission("profile", "update", "own"),
+                Permission("user", "read", "own"),
+                Permission("user", "update", "own"),
+                Permission("setting", "read", "own"),
+            ],
+            domain="core"
+        ))
+        
+        # Legacy role aliases for backward compatibility
+        self.register_role(Role(
+            id="admin",
+            name="Administrator (Legacy)",
+            description="Legacy admin role - maps to site_admin",
+            permissions=[
+                Permission("site", "manage", "*"),
+                Permission("content", "*", "*"),
+                Permission("user", "manage", "*"),
+            ],
+            domain="core"
+        ))
+        
+        # LMS-specific roles (domain-specific)
         self.register_role(Role(
             id="instructor",
             name="Instructor",
@@ -120,7 +210,6 @@ class PermissionRegistry:
             domain="lms"
         ))
         
-        # Student - LMS role
         self.register_role(Role(
             id="student",
             name="Student",
@@ -134,48 +223,42 @@ class PermissionRegistry:
             domain="lms"
         ))
         
-        # Editor - content management
+        # Commerce-specific roles (domain-specific)
         self.register_role(Role(
-            id="editor",
-            name="Editor",
-            description="Content editing",
+            id="shop_owner",
+            name="Shop Owner",
+            description="E-commerce store management",
             permissions=[
-                Permission("page", "*", "*"),
-                Permission("component", "*", "*"),
-                Permission("theme", "read", "*"),
+                Permission("shop", "*", "*"),
+                Permission("product", "*", "*"),
+                Permission("order", "*", "*"),
+                Permission("inventory", "*", "*"),
             ],
-            domain="core"
+            domain="commerce"
         ))
         
-        # Member/User - basic access
         self.register_role(Role(
-            id="member",
-            name="Member",
-            description="Basic site member",
+            id="merchant",
+            name="Merchant",
+            description="Commerce operations",
             permissions=[
-                Permission("site", "read", "*"),
-                Permission("page", "read", "*"),
-                Permission("user", "read", "own"),
-                Permission("user", "update", "own"),
-                Permission("profile", "view", "own"),
-                Permission("profile", "update", "own"),
+                Permission("product", "manage", "*"),
+                Permission("order", "process", "*"),
+                Permission("inventory", "update", "*"),
             ],
-            domain="core"
+            domain="commerce"
         ))
         
-        # User role (alias for member)
         self.register_role(Role(
-            id="user",
-            name="User",
-            description="Basic user",
+            id="course_creator",
+            name="Course Creator",
+            description="Educational content creation",
             permissions=[
-                Permission("profile", "view", "own"),
-                Permission("profile", "update", "own"),
-                Permission("user", "read", "*"),  # Can read own user settings
-                Permission("user", "update", "own"),
-                Permission("setting", "read", "*"),  # Can read settings
+                Permission("courses", "create", "*"),
+                Permission("lessons", "create", "*"),
+                Permission("content", "manage", "own"),
             ],
-            domain="core"
+            domain="lms"
         ))
     
     def register_role(self, role: Role):

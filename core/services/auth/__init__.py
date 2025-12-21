@@ -6,13 +6,14 @@ Provides convenient access to auth services and utilities.
 from core.services.auth.auth_service import AuthService, AnonymousUser
 from core.services.auth.user_service import UserService
 from core.services.auth.providers.jwt import JWTProvider
+
+# Legacy decorators for backward compatibility
 from core.services.auth.decorators import (
-    require_auth, 
     require_role as decorator_require_role, 
     require_permission as decorator_require_permission,
-    requires_permission,
-    requires_role,
-    require_admin,
+    requires_permission as legacy_requires_permission,
+    requires_role as legacy_requires_role,
+    require_admin as legacy_require_admin,
     require_super_admin
 )
 from core.services.auth.context import (
@@ -82,13 +83,12 @@ __all__ = [
     'UserRole',
     'UserStatus',
     
-    # Decorators
-    'require_auth',
+    # Legacy decorators (backward compatibility)
     'decorator_require_role',
     'decorator_require_permission',
-    'requires_permission',
-    'requires_role',
-    'require_admin',
+    'legacy_requires_permission',
+    'legacy_requires_role',
+    'legacy_require_admin',
     'require_super_admin',
     
     # Context
@@ -118,5 +118,8 @@ __all__ = [
 ]
 
 # Provide backward compatibility aliases
-require_role = helper_require_role
-require_permission = helper_require_permission
+require_role = legacy_requires_role
+require_permission = legacy_requires_permission
+
+# New standardized exports take precedence
+# Use requires_role, requires_permission for new code

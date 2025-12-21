@@ -10,17 +10,31 @@ from enum import Enum
 
 
 class UserRole(str, Enum):
-    """User role enumeration"""
-    SUPER_ADMIN = "super_admin"
-    ADMIN = "admin"
-    EDITOR = "editor"
-    MEMBER = "member"
-    USER = "user"
-    INSTRUCTOR = "instructor"
-    STUDENT = "student"
-    SHOP_OWNER = "shop_owner"
-    MERCHANT = "merchant"
-    COURSE_CREATOR = "course_creator"
+    """Canonical user role enumeration with hierarchy"""
+    
+    # Platform roles (highest hierarchy)
+    SUPER_ADMIN = "super_admin"      # Platform-wide admin
+    
+    # Site roles (site-level hierarchy)
+    ADMIN = "admin"                  # Site admin
+    INSTRUCTOR = "instructor"        # Course instructor
+    EDITOR = "editor"                # Content editor
+    
+    # User roles (base hierarchy)
+    STUDENT = "student"              # Course student
+    USER = "user"                    # Regular user
+    GUEST = "guest"                  # Guest user
+    
+    # Domain-specific roles
+    BLOG_ADMIN = "blog_admin"        # Blog domain admin
+    BLOG_AUTHOR = "blog_author"      # Blog domain author
+    LMS_ADMIN = "lms_admin"          # LMS domain admin
+    
+    # Legacy compatibility (deprecated but maintained)
+    MEMBER = "member"                # Maps to USER
+    SITE_OWNER = "site_owner"        # Maps to ADMIN
+    SITE_ADMIN = "site_admin"        # Maps to ADMIN
+    SUPPORT_STAFF = "support_staff"   # Maps to SUPER_ADMIN
 
 
 class UserStatus(str, Enum):
@@ -101,12 +115,14 @@ class LoginResponse(BaseModel):
 
 
 class TokenPayload(BaseModel):
-    """JWT token payload"""
+    """JWT token payload with role versioning for revocation support"""
     sub: str  # user_id
     exp: int  # expiration timestamp
     iat: int  # issued at timestamp
     roles: List[UserRole] = Field(default_factory=list)
     email: Optional[str] = None
+    role_version: int = Field(default=1)  # For revocation support
+    session_id: Optional[str] = None  # For session tracking
 
 
 class TokenRefreshRequest(BaseModel):

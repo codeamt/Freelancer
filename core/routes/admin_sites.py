@@ -15,6 +15,8 @@ from core.workflows.admin import SiteWorkflowManager
 from core.ui.state.config import ComponentLibrary, ComponentType, VisibilityCondition
 from core.ui.state.actions import AddComponentAction, RemoveComponentAction, ToggleComponentAction
 from core.ui.theme.editor import ThemeEditorManager
+from core.ui.pages.landing_page import LandingPage, Section, SiteGraph, ThemeStyles
+from core.ui.pages.home import HomePage
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -34,6 +36,123 @@ workflow_manager = SiteWorkflowManager(persister=persister)
 theme_manager = ThemeEditorManager(persister=persister)
 
 router_admin_sites = APIRouter()
+
+
+# ============================================================================
+# Main Site Editor Dashboard
+# ============================================================================
+
+@router_admin_sites.get("/admin/site")
+@require_admin
+async def site_editor_dashboard(request):
+    """Main site editor dashboard - overview of all site management tools."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    # Initialize the landing page
+    landing_page = HomePage(SITE_ID)
+    
+    # Load site state if available
+    try:
+        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        if site_result["success"]:
+            state = site_result["state"]
+            landing_page.from_dict(state)
+    except Exception as e:
+        logger.warning(f"Could not load site state: {e}")
+        # Use default sections
+        pass
+    
+    sections = landing_page.site_graph.sections
+    
+    return Card(
+        Div(
+            H2("Site Editor Dashboard", cls="text-2xl font-bold mb-6"),
+            
+            # Quick stats
+            Div(
+                Div(
+                    H4("Site Status", cls="font-bold"),
+                    P("Draft Mode", cls="text-sm text-gray-600"),
+                    Span("In Progress" if landing_page.is_dirty() else "Saved", cls="badge badge-warning" if landing_page.is_dirty() else "badge badge-success")
+                ),
+                Div(
+                    H4("Last Updated", cls="font-bold"),
+                    P("Just now", cls="text-sm text-gray-600"),
+                    Span("Active", cls="badge badge-success")
+                ),
+                Div(
+                    H4("Components", cls="font-bold"),
+                    P(f"{len(sections)} sections", cls="text-sm text-gray-600"),
+                    Span("Ready", cls="badge badge-info")
+                ),
+                cls="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"
+            ),
+            
+            # Quick actions
+            H3("Quick Actions", cls="text-lg font-bold mb-4"),
+            Div(
+                A("Manage Components", href="/admin/site/components", cls="btn btn-primary mr-2"),
+                A("Edit Theme", href="/admin/site/theme", cls="btn btn-secondary mr-2"),
+                A("Preview Site", href="/admin/site/preview", cls="btn btn-outline mr-2"),
+                A("Compare & Publish", href="/admin/site/compare", cls="btn btn-accent"),
+                cls="mb-6"
+            ),
+            
+            # Section overview
+            H3("Current Sections", cls="text-lg font-bold mb-4"),
+            Div(
+                *[Div(
+                    Div(
+                        Div(
+                            H5(section.title, cls="font-bold"),
+                            P(f"Type: {section.type}", cls="text-sm text-gray-600"),
+                            P(f"Order: {section.order}", cls="text-sm text-gray-600"),
+                            Span("Visible" if section.visible else "Hidden", cls=f"badge {'badge-success' if section.visible else 'badge-secondary'}")
+                        ),
+                        Div(
+                            Button("Edit", cls="btn btn-sm btn-outline mr-1"),
+                            Button("Toggle", cls="btn btn-sm btn-outline mr-1"),
+                            Button("Remove", cls="btn btn-sm btn-error")
+                        ),
+                        cls="flex justify-between items-center"
+                    ),
+                    cls="border rounded p-3 mb-2"
+                ) for section in sections],
+                cls="space-y-2 mb-6"
+            ),
+            
+            # Recent activity
+            H3("Recent Activity", cls="text-lg font-bold mb-4"),
+            Div(
+                Div(
+                    P("Dashboard accessed", cls="text-sm"),
+                    P("Just now", cls="text-xs text-gray-500"),
+                    cls="border-l-4 border-blue-500 pl-4 mb-2"
+                ),
+                Div(
+                    P(f"Site loaded with {len(sections)} sections", cls="text-sm"),
+                    P("1 minute ago", cls="text-xs text-gray-500"),
+                    cls="border-l-4 border-green-500 pl-4 mb-2"
+                ),
+                Div(
+                    P("Admin session started", cls="text-sm"),
+                    P("2 minutes ago", cls="text-xs text-gray-500"),
+                    cls="border-l-4 border-yellow-500 pl-4 mb-2"
+                ),
+                cls="space-y-2"
+            ),
+            
+            cls="p-6"
+        )
+    )
+
+
+@router_admin_sites.get("/admin/site/edit")
+@require_admin
+async def site_editor(request):
+    """Alias for main site editor dashboard."""
+    return await site_editor_dashboard(request)
 
 
 # ============================================================================
@@ -294,10 +413,21 @@ async def theme_editor(request):
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    # Load draft theme
-    theme_state = await persister.load(f"theme_{SITE_ID}", partition_key="draft")
+    # Initialize the landing page
+    landing_page = HomePage(SITE_ID)
     
-    current_theme = theme_state.get("theme_state", {}) if theme_state else {}
+    # Load site state if available
+    try:
+        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        if site_result["success"]:
+            state = site_result["state"]
+            landing_page.from_dict(state)
+    except Exception as e:
+        logger.warning(f"Could not load site state for theme editor: {e}")
+        # Use default theme
+        pass
+    
+    current_theme = landing_page.theme_styles
     
     return Card(
         Div(
@@ -320,113 +450,342 @@ async def theme_editor(request):
                                 ),
                                 cls="p-3"
                             ),
-                            cls="text-center"
+                            cls="mb-2"
                         )
-                        for preset_name in ["modern", "minimal", "bold", "dark", "warm", "cool"]
+                        for preset_name in ["default", "dark", "blue", "green"]
                     ],
-                    cls="grid grid-cols-3 md:grid-cols-6 gap-4 mb-6"
+                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
                 )
             ),
             
-            # Color scheme editor
+            # Color customization
             Div(
                 H3("Colors", cls="text-lg font-bold mb-4"),
-                Form(
-                    Div(
-                        *[
-                            Div(
-                                Label(color_name.replace("_", " ").title(), cls="block text-sm font-bold mb-1"),
-                                Input(
-                                    type="color",
-                                    name=color_name,
-                                    value=current_theme.get("colors", {}).get(color_name, "#000000"),
-                                    cls="w-full h-10"
-                                ),
-                                cls="mb-2"
-                            )
-                            for color_name in ["primary", "secondary", "accent", "neutral"]
-                        ],
-                        cls="grid grid-cols-2 md:grid-cols-4 gap-4"
-                    ),
-                    ButtonPrimary("Update Colors", type="submit", cls="mt-4"),
-                    hx_post="/admin/site/theme/colors",
-                    hx_target="#theme-editor"
+                Div(
+                    *[
+                        Div(
+                            Label(color_name.title().replace("_", " "), cls="block text-sm font-bold mb-1"),
+                            Input(
+                                type="color",
+                                value=current_theme.colors.get(color_name, "#000000"),
+                                name=f"color_{color_name}",
+                                hx_post="/admin/site/theme/colors",
+                                hx_target="#theme-editor",
+                                hx_vals=f'{{"color": "{color_name}"}}',
+                                cls="w-full"
+                            ),
+                            cls="mb-3"
+                        )
+                        for color_name in ["primary", "secondary", "accent", "background", "text"]
+                    ],
+                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
                 ),
                 cls="mb-6"
             ),
             
-            # Typography editor
+            # Typography
             Div(
                 H3("Typography", cls="text-lg font-bold mb-4"),
-                Form(
-                    Div(
-                        Label("Primary Font", cls="block text-sm font-bold mb-1"),
-                        Input(
-                            type="text",
-                            name="font_family_primary",
-                            value=current_theme.get("typography", {}).get("font_family_primary", "Inter, sans-serif"),
-                            placeholder="Inter, sans-serif",
-                            cls="input input-bordered w-full mb-2"
+                Div(
+                    *[
+                        Div(
+                            Label(typo_name.title().replace("_", " "), cls="block text-sm font-bold mb-1"),
+                            Select(
+                                *[Option(size, value=size, selected=current_theme.typography.get(typo_name) == size) 
+                                  for size in ["xs", "sm", "base", "lg", "xl", "2xl", "3xl"]],
+                                name=f"typo_{typo_name}",
+                                hx_post="/admin/site/theme/typography",
+                                hx_target="#theme-editor",
+                                hx_vals=f'{{"typo": "{typo_name}"}}',
+                                cls="w-full"
+                            ),
+                            cls="mb-3"
                         )
-                    ),
-                    Div(
-                        Label("Base Font Size", cls="block text-sm font-bold mb-1"),
-                        Input(
-                            type="text",
-                            name="font_size_base",
-                            value=current_theme.get("typography", {}).get("font_size_base", "16px"),
-                            placeholder="16px",
-                            cls="input input-bordered w-full mb-2"
-                        )
-                    ),
-                    ButtonPrimary("Update Typography", type="submit", cls="mt-4"),
-                    hx_post="/admin/site/theme/typography",
-                    hx_target="#theme-editor"
+                        for typo_name in ["heading_size", "body_size", "button_size"]
+                    ],
+                    cls="grid grid-cols-1 md:grid-cols-3 gap-4"
                 ),
                 cls="mb-6"
             ),
             
-            # Custom CSS editor
+            # Custom CSS
             Div(
                 H3("Custom CSS", cls="text-lg font-bold mb-4"),
-                Form(
-                    Textarea(
-                        current_theme.get("custom_css", ""),
-                        name="custom_css",
-                        rows=10,
-                        placeholder="/* Add your custom CSS here */",
-                        cls="textarea textarea-bordered w-full font-mono text-sm"
-                    ),
-                    ButtonPrimary("Update CSS", type="submit", cls="mt-4"),
+                Textarea(
+                    current_theme.custom_css or "",
+                    name="custom_css",
+                    placeholder="Add custom CSS here...",
                     hx_post="/admin/site/theme/css",
-                    hx_target="#theme-editor"
+                    hx_target="#theme-editor",
+                    cls="w-full h-32 font-mono text-sm"
                 ),
                 cls="mb-6"
             ),
             
-            # Preview & Actions
+            # Preview button
             Div(
-                ButtonPrimary(
-                    "Preview Theme",
+                ButtonSecondary(
+                    "Preview Changes",
                     hx_get="/admin/site/preview",
-                    hx_target="#preview-window",
+                    hx_target="#site-content",
+                    cls="mr-2"
+                ),
+                ButtonPrimary(
+                    "Save Theme",
+                    hx_post="/admin/site/theme/save",
+                    hx_target="#theme-editor",
                     cls="mr-2"
                 ),
                 ButtonSecondary(
-                    "Back to Site Editor",
-                    hx_get="/admin/site/edit",
-                    hx_target="#site-content"
+                    "Reset to Default",
+                    hx_post="/admin/site/theme/reset",
+                    hx_target="#theme-editor",
+                    hx_confirm="Reset theme to default?"
                 ),
                 cls="flex gap-2"
             ),
             
-            Div(id="preview-window", cls="mt-6"),
-            
-            cls="p-4",
-            id="theme-editor"
-        )
+            cls="p-6"
+        ),
+        id="theme-editor"
     )
+    
+@router_admin_sites.post("/admin/site/theme/save")
+@require_admin
+async def save_theme(request):
+    """Save theme changes."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    # Initialize the landing page
+    landing_page = HomePage(SITE_ID)
+    
+    # Load current state
+    try:
+        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        if site_result["success"]:
+            state = site_result["state"]
+            landing_page.from_dict(state)
+    except Exception as e:
+        logger.warning(f"Could not load site state for theme save: {e}")
+    
+    # Save the updated state
+    try:
+        updated_data = landing_page.to_dict()
+        result = await workflow_manager.save_site(
+            SITE_ID, 
+            user_id, 
+            updated_data, 
+            partition_key="draft"
+        )
+        
+        if result["success"]:
+            landing_page.mark_clean()
+            return Alert("Theme saved successfully!", cls="alert-success")
+        else:
+            return Alert(f"Error saving theme: {result.get('error')}", cls="alert-error")
+    except Exception as e:
+        logger.error(f"Error saving theme: {e}")
+        return Alert("Failed to save theme", cls="alert-error")
 
+
+@router_admin_sites.post("/admin/site/theme/colors")
+@require_admin
+async def update_theme_colors(request):
+    """Update theme colors."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    # Get form data
+    form_data = await request.form()
+    color_name = form_data.get("color")
+    color_value = form_data.get(f"color_{color_name}")
+    
+    if not color_name or not color_value:
+        return Alert("Invalid color data", cls="alert-error")
+    
+    # Initialize the landing page
+    landing_page = HomePage(SITE_ID)
+    
+    # Load current state
+    try:
+        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        if site_result["success"]:
+            state = site_result["state"]
+            landing_page.from_dict(state)
+    except Exception as e:
+        logger.warning(f"Could not load site state for color update: {e}")
+    
+    # Update color
+    landing_page.theme_styles.colors[color_name] = color_value
+    
+    # Save the updated state
+    try:
+        updated_data = landing_page.to_dict()
+        result = await workflow_manager.save_site(
+            SITE_ID, 
+            user_id, 
+            updated_data, 
+            partition_key="draft"
+        )
+        
+        if result["success"]:
+            return Alert(f"Color '{color_name}' updated successfully!", cls="alert-success")
+        else:
+            return Alert(f"Error updating color: {result.get('error')}", cls="alert-error")
+    except Exception as e:
+        logger.error(f"Error updating color: {e}")
+        return Alert("Failed to update color", cls="alert-error")
+
+
+@router_admin_sites.post("/admin/site/theme/css")
+@require_admin
+async def update_custom_css(request):
+    """Update custom CSS."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    # Get form data
+    form_data = await request.form()
+    custom_css = form_data.get("custom_css", "")
+    
+    # Initialize the landing page
+    landing_page = HomePage(SITE_ID)
+    
+    # Load current state
+    try:
+        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        if site_result["success"]:
+            state = site_result["state"]
+            landing_page.from_dict(state)
+    except Exception as e:
+        logger.warning(f"Could not load site state for CSS update: {e}")
+    
+    # Update custom CSS
+    landing_page.theme_styles.custom_css = custom_css
+    
+    # Save the updated state
+    try:
+        updated_data = landing_page.to_dict()
+        result = await workflow_manager.save_site(
+            SITE_ID, 
+            user_id, 
+            updated_data, 
+            partition_key="draft"
+        )
+        
+        if result["success"]:
+            return Alert("Custom CSS updated successfully!", cls="alert-success")
+        else:
+            return Alert(f"Error updating CSS: {result.get('error')}", cls="alert-error")
+    except Exception as e:
+        logger.error(f"Error updating CSS: {e}")
+        return Alert("Failed to update CSS", cls="alert-error")
+
+
+@router_admin_sites.post("/admin/site/theme/reset")
+@require_admin
+async def reset_theme(request):
+    """Reset theme to default."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    # Initialize the landing page
+    landing_page = HomePage(SITE_ID)
+    
+    # Reset theme styles to default
+    landing_page.theme_styles = ThemeStyles()
+    
+    # Save the updated state
+    try:
+        updated_data = landing_page.to_dict()
+        result = await workflow_manager.save_site(
+            SITE_ID, 
+            user_id, 
+            updated_data, 
+            partition_key="draft"
+        )
+        
+        if result["success"]:
+            return Alert("Theme reset to default!", cls="alert-success")
+        else:
+            return Alert(f"Error resetting theme: {result.get('error')}", cls="alert-error")
+    except Exception as e:
+        logger.error(f"Error resetting theme: {e}")
+        return Alert("Failed to reset theme", cls="alert-error")
+
+
+@router_admin_sites.post("/admin/site/theme/preset")
+@require_admin
+async def apply_theme_preset(request):
+    """Apply a theme preset."""
+    user = request.state.user if hasattr(request.state, 'user') else None
+    user_id = user.get("id") if user else None
+    
+    # Get form data
+    form_data = await request.form()
+    preset_name = form_data.get("preset")
+    
+    if not preset_name:
+        return Alert("Invalid preset", cls="alert-error")
+    
+    # Initialize the landing page
+    landing_page = HomePage(SITE_ID)
+    
+    # Define presets
+    presets = {
+        "default": {
+            "colors": {"primary": "#3b82f6", "secondary": "#64748b", "accent": "#f59e0b", "background": "#ffffff", "text": "#1f2937"},
+            "typography": {"heading_size": "2xl", "body_size": "base", "button_size": "sm"}
+        },
+        "dark": {
+            "colors": {"primary": "#60a5fa", "secondary": "#94a3b8", "accent": "#fbbf24", "background": "#111827", "text": "#f9fafb"},
+            "typography": {"heading_size": "2xl", "body_size": "base", "button_size": "sm"}
+        },
+        "blue": {
+            "colors": {"primary": "#2563eb", "secondary": "#64748b", "accent": "#0ea5e9", "background": "#ffffff", "text": "#1e293b"},
+            "typography": {"heading_size": "3xl", "body_size": "lg", "button_size": "base"}
+        },
+        "green": {
+            "colors": {"primary": "#16a34a", "secondary": "#64748b", "accent": "#84cc16", "background": "#ffffff", "text": "#1f2937"},
+            "typography": {"heading_size": "2xl", "body_size": "base", "button_size": "sm"}
+        }
+    }
+    
+    if preset_name not in presets:
+        return Alert("Preset not found", cls="alert-error")
+    
+    # Load current state
+    try:
+        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        if site_result["success"]:
+            state = site_result["state"]
+            landing_page.from_dict(state)
+    except Exception as e:
+        logger.warning(f"Could not load site state for preset: {e}")
+    
+    # Apply preset
+    preset_data = presets[preset_name]
+    landing_page.theme_styles.colors.update(preset_data["colors"])
+    landing_page.theme_styles.typography.update(preset_data["typography"])
+    
+    # Save the updated state
+    try:
+        updated_data = landing_page.to_dict()
+        result = await workflow_manager.save_site(
+            SITE_ID, 
+            user_id, 
+            updated_data, 
+            partition_key="draft"
+        )
+        
+        if result["success"]:
+            return Alert(f"Theme preset '{preset_name}' applied successfully!", cls="alert-success")
+        else:
+            return Alert(f"Error applying preset: {result.get('error')}", cls="alert-error")
+    except Exception as e:
+        logger.error(f"Error applying preset: {e}")
+        return Alert("Failed to apply preset", cls="alert-error")
+                    
 
 @router_admin_sites.post("/admin/site/theme/preset")
 @require_admin
@@ -465,80 +824,36 @@ async def update_theme_colors(request, **colors):
 @router_admin_sites.get("/admin/site/preview")
 @require_admin
 async def preview_site(request):
-    """Preview site from draft version."""
+    """Preview the site with current changes."""
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    # Generate preview
-    result = await preview_manager.generate_preview(SITE_ID, user_context=user, user_id=user_id)
+    # Initialize the landing page
+    landing_page = HomePage(SITE_ID)
     
-    if not result["success"]:
-        return Alert(f"Error: {result.get('error')}", cls="alert-error")
+    # Load site state if available
+    try:
+        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        if site_result["success"]:
+            state = site_result["state"]
+            landing_page.from_dict(state)
+    except Exception as e:
+        logger.warning(f"Could not load site state for preview: {e}")
+        # Use default sections
+        pass
+    # Render the page in preview mode
+    layout = landing_page.render(request=request, preview_mode=True)
     
-    preview_data = result["preview_data"]
-    
-    return Card(
+    return Div(
         Div(
-            Div(
-                H2("Site Preview", cls="text-2xl font-bold"),
-                Badge("Preview Mode", cls="badge-warning"),
-                cls="flex items-center justify-between mb-4"
-            ),
-            
-            # Preview iframe or content
-            Div(
-                H3(preview_data.get("site_name"), cls="text-3xl font-bold mb-4"),
-                
-                *[
-                    Div(
-                        H4(f"Section: {section['id']}", cls="text-xl font-bold mb-2"),
-                        Badge(f"Type: {section['type']}", cls="badge-primary mb-2"),
-                        
-                        P(f"{len(section['components'])} components", cls="text-sm text-gray-600"),
-                        
-                        # Show which components are visible
-                        Ul(
-                            *[
-                                Li(f"✓ {comp['name']}", cls="text-sm")
-                                for comp in section['components']
-                            ],
-                            cls="list-disc list-inside ml-4"
-                        ) if section['components'] else P("No visible components", cls="text-sm text-gray-600"),
-                        
-                        cls="p-4 border rounded mb-4"
-                    )
-                    for section in preview_data.get("sections", [])
-                ],
-                
-                cls="bg-white p-6 rounded shadow"
-            ),
-            
-            # Actions
-            Div(
-                ButtonPrimary(
-                    "Publish This Version",
-                    hx_post="/admin/site/publish",
-                    hx_target="#site-content",
-                    hx_confirm="Publish this version?",
-                    cls="mr-2"
-                ),
-                ButtonSecondary(
-                    "Compare with Published",
-                    hx_get="/admin/site/compare",
-                    hx_target="#site-content"
-                ),
-                ButtonSecondary(
-                    "Back to Editor",
-                    hx_get="/admin/site/edit",
-                    hx_target="#site-content",
-                    cls="ml-2"
-                ),
-                cls="flex gap-2 mt-6"
-            ),
-            
-            cls="p-4"
-        )
-    )
+            H3("Preview Mode", cls="text-sm font-bold text-yellow-600 mb-2"),
+            P("This is a preview of your site with current changes", cls="text-xs text-gray-600 mb-4"),
+        A("Close Preview", href="/admin/site", cls="btn btn-sm btn-outline"),
+        cls="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4"
+    ),
+    layout.content,
+    cls="preview-container"
+)
 
 
 @router_admin_sites.post("/admin/site/publish")
@@ -548,7 +863,37 @@ async def publish_draft_version(request):
     user = request.state.user if hasattr(request.state, 'user') else None
     user_id = user.get("id") if user else None
     
-    result = await preview_manager.publish_draft(SITE_ID, user_id)
+    # Initialize the landing page
+    landing_page = HomePage(SITE_ID)
+    
+    # Load current draft state
+    try:
+        site_result = await workflow_manager.load_site(SITE_ID, user_id, partition_key="draft")
+        if site_result["success"]:
+            state = site_result["state"]
+            landing_page.from_dict(state)
+    except Exception as e:
+        logger.warning(f"Could not load site state for publishing: {e}")
+        return Alert("Could not load site state for publishing", cls="alert-error")
+    
+    # Save to published partition
+    try:
+        published_data = landing_page.to_dict()
+        result = await workflow_manager.save_site(
+            SITE_ID, 
+            user_id, 
+            published_data, 
+            partition_key="published"
+        )
+        
+        if result["success"]:
+            landing_page.mark_clean()
+            return Alert("Site published successfully!", cls="alert-success")
+        else:
+            return Alert(f"Error publishing site: {result.get('error')}", cls="alert-error")
+    except Exception as e:
+        logger.error(f"Error publishing site: {e}")
+        return Alert("Failed to publish site", cls="alert-error")
     
     if result["success"]:
         return Div(

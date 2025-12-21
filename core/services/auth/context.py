@@ -17,21 +17,34 @@ if TYPE_CHECKING:
 
 
 _ROLE_PRIORITY: dict[str, int] = {
+    # Platform ops roles (highest priority)
     "super_admin": 1000,
-    "site_owner": 900,
-    "admin": 800,
-    "support_staff": 700,
-    "web_admin": 650,
+    "support_staff": 900,
+    
+    # Site staff roles
+    "site_owner": 800,
+    "site_admin": 700,
     "editor": 600,
-    "stream_admin": 550,
-    "shop_owner": 520,
-    "merchant": 510,
-    "course_creator": 505,
-    "instructor": 500,
-    "streamer": 450,
+    
+    # Domain-specific roles (mapped from legacy)
+    "shop_owner": 550,  # Commerce
+    "merchant": 540,  # Commerce
+    "course_creator": 530,  # LMS
+    "instructor": 520,  # LMS
+    "stream_admin": 510,  # Streaming
+    "streamer": 500,  # Streaming
+    
+    # Primary site roles
     "member": 100,
     "user": 90,
-    "student": 80,
+    "student": 80,  # LMS - maps to user/member
+    
+    # Legacy aliases (lower priority for backward compatibility)
+    "admin": 750,  # Maps to site_admin
+    "web_admin": 650,  # Legacy
+    
+    # Unauthenticated
+    "guest": 10,
     "anonymous": 0,
 }
 

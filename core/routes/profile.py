@@ -10,7 +10,7 @@ Routes:
 
 from fasthtml.common import *
 from monsterui.all import *
-from core.services.auth import require_auth
+from core.services.auth.decorators import require_auth
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
 
@@ -20,7 +20,7 @@ router_profile = APIRouter()
 
 
 @router_profile.get("/profile")
-@require_auth()
+@require_auth
 async def view_profile(request: Request):
     """View own profile."""
     user = request.state.user
@@ -86,7 +86,7 @@ async def view_profile(request: Request):
 
 
 @router_profile.get("/profile/edit")
-@require_auth()
+@require_auth
 async def edit_profile_form(request: Request):
     """Show profile edit form."""
     user = request.state.user
@@ -141,7 +141,7 @@ async def edit_profile_form(request: Request):
 
 
 @router_profile.get("/profile/password")
-@require_auth()
+@require_auth
 async def change_password_form(request: Request):
     """Show password change form."""
     return Card(
@@ -203,7 +203,7 @@ async def change_password_form(request: Request):
 # ============================================================================
 
 @router_profile.put("/api/profile")
-@require_auth()
+@require_auth
 async def update_profile(request: Request):
     """Update user profile."""
     user = request.state.user
@@ -236,7 +236,7 @@ async def update_profile(request: Request):
 
 
 @router_profile.post("/api/profile/password")
-@require_auth()
+@require_auth
 async def change_password(request: Request):
     """Change user password."""
     user = request.state.user
@@ -281,7 +281,7 @@ async def change_password(request: Request):
 
 
 @router_profile.post("/api/profile/avatar")
-@require_auth()
+@require_auth
 async def upload_avatar(request: Request):
     """Upload profile avatar."""
     user = request.state.user
