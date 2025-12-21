@@ -11,8 +11,8 @@ async def home_page(request: Request):
     demo = getattr(request.app.state, 'demo', False)
     auth_service = request.app.state.auth_service
     user = await get_current_user(request, auth_service)
-    content = HomePage()
-    return Layout(content, title="Home | FastApp", current_path="/", user=user, demo=demo)
+    home_page = HomePage()
+    return home_page.render(request=request)
 
 @router_main.get("/docs")
 def docs_page(request: Request):
