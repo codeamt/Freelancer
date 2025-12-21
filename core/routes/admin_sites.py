@@ -149,7 +149,8 @@ async def site_editor_dashboard(request):
             )
         ),
         title="Site Editor",
-        current_path="/admin/site/edit"
+        current_path="/admin/site/edit",
+        demo=True
     )
 
 
@@ -521,7 +522,8 @@ async def theme_editor(request):
                 id="theme-editor"
             ),
             title="Theme Editor",
-            current_path="/admin/site/theme"
+            current_path="/admin/site/theme",
+            demo=True
         )
     except Exception as e:
         logger.error(f"Error in theme_editor: {e}")
