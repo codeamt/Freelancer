@@ -1,6 +1,6 @@
 """Paywall UI components"""
 from fasthtml.common import *
-from app.add_ons.domains.stream.models.membership import MembershipTier
+from add_ons.domains.stream.models.membership import MembershipTier
 
 
 def MembershipPaywall(stream: dict, paywall_data: dict):

@@ -1,8 +1,8 @@
 """State manager - orchestrates action execution with context"""
 from typing import Any, Tuple
 from core.utils.logger import get_logger
-from app.add_ons.domains.stream.state.actions import Action, ActionResult
-from app.add_ons.domains.stream.services.streams_uow import StreamUnitOfWork
+from add_ons.domains.stream.state.actions import Action, ActionResult
+from add_ons.domains.stream.services.streams_uow import StreamUnitOfWork
 
 logger = get_logger(__name__)
 

@@ -1,5 +1,5 @@
 """Demo streams with various access levels"""
-from app.add_ons.domains.stream.models.membership import MembershipTier
+from add_ons.domains.stream.models.membership import MembershipTier
 
 DEMO_STREAMS = [
     # Free stream

@@ -28,7 +28,7 @@ class StreamService:
             return streams
         
         # Demo mode
-        from app.add_ons.domains.stream import DEMO_STREAMS
+        from add_ons.domains.stream import DEMO_STREAMS
         live = [s for s in DEMO_STREAMS if s['is_live']]
         logger.info(f"Listed {len(live)} live streams (demo)")
         return live
@@ -41,7 +41,7 @@ class StreamService:
             return streams
         
         # Demo mode
-        from app.add_ons.domains.stream import DEMO_STREAMS
+        from add_ons.domains.stream import DEMO_STREAMS
         return DEMO_STREAMS
     
     async def get_stream(self, stream_id: int) -> Optional[dict]:
@@ -50,7 +50,7 @@ class StreamService:
             return await self.db.find_document("streams", {"id": stream_id})
         
         # Demo mode
-        from app.add_ons.domains.stream import DEMO_STREAMS
+        from add_ons.domains.stream import DEMO_STREAMS
         for stream in DEMO_STREAMS:
             if stream['id'] == stream_id:
                 return stream
@@ -99,7 +99,7 @@ class StreamService:
             return stream
         
         # Demo mode
-        from app.add_ons.domains.stream import DEMO_STREAMS
+        from add_ons.domains.stream import DEMO_STREAMS
         new_id = max(s['id'] for s in DEMO_STREAMS) + 1 if DEMO_STREAMS else 1
         stream = {
             "id": new_id,

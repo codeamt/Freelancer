@@ -4,16 +4,16 @@ import os
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
 from core.services.auth import get_current_user_from_context
-from app.add_ons.domains.stream.services.stream_service import StreamService
-from app.add_ons.domains.stream.ui.pages import streams_list_page, watch_page, broadcast_page
-from app.add_ons.domains.stream.ui.components import StreamCard
-from app.add_ons.domains.stream.services.paywall_service import PaywallService
-from app.add_ons.domains.stream.services.purchase_service import PurchaseService
-from app.add_ons.domains.stream.services.signaling_service import SignalingService
-from app.add_ons.domains.stream.services.chat_service import ChatService
-from app.add_ons.domains.stream.services.youtube_service import YouTubeService
-from app.add_ons.domains.stream.services.membership_service import MembershipService
-from app.add_ons.domains.stream.services.attendance_service import AttendanceService
+from add_ons.domains.stream.services.stream_service import StreamService
+from add_ons.domains.stream.ui.pages import streams_list_page, watch_page, broadcast_page
+from add_ons.domains.stream.ui.components import StreamCard
+from add_ons.domains.stream.services.paywall_service import PaywallService
+from add_ons.domains.stream.services.purchase_service import PurchaseService
+from add_ons.domains.stream.services.signaling_service import SignalingService
+from add_ons.domains.stream.services.chat_service import ChatService
+from add_ons.domains.stream.services.youtube_service import YouTubeService
+from add_ons.domains.stream.services.membership_service import MembershipService
+from add_ons.domains.stream.services.attendance_service import AttendanceService
 from core.integrations.storage.s3_client import StorageService
 from core.integrations.storage.models import UploadUrlRequest
 

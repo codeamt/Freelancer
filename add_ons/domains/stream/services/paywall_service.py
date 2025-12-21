@@ -1,9 +1,9 @@
 """Stream access control and paywall logic"""
 from typing import Optional, Tuple
 from core.utils.logger import get_logger
-from app.add_ons.domains.stream.models.membership import MembershipTier
-from app.add_ons.domains.stream.services.membership_service import MembershipService
-from app.add_ons.domains.stream.services.purchase_service import PurchaseService
+from add_ons.domains.stream.models.membership import MembershipTier
+from add_ons.domains.stream.services.membership_service import MembershipService
+from add_ons.domains.stream.services.purchase_service import PurchaseService
 
 logger = get_logger(__name__)
 

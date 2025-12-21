@@ -4,11 +4,11 @@ from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import datetime
-from app.add_ons.domains.lms.models.sql.enrollment import Enrollment
-from app.add_ons.domains.lms.models.sql.course import Course
-from app.add_ons.domains.lms.models.sql.progress import Progress
+from add_ons.domains.lms.models.sql.enrollment import Enrollment
+from add_ons.domains.lms.models.sql.course import Course
+from add_ons.domains.lms.models.sql.progress import Progress
 from core.db.models import User
-from app.add_ons.domains.lms.schemas import EnrollmentCreate, EnrollmentStatus
+from add_ons.domains.lms.schemas import EnrollmentCreate, EnrollmentStatus
 
 
 class EnrollmentService:

@@ -3,10 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from app.add_ons.domains.lms.models.sql.assessment import Assessment, AssessmentSubmission
-from app.add_ons.domains.lms.models.sql.course import Course
-from app.add_ons.domains.lms.models.sql.enrollment import Enrollment
-from app.add_ons.domains.lms.schemas import AssessmentCreate, AssessmentUpdate
+from add_ons.domains.lms.models.sql.assessment import Assessment, AssessmentSubmission
+from add_ons.domains.lms.models.sql.course import Course
+from add_ons.domains.lms.models.sql.enrollment import Enrollment
+from add_ons.domains.lms.schemas import AssessmentCreate, AssessmentUpdate
 
 
 class AssessmentService:

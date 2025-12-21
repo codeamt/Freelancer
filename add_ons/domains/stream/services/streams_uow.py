@@ -41,7 +41,7 @@ class StreamUnitOfWork:
     def stream_repo(self):
         """Get stream repository"""
         if self._stream_repo is None:
-            from app.add_ons.domains.stream.repositories.stream_repository import StreamRepository
+            from add_ons.domains.stream.repositories.stream_repository import StreamRepository
             self._stream_repo = StreamRepository(self.db_session)
         return self._stream_repo
     
@@ -49,7 +49,7 @@ class StreamUnitOfWork:
     def membership_repo(self):
         """Get membership repository"""
         if self._membership_repo is None:
-            from app.add_ons.domains.stream.repositories.membership_repository import MembershipRepository
+            from add_ons.domains.stream.repositories.membership_repository import MembershipRepository
             self._membership_repo = MembershipRepository(self.db_session)
         return self._membership_repo
     
@@ -57,7 +57,7 @@ class StreamUnitOfWork:
     def purchase_repo(self):
         """Get purchase repository"""
         if self._purchase_repo is None:
-            from app.add_ons.domains.stream.repositories.purchase_repository import PurchaseRepository
+            from add_ons.domains.stream.repositories.purchase_repository import PurchaseRepository
             self._purchase_repo = PurchaseRepository(self.db_session)
         return self._purchase_repo
     

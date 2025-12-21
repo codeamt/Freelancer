@@ -1,5 +1,5 @@
 def test_course_card_render():
-    from app.add_ons.domains.lms.ui.components import CourseCard
+    from add_ons.domains.lms.ui.components import CourseCard
 
     course = {
         "id": 123,
@@ -19,7 +19,7 @@ def test_course_card_render():
 
 
 def test_lesson_item_render():
-    from app.add_ons.domains.lms.ui.components import LessonListItem
+    from add_ons.domains.lms.ui.components import LessonListItem
 
     lesson = {"id": 7, "title": "Lesson 7", "duration_minutes": 12}
 
@@ -34,7 +34,7 @@ def test_lesson_item_render():
 
 
 def test_progress_bar_render():
-    from app.add_ons.domains.lms.ui.components import ProgressBar
+    from add_ons.domains.lms.ui.components import ProgressBar
 
     html = str(ProgressBar(33.3333))
     assert "33.3%" in html

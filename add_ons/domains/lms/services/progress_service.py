@@ -3,11 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional
 from datetime import datetime
-from app.add_ons.domains.lms.models.sql.progress import Progress
-from app.add_ons.domains.lms.models.sql.enrollment import Enrollment
-from app.add_ons.domains.lms.models.sql.lesson import Lesson
-from app.add_ons.domains.lms.models.sql.course import Course
-from app.add_ons.domains.lms.schemas import EnrollmentStatus
+from add_ons.domains.lms.models.sql.progress import Progress
+from add_ons.domains.lms.models.sql.enrollment import Enrollment
+from add_ons.domains.lms.models.sql.lesson import Lesson
+from add_ons.domains.lms.models.sql.course import Course
+from add_ons.domains.lms.schemas import EnrollmentStatus
 
 
 class ProgressService:

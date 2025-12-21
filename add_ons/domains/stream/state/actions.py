@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, Optional
 from datetime import datetime, timedelta
 from core.utils.logger import get_logger
-from app.add_ons.domains.stream.state.stream_state import (
+from add_ons.domains.stream.state.stream_state import (
     StreamState, StreamStatus, MembershipState, MembershipStatus,
     PurchaseState, PurchaseStatus
 )

@@ -2,8 +2,8 @@
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.db.base_class import get_session
-from app.add_ons.domains.lms.services.enrollment_service import EnrollmentService
+from core.db.base_class import get_session
+from add_ons.domains.lms.services.enrollment_service import EnrollmentService
 from typing import Optional
 
 
@@ -40,7 +40,7 @@ async def verify_instructor(
     db: AsyncSession
 ) -> bool:
     """Verify user is the instructor of a course"""
-    from app.add_ons.domains.lms.services.course_service import CourseService
+    from add_ons.domains.lms.services.course_service import CourseService
     
     course = await CourseService.get_course(db, course_id)
     

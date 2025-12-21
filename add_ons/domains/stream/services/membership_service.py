@@ -3,7 +3,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from core.utils.logger import get_logger
 from core.services import get_db_service
-from app.add_ons.domains.stream.models.membership import (
+from add_ons.domains.stream.models.membership import (
     Membership, MembershipTier, ChannelMembership
 )
 
