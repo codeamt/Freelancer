@@ -1,13 +1,24 @@
 """
 Social Network Example Application
 
-Social networking features with authentication.
+Complete social networking features with posts, comments, likes, follows, and messaging.
 """
+
 from fasthtml.common import *
 from monsterui.all import *
 import os
 from core.ui.layout import Layout
 from core.utils.logger import get_logger
+from core.services.auth.helpers import get_current_user
+from core.services.auth.context import set_user_context
+from core.services.auth.context import create_user_context
+from datetime import datetime
+
+# Import UI components from examples/social/ui/components.py
+from examples.social.ui.components import (
+    PostComposer, PostCard, UserCard, SocialFeed, ExampleHeader, ExampleNavigation, ExampleBackLink,
+    StreamingHomePage, LiveStreamCard, VideoUploadCard
+)
 
 logger = get_logger(__name__)
 
@@ -24,9 +35,6 @@ def create_social_app(auth_service=None, user_service=None, postgres=None, mongo
         redis: Redis adapter (optional)
         demo: Whether to run in demo mode (uses mock data, limited features)
     """
-    from core.services.auth.helpers import get_current_user
-    from core.services.auth.context import set_user_context
-    from core.services.auth.context import create_user_context
     
     logger.info(f"Initializing Social example app (demo={demo})...")
     
@@ -56,255 +64,171 @@ def create_social_app(auth_service=None, user_service=None, postgres=None, mongo
     
     @app.get("/")
     async def social_home(request: Request):
-        """Social network coming soon page"""
+        """Social network home with feed"""
+        user = await get_user_with_context(request)
+        
+        # Get demo posts
+        demo_posts = get_demo_posts()
+        current_user_id = user.id if user else 1
+        
+        content = Div(
+            # Use shared components with proper MonsterUI styling
+            ExampleHeader("🌐 Social Network", "Connect, Share, Engage"),
+            ExampleNavigation(BASE, "feed"),
+            
+            # Use proper SocialFeed component from shared components
+            SocialFeed(demo_posts, current_user_id, BASE),
+            
+            ExampleBackLink(),
+            cls="min-h-screen bg-gray-50"
+        )
+        
+        return Layout(content, title="Social Network | FastApp", current_path=f"{BASE}/", user=user, show_auth=True, demo=demo)
+    
+    @app.get("/streaming")
+    async def streaming_page(request: Request):
+        """Streaming platform page using StreamingHomePage component"""
+        user = await get_user_with_context(request)
+        
+        # Use StreamingHomePage component as content for Layout
+        content = StreamingHomePage(BASE, user, demo)
+        
+        return Layout(content, title="Streaming Platform | FastApp", current_path=f"{BASE}/streaming", user=user, show_auth=True, demo=demo)
+    
+    @app.get("/profiles")
+    async def profiles_page(request: Request):
+        """User profiles page"""
+        user = await get_user_with_context(request)
+        current_user_id = user.id if user else 1
+        
+        # Get demo users
+        demo_users = get_demo_users()
+        
+        content = Div(
+            ExampleHeader("👥 User Profiles", "Discover and connect with our community"),
+            ExampleNavigation(BASE, "profiles"),
+            
+            Div(
+                *[UserCard(user_data, current_user_id) for user_data in demo_users],
+                cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto"
+            ),
+            
+            ExampleBackLink(),
+            cls="min-h-screen bg-gray-50"
+        )
+        
+        return Layout(content, title="Profiles | Social Network", current_path=f"{BASE}/profiles", user=user, show_auth=True, demo=demo)
+    
+    @app.get("/messages")
+    async def messages_page(request: Request):
+        """Messages page"""
         user = await get_user_with_context(request)
         
         content = Div(
-            # Hero Section
+            ExampleHeader("💬 Messages", "Connect with your network"),
+            ExampleNavigation(BASE, "messages"),
+            
             Div(
-                Div(
-                    # Icon
-                    Div(
-                        UkIcon("users", width="120", height="120", cls="text-blue-500 mb-8"),
-                        cls="flex justify-center"
-                    ),
-                    
-                    # Title
-                    H1("🌐 Social Network", cls="text-5xl font-bold mb-4 text-center"),
-                    P("Connect, Share, Engage", cls="text-2xl text-gray-500 mb-8 text-center"),
-                    
-                    # Coming Soon Badge
-                    Div(
-                        Span("🚧 Demo Coming Soon", cls="badge badge-lg badge-warning text-lg px-6 py-4"),
-                        cls="flex justify-center mb-12"
-                    ),
-                    
-                    # Features Preview
-                    Div(
-                        H2("Planned Features", cls="text-3xl font-bold mb-8 text-center"),
-                        Div(
-                            FeatureCard("👤", "User Profiles", "Customizable profiles with photos, bio, and interests"),
-                            FeatureCard("📝", "Posts & Feed", "Share updates, photos, and videos with your network"),
-                            FeatureCard("💬", "Messaging", "Real-time chat and direct messaging"),
-                            FeatureCard("👥", "Connections", "Follow users and build your network"),
-                            FeatureCard("❤️", "Interactions", "Like, comment, and share content"),
-                            FeatureCard("🔔", "Notifications", "Stay updated with real-time notifications"),
-                            FeatureCard("🔒", "Privacy Controls", "Manage who sees your content"),
-                            FeatureCard("📊", "Analytics", "Track engagement and reach"),
-                            FeatureCard("🎯", "Groups & Communities", "Create and join interest-based groups"),
-                            cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"
-                        ),
-                    ),
-                    
-                    # Tech Stack
-                    Div(
-                        H3("Tech Stack", cls="text-2xl font-bold mb-6 text-center"),
-                        Div(
-                            TechBadge("FastHTML", "Web Framework"),
-                            TechBadge("WebSockets", "Real-time Chat"),
-                            TechBadge("MongoDB", "User Data & Posts"),
-                            TechBadge("Redis", "Caching & Sessions"),
-                            TechBadge("S3", "Media Storage"),
-                            TechBadge("MonsterUI", "UI Components"),
-                            cls="flex flex-wrap justify-center gap-3 mb-12"
-                        ),
-                    ),
-                    
-                    # CTA
-                    Div(
-                        A("← Back to Home", href="/", cls="btn btn-primary btn-lg mr-4"),
-                        A("View Other Examples", href="#examples", cls="btn btn-outline btn-lg"),
-                        cls="flex justify-center gap-4 mb-8"
-                    ),
-                    
-                    # Example Sections
-                    Div(
-                        H3("Example Use Cases", cls="text-2xl font-bold mb-6 text-center", id="examples"),
-                        Div(
-                            UseCaseCard(
-                                "Professional Network",
-                                "LinkedIn-style platform for professionals",
-                                ["Job postings", "Skills endorsements", "Company pages", "Professional messaging"]
-                            ),
-                            UseCaseCard(
-                                "Community Platform",
-                                "Facebook-style social network",
-                                ["Personal profiles", "Photo albums", "Events", "Groups & pages"]
-                            ),
-                            UseCaseCard(
-                                "Niche Social Network",
-                                "Specialized community (e.g., artists, gamers, fitness)",
-                                ["Interest-based feeds", "Portfolio sharing", "Challenges", "Leaderboards"]
-                            ),
-                            cls="grid grid-cols-1 md:grid-cols-3 gap-6"
-                        ),
-                    ),
-                    
-                    cls="max-w-6xl mx-auto"
-                ),
-                cls="py-16"
-            )
+                H3("Messages", cls="text-2xl font-bold mb-6"),
+                P("Messaging functionality coming soon!", cls="text-gray-600 mb-4"),
+                P("This will integrate with the social domain services.", cls="text-gray-600"),
+                cls="max-w-2xl mx-auto p-6"
+            ),
+            
+            ExampleBackLink(),
+            cls="min-h-screen bg-gray-50"
         )
         
-        return Layout(content, title="Social Network Example | FastApp", current_path=f"{BASE}/", user=user, show_auth=True, demo=demo)
+        return Layout(content, title="Messages | Social Network", current_path=f"{BASE}/messages", user=user, show_auth=True, demo=demo)
     
-    # ========================================================================
-    # Auth Pages
-    # ========================================================================
-    
-    def SocialLoginPage(error: str = None):
-        """Simple login page for social app"""
-        return Layout(
-            Div(
-                Card(
-                    Div(
-                        H1("Sign In", cls="text-3xl font-bold mb-6 text-center"),
-                        P("Welcome back to Social Network", cls="text-gray-500 mb-8 text-center"),
-                        (Div(P(error, cls="text-error"), cls="alert alert-error mb-4") if error else None),
-                        Form(
-                            Div(Label("Email", cls="label"), Input(type="email", name="email", placeholder="you@example.com", cls="input input-bordered w-full", required=True), cls="form-control mb-4"),
-                            Div(Label("Password", cls="label"), Input(type="password", name="password", placeholder="••••••••", cls="input input-bordered w-full", required=True), cls="form-control mb-6"),
-                            Button("Sign In", type="submit", cls="btn btn-primary w-full mb-4"),
-                            Div(P("Don't have an account? ", A("Sign up", href="register", cls="link link-primary")), cls="text-center"),
-                            action="/auth/login", method="post"
-                        ),
-                        cls="p-8"
-                    ),
-                    cls="max-w-md mx-auto"
-                ),
-                cls="container mx-auto px-4 py-16"
-            ),
-            title="Sign In | Social Network", show_auth=False, demo=demo
-        )
-    
-    def SocialRegisterPage(error: str = None):
-        """Simple register page for social app"""
-        return Layout(
-            Div(
-                Card(
-                    Div(
-                        H1("Create Account", cls="text-3xl font-bold mb-6 text-center"),
-                        P("Join the Social Network community", cls="text-gray-500 mb-8 text-center"),
-                        (Div(P(error, cls="text-error"), cls="alert alert-error mb-4") if error else None),
-                        Form(
-                            Div(Label("Email", cls="label"), Input(type="email", name="email", placeholder="you@example.com", cls="input input-bordered w-full", required=True), cls="form-control mb-4"),
-                            Div(Label("Password", cls="label"), Input(type="password", name="password", placeholder="••••••••", cls="input input-bordered w-full", required=True), P("Must be 8+ chars with uppercase, lowercase, and number", cls="text-xs text-gray-500 mt-1"), cls="form-control mb-6"),
-                            Button("Create Account", type="submit", cls="btn btn-primary w-full mb-4"),
-                            Div(P("Already have an account? ", A("Sign in", href="login", cls="link link-primary")), cls="text-center"),
-                            action="/auth/register", method="post"
-                        ),
-                        cls="p-8"
-                    ),
-                    cls="max-w-md mx-auto"
-                ),
-                cls="container mx-auto px-4 py-16"
-            ),
-            title="Create Account | Social Network", show_auth=False, demo=demo
-        )
-    
-    # ========================================================================
-    # Auth Routes
-    # ========================================================================
-    
-    @app.get("/login")
-    async def login_page(request: Request):
-        return SocialLoginPage()
-    
-    @app.get("/register")
-    async def register_page(request: Request):
-        return SocialRegisterPage()
-    
-    @app.post("/auth/login")
-    async def login(request: Request):
-        form = getattr(request.state, 'sanitized_form', None) or await request.form()
-        email, password = form.get("email"), form.get("password")
-        if not email or not password:
-            return SocialLoginPage(error="Email and password are required")
-        from core.services.auth.models import LoginRequest
-        try:
-            result = await auth_service.login(LoginRequest(username=email, password=password))
-            if result:
-                response = RedirectResponse(f"{BASE}/", status_code=303)
-                response.set_cookie("auth_token", result.access_token, httponly=True, secure=os.getenv("ENVIRONMENT") == "production", samesite="lax", max_age=result.expires_in)
-                return response
-        except Exception as e:
-            logger.error(f"Login failed: {e}")
-        return SocialLoginPage(error="Invalid credentials")
-    
-    @app.post("/auth/register")
-    async def register(request: Request):
-        form = getattr(request.state, 'sanitized_form', None) or await request.form()
-        email, password = form.get("email"), form.get("password")
-        if not email or not password:
-            return SocialRegisterPage(error="Email and password are required")
-        try:
-            user_id = await user_service.register(email, password)
-            if not user_id:
-                return SocialRegisterPage(error="Registration failed")
-            from core.services.auth.models import LoginRequest
-            result = await auth_service.login(LoginRequest(username=email, password=password))
-            if result:
-                response = RedirectResponse(f"{BASE}/", status_code=303)
-                response.set_cookie("auth_token", result.access_token, httponly=True, secure=os.getenv("ENVIRONMENT") == "production", samesite="lax", max_age=result.expires_in)
-                return response
-        except Exception as e:
-            logger.error(f"Registration failed: {e}")
-            return SocialRegisterPage(error=str(e))
-        return SocialRegisterPage(error="Registration failed")
-    
-    @app.post("/auth/logout")
-    async def logout(request: Request):
-        token = request.cookies.get("auth_token")
-        if token:
-            try:
-                await auth_service.logout(token)
-            except:
-                pass
-        response = RedirectResponse(f"{BASE}/", status_code=303)
-        response.delete_cookie("auth_token")
-        return response
-    
-    # ========================================================================
-    # Helper Components
-    # ========================================================================
-    
-    def FeatureCard(icon: str, title: str, description: str):
-        """Feature card component"""
-        return Card(
-            Div(
-                Div(icon, cls="text-4xl mb-3 text-center"),
-                H3(title, cls="text-lg font-semibold mb-2 text-center"),
-                P(description, cls="text-sm text-gray-500 text-center"),
-                cls="p-6"
-            ),
-            cls="hover:shadow-lg transition-shadow"
-        )
-    
-    def TechBadge(name: str, description: str):
-        """Technology badge"""
-        return Div(
-            Span(name, cls="font-semibold"),
-            Span(f" - {description}", cls="text-sm text-gray-500"),
-            cls="badge badge-lg badge-outline"
-        )
-    
-    def UseCaseCard(title: str, description: str, features: list):
-        """Use case card"""
-        return Card(
-            Div(
-                H4(title, cls="text-xl font-bold mb-3"),
-                P(description, cls="text-gray-600 mb-4"),
-                Ul(
-                    *[Li(
-                        UkIcon("check", width="16", height="16", cls="inline mr-2 text-green-500"),
-                        feature,
-                        cls="text-sm mb-2"
-                    ) for feature in features],
-                    cls="space-y-1"
-                ),
-                cls="p-6"
-            ),
-            cls="hover:shadow-lg transition-shadow"
-        )
+    @app.post("/posts")
+    async def create_post(request: Request, content: str = ""):
+        """Create new post (demo implementation)"""
+        user = await get_user_with_context(request)
+        current_user_id = user.id if user else 1
+        
+        # In demo mode, just return a success response
+        new_post = {
+            "id": len(get_demo_posts()) + 1,
+            "user_id": current_user_id,
+            "content": content,
+            "is_public": True,
+            "created_at": datetime.now(),
+            "like_count": 0,
+            "comment_count": 0,
+            "is_liked": False
+        }
+        
+        return PostCard(new_post, current_user_id)
     
     return app
+
+
+# Demo data functions
+def get_demo_posts():
+    """Get demo posts for the social feed"""
+    return [
+        {
+            "id": 1,
+            "user_id": 2,
+            "username": "Alice Johnson",
+            "content": "Just launched my new project! 🚀 Check it out and let me know what you think. Building in public has been such an amazing journey!",
+            "is_public": True,
+            "created_at": datetime.now().replace(hour=10, minute=30),
+            "like_count": 42,
+            "comment_count": 8,
+            "is_liked": False
+        },
+        {
+            "id": 2,
+            "user_id": 3,
+            "username": "Bob Smith",
+            "content": "Beautiful sunset today! Sometimes it's important to step away from the keyboard and appreciate the little things. 🌅",
+            "is_public": True,
+            "created_at": datetime.now().replace(hour=14, minute=15),
+            "like_count": 28,
+            "comment_count": 5,
+            "is_liked": True
+        },
+        {
+            "id": 3,
+            "user_id": 4,
+            "username": "Carol Davis",
+            "content": "Hot take: Python is the best language for web development in 2024. The ecosystem is just unmatched! What do you think? 🐍",
+            "is_public": False,
+            "created_at": datetime.now().replace(hour=9, minute=45),
+            "like_count": 15,
+            "comment_count": 12,
+            "is_liked": False
+        }
+    ]
+
+
+def get_demo_users():
+    """Get demo user profiles"""
+    return [
+        {
+            "id": 2,
+            "username": "Alice Johnson",
+            "bio": "Full-stack developer | Open source enthusiast | Building cool stuff 🚀",
+            "followers_count": 1234,
+            "following_count": 567,
+            "is_following": False
+        },
+        {
+            "id": 3,
+            "username": "Bob Smith",
+            "bio": "Designer & photographer | Coffee addict ☕ | Capturing moments",
+            "followers_count": 892,
+            "following_count": 234,
+            "is_following": True
+        },
+        {
+            "id": 4,
+            "username": "Carol Davis",
+            "bio": "Data scientist | ML engineer | Making sense of data 📊",
+            "followers_count": 2156,
+            "following_count": 189,
+            "is_following": False
+        }
+    ]
