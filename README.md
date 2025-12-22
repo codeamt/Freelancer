@@ -1,4 +1,4 @@
-# FastApp - Modular Web Application Platform
+# FastApp - Modular Web Application Platform (WIP)
 
 <p align="center">
   <img src="public/app_preview.png" alt="FastApp Platform Preview" width="60%">
@@ -23,6 +23,7 @@ Visit: `http://localhost:5001`
 ## ✨ Features
 
 ### 🔐 Enhanced Authentication System
+
 - **JWT-based authentication** with bcrypt password hashing
 - **Multi-role support** with hierarchical permissions (Super Admin, Admin, Instructor, Shop Owner, etc.)
 - **Role-based access control** with permission enforcement decorators
@@ -35,6 +36,7 @@ Visit: `http://localhost:5001`
 Five fully-functional example apps showcasing different use cases:
 
 #### 1. 🛍️ E-Shop (`/eshop-example`)
+
 - Product catalog with search and filtering
 - Shopping cart system with Redis persistence
 - Complete checkout flow
@@ -44,6 +46,7 @@ Five fully-functional example apps showcasing different use cases:
 - Admin dashboard for shop owners
 
 #### 2. 📚 LMS (`/lms-example`)
+
 - Course catalog with ratings and stats
 - Student enrollment system
 - "My Courses" dashboard
@@ -53,6 +56,7 @@ Five fully-functional example apps showcasing different use cases:
 - Instructor dashboard
 
 #### 3. 🌐 Social Network (`/social-example`)
+
 - **Enhanced social feed** with posts, comments, and engagement
 - User profiles with followers and verification
 - **Direct messaging** with real-time chat
@@ -61,6 +65,7 @@ Five fully-functional example apps showcasing different use cases:
 - Social interactions (likes, shares, follows)
 
 #### 4. 📺 Streaming Platform (`/streaming-example`)
+
 - **Live streaming** with WebRTC support
 - Video upload and management
 - **Real-time chat** during streams
@@ -69,6 +74,7 @@ Five fully-functional example apps showcasing different use cases:
 - **Professional streaming UI**
 
 #### 5. 📝 Blog System (`/blog`)
+
 - Complete blog functionality with posts and categories
 - Comment system with threading
 - **Admin interface** for content management
@@ -76,6 +82,7 @@ Five fully-functional example apps showcasing different use cases:
 - **Default add-on** for production use
 
 ### 🎨 UI Components
+
 - **MonsterUI** - Beautiful, accessible components
 - **DaisyUI** - Tailwind CSS component library
 - **Responsive design** - Mobile-first approach
@@ -86,18 +93,21 @@ Five fully-functional example apps showcasing different use cases:
 ## 🛠️ Tech Stack
 
 ### Core
+
 - **FastHTML** - Modern Python web framework with HTMX
 - **MonsterUI** - Component library built on DaisyUI
 - **Tailwind CSS** - Utility-first CSS framework
 - **Python 3.13+** - Modern Python features
 
 ### Authentication & Security
+
 - **JWT** - Token-based authentication with role versioning
 - **bcrypt** - Password hashing
 - **Multi-role access control** - Flexible permission system
 - **Security middleware** - Input sanitization, rate limiting, CSRF protection
 
 ### Database (Production)
+
 - **PostgreSQL** - Primary database for structured data
 - **MongoDB** - Document storage for flexible schemas
 - **Redis** - Caching, sessions, and pub/sub
@@ -105,6 +115,7 @@ Five fully-functional example apps showcasing different use cases:
 - **MinIO** - S3-compatible object storage
 
 ### Architecture
+
 - **Domain-Driven Design** - Modular domain system
 - **Repository Pattern** - Clean data access layer
 - **Dependency Injection** - Service container with app.state
@@ -113,6 +124,7 @@ Five fully-functional example apps showcasing different use cases:
 ## 📚 Documentation
 
 ### Core Documentation
+
 - [Architecture](ARCHITECTURE.md) - Complete architecture overview
 - [Codebase Index](CODEBASE_INDEX.md) - Quick navigation guide
 - [File Manifest](FILE_MANIFEST.md) - Complete file listing
@@ -120,6 +132,7 @@ Five fully-functional example apps showcasing different use cases:
 - [Admin Credentials](ADMIN_CREDENTIALS.md) - Test credentials
 
 ### Technical Guides
+
 - [Type Safety](docs/TYPE_SAFETY.md) - Pydantic usage guide
 - [Error Handling](docs/ERROR_HANDLING.md) - Error handling patterns
 - [Dependency Injection](docs/DEPENDENCY_INJECTION_GUIDE.md) - DI system guide
@@ -127,10 +140,13 @@ Five fully-functional example apps showcasing different use cases:
 ## 🔧 Configuration
 
 ### Demo Mode (Default)
+
 No configuration needed! Just run `DEMO_MODE=true uv run python app.py` and everything works with in-memory storage.
 
 ### Production Mode
+
 Create a `.env` file:
+
 ```bash
 # Core Configuration
 ENVIRONMENT=production
@@ -191,6 +207,7 @@ FastApp/
 ## 🎯 Getting Started
 
 ### 1. Install Dependencies
+
 ```bash
 uv pip install -e .
 # or
@@ -198,6 +215,7 @@ pip install -e .
 ```
 
 ### 2. Start the Application
+
 ```bash
 # Demo mode (recommended for testing)
 DEMO_MODE=true uv run python app.py
@@ -207,6 +225,7 @@ uv run python app.py
 ```
 
 ### 3. Explore the Examples
+
 - **Home**: `http://localhost:5001/`
 - **Social Network**: `http://localhost:5001/social-example`
 - **Streaming Platform**: `http://localhost:5001/streaming-example`
@@ -215,6 +234,7 @@ uv run python app.py
 - **Blog**: `http://localhost:5001/blog`
 
 ### 4. Test Authentication
+
 1. Click "Register" in the navigation
 2. Choose a role (Student, Instructor, Shop Owner, etc.)
 3. Complete registration
@@ -222,6 +242,7 @@ uv run python app.py
 5. Try the free product/course in E-Shop or LMS
 
 ### 5. Admin Dashboard
+
 1. Login with admin credentials: `admin@freelancer.dev` / `AdminPass123!`
 2. Access admin dashboard: `http://localhost:5001/admin/dashboard`
 3. Explore site editing and theme customization
@@ -229,6 +250,7 @@ uv run python app.py
 ## 🚀 Use Cases
 
 ### For Freelance Developers
+
 - **Quick prototypes** - Show clients working demos in minutes
 - **Template library** - Start projects with proven patterns
 - **Modular architecture** - Mix and match features
@@ -236,6 +258,7 @@ uv run python app.py
 - **Production deployment** - Scalable architecture included
 
 ### For Clients
+
 - **E-commerce sites** - Online stores with cart and checkout
 - **Learning platforms** - Course management and enrollment
 - **Social networks** - Community platforms with profiles and messaging
@@ -243,6 +266,7 @@ uv run python app.py
 - **Blog systems** - Content management with SEO
 
 ### For Enterprises
+
 - **Internal tools** - Admin dashboards and management systems
 - **Multi-tenant platforms** - Scalable multi-site architecture
 - **API backends** - RESTful APIs with authentication
@@ -251,12 +275,14 @@ uv run python app.py
 ## 🏗️ Architecture Highlights
 
 ### Domain-Driven Design
+
 - **Modular domains** - Each domain is self-contained
 - **Clean architecture** - Clear separation of concerns
 - **Scalable design** - Easy to add new domains
 - **Production ready** - Comprehensive error handling and logging
 
 ### Security First
+
 - **Multi-role authentication** - Hierarchical permission system
 - **Input sanitization** - XSS and SQL injection protection
 - **Rate limiting** - Request throttling per IP
@@ -264,6 +290,7 @@ uv run python app.py
 - **Security headers** - CSP, X-Frame-Options, HSTS
 
 ### Performance Optimized
+
 - **Connection pooling** - Efficient database connections
 - **Caching layer** - Redis for session and data caching
 - **Async operations** - Non-blocking I/O throughout
@@ -274,6 +301,7 @@ uv run python app.py
 The platform is modular and extensible. Each domain add-on is self-contained in `add_ons/domains/`.
 
 To create a new domain:
+
 1. Create a new directory in `add_ons/domains/`
 2. Add models, services, routes, and UI components
 3. Create a manifest file for domain metadata
@@ -283,48 +311,50 @@ To create a new domain:
 ### 📋 Continuous Improvement TODOs
 
 - [ ] **Enhanced Social Features**
+
   - [ ] Add story/ephemeral posts (24-hour expiration)
   - [ ] Implement groups and communities
   - [ ] Add reactions beyond likes (emoji reactions)
   - [ ] Social media analytics dashboard
-
 - [ ] **Advanced Streaming**
+
   - [ ] Screen sharing capabilities
   - [ ] Multi-language subtitle support
   - [ ] Stream recording and VOD management
   - [ ] Pay-per-view streaming with access control
-
 - [ ] **E-Commerce Enhancements**
+
   - [ ] Product reviews and ratings system
   - [ ] Inventory management dashboard
   - [ ] Advanced shipping options
   - [ ] Customer analytics and reporting
-
 - [ ] **LMS Improvements**
+
   - [ ] Video lesson hosting and streaming
   - [ ] Quiz and assessment system
   - [ ] Certificate generation with templates
   - [ ] Course completion analytics
-
 - [ ] **Platform Infrastructure**
+
   - [ ] Real-time notifications system
   - [ ] Advanced search with Elasticsearch
   - [ ] Multi-language support (i18n)
   - [ ] Mobile app API endpoints
-
 - [ ] **Developer Experience**
+
   - [ ] CLI tool for rapid domain creation
   - [ ] Automated testing suite expansion
   - [ ] Performance monitoring dashboard
   - [ ] API documentation with OpenAPI/Swagger
-
 - [ ] **Security & Performance**
+
   - [ ] Advanced rate limiting with Redis
   - [ ] Content Security Policy (CSP) optimization
   - [ ] Database query optimization
   - [ ] Caching layer improvements
 
 ### Development Workflow
+
 ```bash
 # Start development environment
 docker compose up -d
@@ -344,7 +374,7 @@ Apache 2.0
 
 ## 🎉 Current Status
 
-**✅ Production Ready!** 
+**✅ Production Ready!**
 
 - ✅ **Enhanced Authentication** - Multi-role system with permission enforcement
 - ✅ **Social Network** - Complete social platform with posts, comments, likes, follows, DMs
