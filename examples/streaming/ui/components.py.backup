@@ -1,0 +1,391 @@
+"""Streaming UI components"""
+from fasthtml.common import *
+from monsterui.all import *
+
+
+def VideoStreamCard(title: str, description: str, stream_url: str, snapshot_url: str, demo: bool = False):
+    """Enhanced video stream card component with modern styling"""
+    return Card(
+        Div(
+            # Header with gradient
+            Div(
+                Div(
+                    Div(
+                        UkIcon("play-circle", width="32", height="32", cls="text-white"),
+                        cls="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mb-4"
+                    ),
+                    H3(title, cls="text-2xl font-bold text-gray-800 mb-2"),
+                    P(description, cls="text-gray-600 mb-6 leading-relaxed"),
+                    cls="text-center"
+                ),
+                cls="p-6 bg-gradient-to-br from-gray-50 to-white border-b border-gray-100"
+            ),
+            
+            # Video container with enhanced styling
+            Div(
+                Div(
+                    Img(src=stream_url, alt="Live Stream", 
+                        cls="w-full h-64 object-cover rounded-xl shadow-2xl border-2 border-gray-200 hover:border-red-300 transition-all duration-300"),
+                    # Live indicator overlay
+                    Div(
+                        Div(
+                            Div(cls="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"),
+                            Span("LIVE", cls="text-red-500 font-bold text-sm"),
+                            cls="flex items-center px-3 py-1 bg-red-50 rounded-full"
+                        ),
+                        cls="absolute top-4 right-4"
+                    ),
+                    cls="relative"
+                ),
+                cls="p-6"
+            ),
+            
+            # Action buttons with modern styling
+            Div(
+                A(
+                    Div(
+                        UkIcon("camera", width="20", height="20", cls="mr-2"),
+                        "Take Snapshot",
+                        cls="flex items-center justify-center"
+                    ),
+                    href=snapshot_url, 
+                    cls="inline-flex items-center px-6 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-xl hover:from-red-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-200 shadow-lg mr-3", 
+                    target="_blank"
+                ),
+                A(
+                    Div(
+                        UkIcon("refresh-ccw", width="20", height="20", cls="mr-2"),
+                        "Refresh",
+                        cls="flex items-center justify-center"
+                    ),
+                    href="#", 
+                    cls="inline-flex items-center px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transform hover:scale-105 transition-all duration-200", 
+                    onclick="window.location.reload()"
+                ),
+                cls="flex justify-center gap-3 p-6 pt-0"
+            ),
+        ),
+        cls="bg-white rounded-2xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 overflow-hidden border border-gray-100"
+    )
+
+
+def VideoUploadCard(title: str, description: str, upload_url: str, demo: bool = False):
+    """Enhanced video upload card component with modern styling"""
+    return Card(
+        Div(
+            # Header with gradient
+            Div(
+                Div(
+                    Div(
+                        UkIcon("upload-cloud", width="32", height="32", cls="text-white"),
+                        cls="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mb-4"
+                    ),
+                    H3(title, cls="text-2xl font-bold text-gray-800 mb-2"),
+                    P(description, cls="text-gray-600 mb-6 leading-relaxed"),
+                    cls="text-center"
+                ),
+                cls="p-6 bg-gradient-to-br from-gray-50 to-white border-b border-gray-100"
+            ),
+            
+            # Upload form with enhanced styling
+            Div(
+                Form(
+                    Div(
+                        # Custom file input styling
+                        Div(
+                            Div(
+                                UkIcon("video", width="48", height="48", cls="text-blue-500 mb-3"),
+                                P("Click to upload or drag and drop", cls="text-gray-700 font-medium mb-1"),
+                                P("MP4, WebM, or MOV (MAX. 100MB)", cls="text-gray-500 text-sm"),
+                                Input(type="file", accept="video/*", name="video", 
+                                     cls="absolute inset-0 w-full h-full opacity-0 cursor-pointer"),
+                                cls="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50 transition-all duration-200"
+                            ),
+                            cls="mb-6"
+                        ),
+                        # Submit button with gradient
+                        Button(
+                            Div(
+                                UkIcon("upload", width="20", height="20", cls="mr-2"),
+                                "Upload & Stream",
+                                cls="flex items-center justify-center"
+                            ),
+                            cls="w-full inline-flex items-center justify-center px-6 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-600 transform hover:scale-105 transition-all duration-200 shadow-lg",
+                            type="submit"
+                        ),
+                        cls="space-y-4"
+                    ),
+                    method="post",
+                    action=upload_url,
+                    enctype="multipart/form-data",
+                    cls="p-6"
+                ),
+            ),
+        ),
+        cls="bg-white rounded-2xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 overflow-hidden border border-gray-100"
+    )
+
+
+def StreamingHomePage(base_path: str, user: dict, live_streams: list, demo: bool = False):
+    """Enhanced streaming platform home page component with modern design"""
+    return Div(
+        # Hero Section with gradient background
+        Section(
+            Div(
+                Div(
+                    # Animated icon with gradient
+                    Div(
+                        Div(
+                            UkIcon("play-circle", width="120", height="120", cls="text-white"),
+                            cls="w-32 h-32 bg-gradient-to-r from-red-500 via-pink-500 to-purple-500 rounded-full flex items-center justify-center shadow-2xl animate-pulse"
+                        ),
+                        cls="flex justify-center mb-8"
+                    ),
+                    
+                    # Enhanced title with gradient text
+                    H1("Streaming Platform", cls="text-6xl font-black mb-6 text-center bg-gradient-to-r from-red-500 via-pink-500 to-purple-500 bg-clip-text text-transparent"),
+                    P("Watch • Stream • Create", cls="text-3xl text-gray-600 mb-8 text-center font-light tracking-wide"),
+                    
+                    # Enhanced Live Demo Badge
+                    Div(
+                        Div(
+                            Div(cls="w-4 h-4 bg-red-500 rounded-full animate-pulse mr-3"),
+                            Span("LIVE DEMO ACTIVE", cls="text-red-600 font-bold text-lg tracking-wider"),
+                            cls="flex items-center px-8 py-4 bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-full shadow-lg"
+                        ),
+                        cls="flex justify-center mb-16"
+                    ),
+                    
+                    cls="max-w-4xl mx-auto text-center"
+                ),
+                cls="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-pink-50 relative overflow-hidden"
+            ),
+        ),
+        
+        # Live Streams Section with enhanced design
+        Section(
+            Div(
+                Div(
+                    H2("🎬 Live Streams", cls="text-5xl font-bold mb-4 text-center bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent"),
+                    P("Discover amazing content from our community", cls="text-xl text-gray-600 mb-12 text-center"),
+                    
+                    Div(
+                        *[Div(
+                            # Stream thumbnail with overlay
+                            Div(
+                                Div(
+                                    Img(src=f"https://picsum.photos/seed/stream{stream.get('id', 1)}/400/225.jpg", 
+                                        alt="Stream Thumbnail", 
+                                        cls="w-full h-48 object-cover rounded-t-2xl"),
+                                    # Live indicator overlay
+                                    Div(
+                                        Div(
+                                            Div(cls="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"),
+                                            Span("LIVE", cls="text-white font-bold text-xs"),
+                                            cls="flex items-center px-2 py-1 bg-red-600 rounded-full"
+                                        ),
+                                        cls="absolute top-3 right-3"
+                                    ),
+                                    cls="relative"
+                                ),
+                                # Stream info
+                                Div(
+                                    H3(stream.get("title", "Untitled Stream"), cls="text-xl font-bold mb-2 text-gray-800"),
+                                    P(stream.get("description", "No description"), cls="text-gray-600 mb-4 line-clamp-2"),
+                                    Div(
+                                        Div(
+                                            UkIcon("users", width="16", height="16", cls="mr-1"),
+                                            Span(f"{stream.get('viewer_count', 0)}", cls="font-semibold"),
+                                            cls="flex items-center text-gray-500 text-sm mr-4"
+                                        ),
+                                        Div(
+                                            UkIcon("clock", width="16", height="16", cls="mr-1"),
+                                            Span("Now", cls="font-semibold"),
+                                            cls="flex items-center text-gray-500 text-sm"
+                                        ),
+                                        cls="flex justify-between mb-4"
+                                    ),
+                                    A(
+                                        "Watch Now",
+                                        href=f"{base_path}/watch/{stream.get('id')}", 
+                                        cls="w-full inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-lg hover:from-red-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-200 shadow-md"
+                                    ),
+                                    cls="p-4"
+                                ),
+                                cls="bg-white rounded-2xl shadow-lg hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-300 overflow-hidden border border-gray-100"
+                            ) for stream in live_streams[:6]],
+                        cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16"
+                    ),
+                ),
+                cls="max-w-7xl mx-auto px-6 py-16"
+            ),
+            cls="bg-white"
+        ),
+        
+        # Interactive Demo Features Section
+        Section(
+            Div(
+                Div(
+                    H2("🚀 Try Our Features", cls="text-5xl font-bold mb-4 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"),
+                    P("Experience the power of our streaming technology", cls="text-xl text-gray-600 mb-16 text-center"),
+                    
+                    Div(
+                        # Enhanced Camera Stream Demo
+                        Div(
+                            Div(
+                                Div(
+                                    Div(
+                                        UkIcon("video", width="48", height="48", cls="text-red-500 mb-4"),
+                                        H3("Live Camera Stream", cls="text-2xl font-bold text-gray-800 mb-3"),
+                                        P("Real-time camera feed using async generators and OpenCV with optimized performance", cls="text-gray-600 mb-6 leading-relaxed"),
+                                    ),
+                                    cls="text-center mb-8"
+                                ),
+                                Div(
+                                    Img(src=f"{base_path}/stream/video-stream", alt="Live Camera Stream", 
+                                        cls="w-full h-96 object-cover rounded-2xl shadow-2xl border-4 border-gray-200 hover:border-red-300 transition-all duration-300"),
+                                    cls="flex justify-center mb-8"
+                                ),
+                                Div(
+                                    A(
+                                        Div(
+                                            UkIcon("camera", width="20", height="20", cls="mr-2"),
+                                            "Take Snapshot",
+                                            cls="flex items-center justify-center"
+                                        ),
+                                        href=f"{base_path}/stream/video-snapshot", 
+                                        cls="inline-flex items-center px-8 py-4 bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold rounded-xl hover:from-red-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-200 shadow-xl mr-4", 
+                                        target="_blank"
+                                    ),
+                                    A(
+                                        Div(
+                                            UkIcon("refresh-ccw", width="20", height="20", cls="mr-2"),
+                                            "Refresh Stream",
+                                            cls="flex items-center justify-center"
+                                        ),
+                                        href="#", 
+                                        cls="inline-flex items-center px-8 py-4 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transform hover:scale-105 transition-all duration-200 shadow-md", 
+                                        onclick="window.location.reload()"
+                                    ),
+                                    cls="flex justify-center gap-4"
+                                ),
+                                cls="p-8 bg-gradient-to-br from-red-50 to-pink-50 rounded-3xl border-2 border-red-100"
+                            ),
+                        ),
+                        
+                        # Enhanced Video Upload Demo
+                        Div(
+                            Div(
+                                Div(
+                                    Div(
+                                        UkIcon("upload-cloud", width="48", height="48", cls="text-blue-500 mb-4"),
+                                        H3("Upload & Stream", cls="text-2xl font-bold text-gray-800 mb-3"),
+                                        P("Upload video files and stream with advanced range header support for optimal performance", cls="text-gray-600 mb-6 leading-relaxed"),
+                                    ),
+                                    cls="text-center mb-8"
+                                ),
+                                Form(
+                                    Div(
+                                        Div(
+                                            Div(
+                                                UkIcon("video", width="64", height="64", cls="text-blue-500 mb-4"),
+                                                P("Click to upload or drag and drop", cls="text-gray-700 font-semibold text-lg mb-2"),
+                                                P("MP4, WebM, or MOV (MAX. 100MB)", cls="text-gray-500"),
+                                                Input(type="file", accept="video/*", name="video", 
+                                                     cls="absolute inset-0 w-full h-full opacity-0 cursor-pointer"),
+                                                cls="border-3 border-dashed border-blue-300 rounded-2xl p-12 text-center hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 bg-white"
+                                            ),
+                                            cls="mb-8"
+                                        ),
+                                        Button(
+                                            Div(
+                                                UkIcon("upload", width="24", height="24", cls="mr-3"),
+                                                "Upload & Stream",
+                                                cls="flex items-center justify-center text-lg"
+                                            ),
+                                            cls="w-full inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold rounded-xl hover:from-blue-600 hover:to-purple-600 transform hover:scale-105 transition-all duration-200 shadow-xl text-lg",
+                                            type="submit"
+                                        ),
+                                        cls="space-y-6"
+                                    ),
+                                    method="post",
+                                    action=f"{base_path}/stream/video-upload",
+                                    enctype="multipart/form-data",
+                                    cls="p-8 bg-gradient-to-br from-blue-50 to-purple-50 rounded-3xl border-2 border-blue-100"
+                                ),
+                            ),
+                        ),
+                        
+                        cls="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16"
+                    ),
+                ),
+                cls="max-w-7xl mx-auto px-6 py-16"
+            ),
+            cls="bg-gradient-to-br from-gray-50 to-blue-50"
+        ),
+        
+        # Enhanced Technology Stack Section
+        Section(
+            Div(
+                Div(
+                    H3("🛠 Technology Stack", cls="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent"),
+                    P("Built with cutting-edge technologies for optimal performance", cls="text-xl text-gray-600 mb-12 text-center"),
+                    Div(
+                        Div(
+                            Div("FastHTML", cls="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-xl shadow-lg mr-4 mb-4"),
+                            Div("Async Generators", cls="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold rounded-xl shadow-lg mr-4 mb-4"),
+                            Div("Range Headers", cls="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold rounded-xl shadow-lg mr-4 mb-4"),
+                            Div("aiofiles", cls="px-6 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-bold rounded-xl shadow-lg mr-4 mb-4"),
+                            Div("OpenCV", cls="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold rounded-xl shadow-lg mr-4 mb-4"),
+                            Div("Thread Safety", cls="px-6 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white font-bold rounded-xl shadow-lg mr-4 mb-4"),
+                            cls="flex flex-wrap justify-center"
+                        ),
+                        cls="bg-white p-12 rounded-3xl shadow-xl border border-gray-100"
+                    ),
+                ),
+                cls="max-w-7xl mx-auto px-6 py-16"
+            ),
+            cls="bg-gray-900"
+        )
+    )
+
+
+def StreamingLoginPage(base_path: str):
+    """Streaming platform login page component"""
+    return Div(
+        Div(
+            Div(
+                H1("Login to Stream", cls="text-4xl font-bold mb-6 text-center"),
+                P("Access your streaming dashboard and create amazing content", 
+                  cls="text-lg text-gray-600 mb-8 text-center"),
+                
+                Form(
+                    Input(
+                        type="email", 
+                        placeholder="Email address", 
+                        name="email",
+                        cls="w-full p-3 border rounded-lg mb-4"
+                    ),
+                    Input(
+                        type="password", 
+                        placeholder="Password", 
+                        name="password",
+                        cls="w-full p-3 border rounded-lg mb-6"
+                    ),
+                    Button("Login", cls="w-full btn btn-primary btn-lg"),
+                    method="post",
+                    action=f"{base_path}/auth/login",
+                    cls="space-y-4"
+                ),
+                
+                Div(
+                    P("Don't have an account?", cls="text-center text-gray-600 mb-4"),
+                    A("Sign up here", href=f"{base_path}/register", cls="btn btn-outline w-full"),
+                    cls="text-center"
+                ),
+                
+                cls="max-w-md mx-auto p-8 bg-white rounded-lg shadow-lg"
+            ),
+            cls="min-h-screen flex items-center justify-center bg-gray-50"
+        )
+    )
