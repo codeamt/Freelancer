@@ -1,19 +1,21 @@
 """
 Social Domain Models
 
-Note: Social domain primarily uses MongoDB for flexibility.
-These are PostgreSQL models for structured data only.
+PostgreSQL models for structured social data.
+Complements MongoDB collections for flexibility.
 """
 
-# Social domain uses MongoDB collections:
-# - posts
-# - comments
-# - likes
-# - follows
-# - activity_feed
-# - notifications
+from .post import Post
+from .comment import Comment
+from .follow import Follow
+from .like import Like
+from .dm import Conversation, DirectMessage
 
-# If you need PostgreSQL models for social, add them here
-# For now, social is MongoDB-only
-
-__all__ = []
+__all__ = [
+    "Post",
+    "Comment", 
+    "Follow",
+    "Like",
+    "Conversation",
+    "DirectMessage"
+]
