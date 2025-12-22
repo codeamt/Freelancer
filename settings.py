@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=5001, description="Server port")
     
+    # Demo Mode
+    demo_mode: bool = Field(default=False, description="Enable demo mode with example data")
+    
+    # Media Encryption
+    media_encryption_key: SecretStr = Field(
+        default=SecretStr("change-this-media-key-in-production"),
+        description="Media encryption key - MUST be changed in production"
+    )
+    
     # ============================================================================
     # Security Settings
     # ============================================================================
@@ -96,8 +105,10 @@ class Settings(BaseSettings):
     # OAuth Providers (for auth add-on)
     google_client_id: Optional[str] = Field(default=None, description="Google OAuth client ID")
     google_client_secret: Optional[SecretStr] = Field(default=None, description="Google OAuth client secret")
+    google_redirect_uri: str = Field(default="http://localhost:5001/auth/google/callback", description="Google OAuth redirect URI")
     github_client_id: Optional[str] = Field(default=None, description="GitHub OAuth client ID")
     github_client_secret: Optional[SecretStr] = Field(default=None, description="GitHub OAuth client secret")
+    github_redirect_uri: str = Field(default="http://localhost:5001/auth/github/callback", description="GitHub OAuth redirect URI")
     
     # Payment Processing (for commerce add-on)
     stripe_api_key: Optional[SecretStr] = Field(default=None, description="Stripe API key")
@@ -111,6 +122,7 @@ class Settings(BaseSettings):
     aws_secret_access_key: Optional[SecretStr] = Field(default=None, description="AWS secret access key")
     aws_s3_bucket: Optional[str] = Field(default=None, description="AWS S3 bucket name")
     aws_region: str = Field(default="us-east-1", description="AWS region")
+    s3_url: str = Field(default="http://localhost:9000", description="S3-compatible storage URL")
     
     # Analytics (for analytics add-on)
     google_analytics_id: Optional[str] = Field(default=None, description="Google Analytics tracking ID")
@@ -147,6 +159,18 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "JWT secret must be changed in production! "
                     "Set JWT_SECRET environment variable."
+                )
+        return v
+    
+    @validator("media_encryption_key")
+    def validate_media_key_in_production(cls, v, values):
+        """Ensure media encryption key is changed in production"""
+        if values.get("app_env") == "production":
+            default_key = "change-this-media-key-in-production"
+            if v.get_secret_value() == default_key:
+                raise ValueError(
+                    "Media encryption key must be changed in production! "
+                    "Set APP_MEDIA_KEY environment variable."
                 )
         return v
     

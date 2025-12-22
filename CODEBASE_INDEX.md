@@ -1,18 +1,20 @@
 # Codebase Index for LLM Navigation
 
-Quick reference guide for navigating the codebase. Updated December 20, 2025.
+Quick reference guide for navigating the codebase. Updated December 21, 2025.
 
 ---
 
 ## Current Working Features
 
-- ✅ **Authentication** - Login, registration, JWT, role-based access
+- ✅ **Authentication** - Login, registration, JWT, role-based access with multi-role support
 - ✅ **E-Shop** - Product catalog, cart, checkout, admin dashboard
 - ✅ **LMS** - Course catalog, enrollment, lessons, instructor dashboard
 - ✅ **Web Admin** - Dedicated admin portal with site/theme editor
-- ✅ **Role-Based Dashboards** - Admin, Instructor, Shop Owner
+- ✅ **Role-Based Dashboards** - Admin, Instructor, Shop Owner with role hierarchy
 - ✅ **Blog (default non-demo add-on)** - `/blog` routes + minimal post creation
 - ✅ **Stream (domain add-on)** - Streaming feature set (routes/services/UI)
+- ✅ **Social (domain add-on)** - Enhanced social network with posts, comments, likes, follows, DMs
+- ✅ **Example Applications** - Social, Streaming, LMS with sleek UI components
 
 ---
 
@@ -20,30 +22,35 @@ Quick reference guide for navigating the codebase. Updated December 20, 2025.
 
 ### 1. Authentication
 - **Pattern**: JWT tokens in httponly cookies with role-based enforcement
-- **Files**: `app/core/services/auth/*.py`
+- **Files**: `core/services/auth/*.py`
 - **Key Classes**: `AuthService`, `UserRepository`, `UserRole`, `RoleEnforcement`
-- **Recent Updates**: Added role enforcement decorators, multi-role support, JWT role versioning
+- **Recent Updates**: Multi-role support, role hierarchy, JWT role versioning, enhanced permissions
 
 ### 2. Database Layer
-- **Pattern**: PostgreSQL with repository pattern
-- **Files**: `app/core/db/adapters/`, `app/core/db/repositories/`
+- **Pattern**: PostgreSQL + MongoDB + Redis with repository pattern
+- **Files**: `core/db/adapters/`, `core/db/repositories/`
 - **Primary**: PostgreSQL (users, products, orders, enrollments)
+- **Secondary**: MongoDB (state, analytics), Redis (sessions, cache)
 
 ### 3. Dependency Injection
 - **Pattern**: Services on `app.state`, accessed via `request.app.state`
-- **Services**: `auth_service`, `cart_service`, `db_service`, `user_service`
+- **Services**: `auth_service`, `cart_service`, `db_service`, `user_service`, `social_service`
 
 ### 4. UI Layer
-- **Pattern**: FastHTML + MonsterUI components
-- **Files**: `app/core/ui/layout.py`, `app/core/ui/pages/`, `app/core/ui/components/`
-- **Key**: Role-based navigation in Layout component
+- **Pattern**: FastHTML + MonsterUI components with Layout wrapper
+- **Files**: `core/ui/layout.py`, `core/ui/pages/`, `core/ui/components/`
+- **Key**: Role-based navigation, responsive design, theme customization
+
+### 5. Domain System
+- **Pattern**: Modular add-ons with independent models, services, routes, UI
+- **Files**: `add_ons/domains/*/`
+- **Domains**: Blog, Commerce, LMS, Social, Stream
 
 ---
 
 ## Directory Quick Reference
 
 ```
-app/
 ├── app.py                    # Main entry point
 ├── core/                     # Shared infrastructure
 │   ├── config/               # Configuration & validation
@@ -51,18 +58,25 @@ app/
 │   ├── middleware/           # Security, auth context
 │   ├── routes/               # Core routes (auth, main, admin)
 │   ├── services/             # Business logic (auth/, cart/, editor/)
-│   └── ui/                   # UI (layout.py, pages/, components/)
+│   ├── ui/                   # UI (layout.py, pages/, components/)
+│   ├── addon_loader.py       # Dynamic add-on loading
+│   ├── bootstrap.py          # Application bootstrap
+│   └── mounting.py           # Route mounting system
 │
 ├── add_ons/                  # Domain modules
 │   ├── domains/              # blog/, commerce/, lms/, social/, stream/
-│   ├── services/             # Shared addon services
-│   └── webhooks/             # Stripe webhooks
+│   │   ├── models/           # Domain-specific models
+│   │   ├── repositories/     # Domain repositories
+│   │   ├── services/         # Domain services
+│   │   ├── routes/           # Domain routes
+│   │   └── ui/               # Domain UI components
+│   └── services/             # Shared addon services
 │
 └── examples/                 # Working example apps
-    ├── eshop/                # E-Shop (app.py, admin.py)
-    ├── lms/                  # LMS (app.py, admin.py)
-    ├── social/               # Social (scaffolded)
-    └── streaming/            # Streaming (scaffolded)
+    ├── social/               # Social network (enhanced)
+    ├── streaming/            # Streaming platform
+    ├── lms/                  # LMS example
+    └── ui/                   # Shared UI components
 ```
 
 ---
@@ -70,57 +84,55 @@ app/
 ## Key File Locations
 
 ### Authentication (Most Important)
-- `app/core/services/auth/auth_service.py` - AuthService (login, register, JWT)
-- `app/core/services/auth/enforcement.py` - Role enforcement decorators and permission checking
-- `app/core/services/auth/models.py` - UserRole enum, Pydantic models, multi-role support
-- `app/core/services/auth/helpers.py` - get_current_user_from_request()
-- `app/core/db/repositories/user_repository.py` - UserRepository
+- `core/services/auth/auth_service.py` - AuthService (login, register, JWT)
+- `core/services/auth/enforcement.py` - Role enforcement decorators and permission checking
+- `core/services/auth/models.py` - UserRole enum, Pydantic models, multi-role support
+- `core/services/auth/helpers.py` - get_current_user_from_request()
+- `core/db/repositories/user_repository.py` - UserRepository
 
-### Routes
-- `app/core/routes/auth.py` - /auth, /admin/login, /admin/dashboard
-- `app/core/routes/main.py` - Home, landing pages
-- `app/core/routes/admin_sites.py` - Site/theme editor
+### Core Routes
+- `core/routes/auth.py` - /auth, /admin/login, /admin/dashboard
+- `core/routes/main.py` - Home, landing pages
+- `core/routes/admin_sites.py` - Site/theme editor
+- `core/routes/settings.py` - Settings management
+- `core/routes/profile.py` - User profiles
 
-### Web Admin workflow + state system
-- `app/core/ui/pages/admin_auth.py` - Web admin dashboard UI
-- `app/core/workflows/preview.py` - Draft/publish/preview workflow
-- `app/core/workflows/admin.py` - Site workflow manager
-- `app/core/ui/theme/editor.py` - Theme editor manager
-- `app/core/WEB_ADMIN_TODOS.md` - Add-on switches + future git/submodule sync plan
+### Domain Add-ons
+- `add_ons/domains/social/` - Social network domain (posts, comments, likes, follows, DMs)
+- `add_ons/domains/stream/` - Streaming domain (WebRTC, video, chat)
+- `add_ons/domains/blog/` - Blog domain (posts, categories, comments)
+- `add_ons/domains/commerce/` - E-commerce domain (products, orders, payments)
+- `add_ons/domains/lms/` - Learning Management System (courses, lessons, enrollment)
+
+### Example Applications
+- `examples/social/app.py` - Enhanced social network with sleek UI
+- `examples/social/ui/components.py` - Social UI components (PostCard, UserCard, etc.)
+- `examples/streaming/app.py` - Streaming platform example
+- `examples/streaming/ui/components.py` - Streaming UI components
+- `examples/lms/app.py` - LMS example application
 
 ### UI Components
-- `app/core/ui/layout.py` - Global Layout with role-based nav
-- `app/core/ui/pages/auth.py` - AuthPage, AuthTabContent
-- `app/core/ui/pages/admin_auth.py` - WebAdminAuthPage, WebAdminDashboard
-
-### Example Apps
-- `app/examples/eshop/app.py` - E-Shop routes
-- `app/examples/eshop/admin.py` - EShopAdminDashboard
-- `app/examples/lms/app.py` - LMS routes
-- `app/examples/lms/admin.py` - InstructorDashboard
+- `core/ui/layout.py` - Global Layout with role-based nav
+- `core/ui/components/auth.py` - Auth forms and components
+- `core/ui/components/base.py` - Base UI components
+- `examples/social/ui/components.py` - Shared social/streaming components
 
 ### Middleware
-- `app/core/middleware/security.py` - SecurityMiddleware (sanitization, rate limiting)
+- `core/middleware/security.py` - SecurityMiddleware (sanitization, rate limiting)
+- `core/middleware/error_handler.py` - Centralized error handling
+- `core/middleware/auth_context.py` - User context injection
 
 ### Database
-- `app/core/db/adapters/postgres_adapter.py` - PostgreSQL adapter
-- `app/core/db/adapters/mongodb_adapter.py` - MongoDB adapter
-- `app/core/db/adapters/redis_adapter.py` - Redis adapter
-- `app/core/db/init_schema.py` - Schema initialization
+- `core/db/adapters/postgres_adapter.py` - PostgreSQL adapter
+- `core/db/adapters/mongodb_adapter.py` - MongoDB adapter
+- `core/db/adapters/redis_adapter.py` - Redis adapter
+- `core/db/session.py` - Session management
+- `core/db/transaction_manager.py` - Transaction coordination
 
-### Add-on system
-- `app/core/addon_loader.py` - Manifest-based add-on loader + enabled/disabled registry
-- `app/core/app_factory.py` - `create_app(demo=...)` (non-demo mounts Blog)
-- `app/core/ui/layout.py` - Demo nav uses example-app dropdown; non-demo nav links to `/blog`
-
-### Blog (default add-on)
-- `app/add_ons/domains/blog/routes/posts.py` - blog routes
-- `app/add_ons/domains/blog/services/post_service.py` - PostService
-
-### Stream (domain add-on)
-- `app/add_ons/domains/stream/routes/` - stream routes
-- `app/add_ons/domains/stream/services/` - stream services
-- `app/add_ons/domains/stream/ui/` - stream UI
+### Add-on System
+- `core/addon_loader.py` - Manifest-based add-on loader + registry
+- `core/bootstrap.py` - Application bootstrap and service initialization
+- `core/mounting.py` - Route mounting and example app registration
 
 ---
 
@@ -134,7 +146,15 @@ async def handler(request: Request):
     user = await get_current_user_from_request(request, auth_service)
     if not user:
         return RedirectResponse("/auth?tab=login")
-    return Layout(content, user=user)
+    return Layout(content, title="Page Title", user=user, show_auth=True)
+```
+
+### Domain Service Pattern
+```python
+# Domain service usage
+social_service = request.app.state.social_service
+posts = await social_service.get_posts(user_id)
+return SocialFeed(posts, current_user_id, base_path)
 ```
 
 ### Form Data Pattern
@@ -147,13 +167,25 @@ password = form.get("password")
 
 ### Role Check Pattern
 ```python
-user_role = user.get("role", "user")
-if user_role in ["admin", "super_admin"]:
+user_roles = user.get("roles", ["user"])
+if "super_admin" in user_roles:
+    # Super admin access
+elif "admin" in user_roles:
     # Admin access
-elif user_role in ["instructor", "course_creator"]:
+elif "instructor" in user_roles:
     # Instructor access
-elif user_role in ["shop_owner", "merchant"]:
-    # Shop owner access
+```
+
+### UI Component Pattern
+```python
+# Using shared UI components
+content = Div(
+    ExampleHeader("Title", "Subtitle"),
+    SocialFeed(posts, current_user_id, base_path),
+    ExampleBackLink(),
+    cls="min-h-screen bg-gray-50"
+)
+return Layout(content, title="Page Title", user=user)
 ```
 
 ---
@@ -162,7 +194,7 @@ elif user_role in ["shop_owner", "merchant"]:
 
 | Role | Email | Password | Dashboard |
 |------|-------|----------|-----------|
-| Admin | `admin@test.com` | `Admin123!` | `/admin/dashboard` |
+| Admin | `admin@freelancer.dev` | `AdminPass123!` | `/admin/dashboard` |
 | Instructor | `instructor@test.com` | `Instructor123!` | `/lms-example/instructor` |
 | Shop Owner | `shopowner@test.com` | `Shopowner123!` | `/eshop-example/admin` |
 
@@ -175,13 +207,24 @@ elif user_role in ["shop_owner", "merchant"]:
 docker compose up -d
 
 # Run app
-uv run python app/app.py
+DEMO_MODE=true uv run python app.py
 
 # Access at http://localhost:5001
 ```
 
-### Run tests
+### Example Applications
+```bash
+# Social Network
+http://localhost:5001/social-example
 
+# Streaming Platform  
+http://localhost:5001/streaming-example
+
+# LMS Example
+http://localhost:5001/lms-example
+```
+
+### Run tests
 ```bash
 docker compose up -d
 uv run pytest -q
@@ -195,16 +238,48 @@ RUN_INTEGRATION_TESTS=1 uv run pytest -q tests/integration
 ## Development Roadmap
 
 ### Current Status
-- **Core Platform**: Admin fixes and core feature restoration in progress
-- **Role System**: Enhanced with enforcement decorators and multi-role support
-- **Documentation**: DEVELOPMENT_TODOS.md provides prioritized task list
+- **Core Platform**: Production-ready with enhanced authentication and role system
+- **Domain System**: 5 fully scaffolded domains (Blog, Commerce, LMS, Social, Stream)
+- **Example Applications**: Enhanced social and streaming examples with sleek UI
+- **Documentation**: Comprehensive TODOS.md with production-ready roadmap
 
 ### Key Files for Development
-- `DEVELOPMENT_TODOS.md` - Prioritized development roadmap
-- `docs/FILE_MANIFEST.md` - Complete file listing
-- `app/core/WEB_ADMIN_TODOS.md` - Admin-specific tasks
+- `TODOS.md` - Comprehensive production-ready TODOs organized by component
+- `FILE_MANIFEST.md` - Complete file listing with current structure
+- `ARCHITECTURE.md` - Architecture overview and design patterns
+
+### Recent Major Updates
+- ✅ Enhanced social example app with complete UI components
+- ✅ Added streaming example app with video features
+- ✅ Updated social domain with complete models and services
+- ✅ Improved authentication with multi-role support
+- ✅ Added comprehensive production-ready TODOs documentation
 
 ---
 
-**Last Updated**: December 20, 2025
-**Recent Changes**: Updated role system documentation, added development roadmap section
+## Architecture Highlights
+
+### Modular Design
+- **Core Framework**: Independent of domain logic
+- **Domain Add-ons**: Self-contained with models, services, routes, UI
+- **Example Applications**: Demonstrate domain capabilities
+- **Shared Components**: Reusable UI components across examples
+
+### Technology Stack
+- **Backend**: FastHTML + Python 3.13
+- **Frontend**: MonsterUI + TailwindCSS
+- **Database**: PostgreSQL + MongoDB + Redis
+- **Authentication**: JWT with role-based access
+- **Architecture**: Repository pattern + Dependency Injection
+
+### Key Features
+- **Multi-Role System**: Hierarchical roles with permissions
+- **Real-time Updates**: WebSocket support for live features
+- **Responsive Design**: Mobile-first UI components
+- **Production Ready**: Comprehensive error handling, logging, monitoring
+
+---
+
+**Last Updated**: December 21, 2025
+**Recent Changes**: Enhanced social/streaming examples, updated domain structure, comprehensive TODOs
+**Total Files**: 300+ documented components
