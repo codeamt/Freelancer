@@ -3,14 +3,15 @@ from monsterui.all import *
 
 import os
 import secrets
-from dotenv import load_dotenv
-
-from core.config.validation import validate_config
+from core.db.config import configure_database
+from core.db.adapters.postgres_adapter import PostgresAdapter
+from core.services.encryption import initialize_encryption
 from core.utils.logger import get_logger
 
 from core.db.adapters import PostgresAdapter, MongoDBAdapter, RedisAdapter
 from core.db.repositories import UserRepository
 from core.db import initialize_session_manager, get_pool_manager
+from dotenv import load_dotenv
 from core.db.config import configure_database
 
 from core.middleware.redis_session import RedisSessionMiddleware
@@ -23,6 +24,10 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
 
     # Configure database
     db_config = configure_database()
+    
+    # Initialize encryption
+    initialize_encryption()
+    logger.info("✓ Encryption service initialized")
     
     mongo_url = os.getenv("MONGO_URL", "mongodb://root:example@localhost:27017")
     mongo_db = os.getenv("MONGO_DB", "app_db")
