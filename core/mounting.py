@@ -5,6 +5,7 @@ from core.routes import (
     router_editor,
     router_admin_sites,
     router_admin_users,
+    router_admin_roles,
     router_auth,
     router_settings,
     router_profile,
@@ -27,12 +28,13 @@ def mount_core_routes(app) -> None:
     router_editor.to_app(app)
     router_admin_sites.to_app(app)
     router_admin_users.to_app(app)
+    router_admin_roles.to_app(app)
     router_settings.to_app(app)
     router_profile.to_app(app)
     router_cart.to_app(app)
 
     logger.info(
-        "✓ Core routes mounted (main, auth, oauth, editor, admin_sites, admin_users, settings, profile, cart)"
+        "✓ Core routes mounted (main, auth, oauth, editor, admin_sites, admin_users, admin_roles, settings, profile, cart)"
     )
 
 

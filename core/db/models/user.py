@@ -11,7 +11,7 @@ The repository pattern and ORM can coexist:
 - Use ORM for quick prototype queries
 - Use Repository for production multi-DB operations
 """
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ARRAY
 from sqlalchemy.sql import func
 from core.db.base_class import Base
 
@@ -29,7 +29,9 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
-    role = Column(String(50), default="user", index=True)
+    role = Column(String(50), default="user", index=True)  # Legacy for backward compatibility
+    roles = Column(ARRAY(String), default=["user"], nullable=False)  # Multi-role support
+    role_version = Column(Integer, default=1)  # For JWT revocation
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
@@ -39,7 +41,7 @@ class User(Base):
     )
     
     def __repr__(self):
-        return f"<User(id={self.id}, email={self.email}, role={self.role})>"
+        return f"<User(id={self.id}, email={self.email}, roles={self.roles})>"
     
     def to_dict(self):
         """Convert ORM model to dict (for compatibility with repositories)."""
@@ -47,6 +49,8 @@ class User(Base):
             'id': self.id,
             'email': self.email,
             'role': self.role,
+            'roles': self.roles,
+            'role_version': getattr(self, 'role_version', 1),
             'is_active': self.is_active,
             'created_at': self.created_at,
             'updated_at': self.updated_at

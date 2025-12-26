@@ -5,9 +5,10 @@ User Service - User Management
 Handles user CRUD operations and profile management.
 Does NOT handle authentication (that's AuthService).
 """
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Union
 from datetime import datetime
 from core.db.repositories.user_repository import UserRepository
+from core.services.auth.models import UserRole
 from core.utils.logger import get_logger
 import re
 
@@ -45,7 +46,8 @@ class UserService:
         self,
         email: str,
         password: str,
-        role: str = "user",
+        role: Optional[str] = None,
+        roles: Optional[List[Union[str, UserRole]]] = None,
         profile_data: Optional[Dict] = None,
         skip_validation: bool = False
     ) -> Optional[int]:
@@ -55,13 +57,34 @@ class UserService:
         Args:
             email: User email
             password: Plain text password
-            role: User role
+            role: Legacy single role (for backward compatibility)
+            roles: List of roles (new multi-role support)
             profile_data: Optional profile data
             skip_validation: Skip validation (for imports/seeds)
             
         Returns:
             User ID or None if creation fails
         """
+        # Handle role/roles parameter
+        if roles is None:
+            if role is None:
+                roles = [UserRole.USER]
+            else:
+                # Convert string role to UserRole enum
+                try:
+                    roles = [UserRole(role)]
+                except ValueError:
+                    logger.warning(f"Invalid role: {role}")
+                    return None
+        
+        # Convert all roles to strings for repository
+        role_strings = [r.value if isinstance(r, UserRole) else r for r in roles]
+        
+        # Get primary role for backward compatibility
+        from core.services.auth.role_hierarchy import RoleHierarchy
+        primary_role = RoleHierarchy.get_primary_role([UserRole(r) for r in role_strings])
+        primary_role_str = primary_role.value if primary_role else "user"
+        
         # Validate unless skipped
         if not skip_validation:
             # Check if email exists
@@ -85,11 +108,12 @@ class UserService:
             user_id = await self.repo.create_user(
                 email=email,
                 password=password,
-                role=role,
+                role=primary_role_str,  # Legacy field
+                roles=role_strings,  # New multi-role field
                 profile_data=profile_data
             )
             
-            logger.info(f"User {user_id} created with email {email}")
+            logger.info(f"User {user_id} created with email {email} and roles {role_strings}")
             return user_id
             
         except Exception as e:
@@ -366,3 +390,83 @@ class UserService:
             return "Password must contain at least one number"
         
         return None
+    
+    # ========================================================================
+    # Role Management Methods
+    # ========================================================================
+    
+    async def update_user_roles(
+        self,
+        user_id: int,
+        roles: List[Union[str, UserRole]]
+    ) -> bool:
+        """
+        Update user roles.
+        
+        Args:
+            user_id: User ID
+            roles: New list of roles
+            
+        Returns:
+            True if successful
+        """
+        try:
+            # Convert roles to strings
+            role_strings = [r.value if isinstance(r, UserRole) else r for r in roles]
+            
+            # Get primary role for backward compatibility
+            from core.services.auth.role_hierarchy import RoleHierarchy
+            primary_role = RoleHierarchy.get_primary_role([UserRole(r) for r in role_strings])
+            primary_role_str = primary_role.value if primary_role else "user"
+            
+            # Update in database
+            await self.repo.update_user(
+                user_id,
+                {
+                    'roles': role_strings,
+                    'role': primary_role_str,
+                    'updated_at': datetime.utcnow()
+                }
+            )
+            
+            logger.info(f"Updated roles for user {user_id}: {role_strings}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to update roles for user {user_id}: {e}")
+            return False
+    
+    async def increment_role_version(self, user_id: int) -> bool:
+        """
+        Increment role version for JWT revocation.
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            True if successful
+        """
+        try:
+            # Get current version
+            user = await self.get_user(user_id)
+            if not user:
+                return False
+            
+            current_version = getattr(user, 'role_version', 1)
+            new_version = current_version + 1
+            
+            # Update version
+            await self.repo.update_user(
+                user_id,
+                {
+                    'role_version': new_version,
+                    'updated_at': datetime.utcnow()
+                }
+            )
+            
+            logger.info(f"Incremented role version for user {user_id} to {new_version}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to increment role version for user {user_id}: {e}")
+            return False

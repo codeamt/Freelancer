@@ -11,11 +11,12 @@ depends_on = None
 def upgrade() -> None:
     connection = op.get_bind()
 
-    # Reinsert demo users
+    # Reinsert demo users (only if they don't exist)
     connection.execute(sa.text("""
         INSERT INTO users (email, password_hash, role) VALUES
         ('admin@fastapp.dev', 'argon2hash-placeholder', 'admin'),
-        ('user@fastapp.dev', 'argon2hash-placeholder', 'user');
+        ('user@fastapp.dev', 'argon2hash-placeholder', 'user')
+        ON CONFLICT (email) DO NOTHING;
     """))
 
     # Reinsert demo products
@@ -23,7 +24,8 @@ def upgrade() -> None:
         INSERT INTO products (id, name, price, currency) VALUES
         ('p1', 'FastApp T-Shirt', 25.00, 'USD'),
         ('p2', 'Developer Mug', 15.00, 'USD'),
-        ('p3', 'MonsterUI Sticker Pack', 10.00, 'USD');
+        ('p3', 'MonsterUI Sticker Pack', 10.00, 'USD')
+        ON CONFLICT (id) DO NOTHING;
     """))
 
     # Reinsert demo courses
@@ -31,14 +33,21 @@ def upgrade() -> None:
         INSERT INTO courses (id, title, description) VALUES
         ('c1', 'Intro to FastHTML', 'Build powerful web apps using FastHTML.'),
         ('c2', 'HTMX for Developers', 'Reactive UIs with minimal JavaScript.'),
-        ('c3', 'MonsterUI Design System', 'Learn to design sleek components.');
+        ('c3', 'MonsterUI Design System', 'Learn to design sleek components.')
+        ON CONFLICT (id) DO NOTHING;
     """))
 
-    # Reinsert demo notifications
+    # Reinsert demo notifications (only if users exist)
     connection.execute(sa.text("""
-        INSERT INTO notifications (user_id, notification_type, message, read) VALUES
-        (1, 'inapp', 'Welcome back to FastApp Admin Dashboard!', FALSE),
-        (2, 'email', 'Your FastApp demo data has been refreshed!', FALSE);
+        INSERT INTO notifications (user_id, notification_type, message, read) 
+        SELECT 1, 'inapp', 'Welcome back to FastApp Admin Dashboard!', FALSE
+        WHERE EXISTS (SELECT 1 FROM users WHERE id = 1)
+        ON CONFLICT DO NOTHING;
+        
+        INSERT INTO notifications (user_id, notification_type, message, read) 
+        SELECT 2, 'email', 'Your FastApp demo data has been refreshed!', FALSE
+        WHERE EXISTS (SELECT 1 FROM users WHERE id = 2)
+        ON CONFLICT DO NOTHING;
     """))
 
 def downgrade() -> None:

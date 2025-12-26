@@ -132,7 +132,7 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     except Exception as e:
         logger.warning(f"⚠️ Failed to apply security middlewares: {e}")
 
-    if redis_url and redis_url != "redis://localhost:6379":
+    if redis_url:
         try:
             app.add_middleware(
                 RedisSessionMiddleware,
@@ -145,8 +145,25 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
             logger.info("✓ Redis session middleware applied")
         except Exception as e:
             logger.warning(f"⚠️ Failed to apply Redis session middleware: {e}")
+            # Fallback to cookie session
+            from core.middleware.cookie_session import CookieSessionMiddleware
+            app.add_middleware(
+                CookieSessionMiddleware,
+                cookie_name="session",
+                cookie_secure=environment == "production",
+                cookie_samesite="lax",
+            )
+            logger.info("✓ Cookie session middleware applied (fallback)")
     else:
-        logger.info("ℹ️  Redis session middleware skipped (Redis not configured)")
+        # Use cookie session when Redis is not configured
+        from core.middleware.cookie_session import CookieSessionMiddleware
+        app.add_middleware(
+            CookieSessionMiddleware,
+            cookie_name="session",
+            cookie_secure=environment == "production",
+            cookie_samesite="lax",
+        )
+        logger.info("✓ Cookie session middleware applied")
 
     @app.on_event("startup")
     async def startup():

@@ -23,6 +23,29 @@ def test_jwt_token_creation():
     assert token.count(".") == 2
 
 
+def test_jwt_token_with_multi_role():
+    """Test JWT token with multiple roles and versioning"""
+    from core.services.auth.providers.jwt import JWTProvider
+
+    provider = JWTProvider()
+    token = provider.create({
+        "user_id": 123,
+        "email": "a@test.com",
+        "role": "admin",
+        "roles": ["admin", "instructor"],
+        "role_version": 1
+    })
+
+    assert isinstance(token, str)
+    assert token.count(".") == 2
+    
+    # Verify token contains multi-role data
+    payload = provider.verify(token)
+    assert payload is not None
+    assert payload["roles"] == ["admin", "instructor"]
+    assert payload["role_version"] == 1
+
+
 def test_jwt_token_verification():
     from core.services.auth.providers.jwt import JWTProvider
 
@@ -60,13 +83,30 @@ def test_user_role_enum():
         "super_admin",
         "admin",
         "editor",
-        "member",
         "user",
         "instructor",
         "student",
-        "shop_owner",
-        "merchant",
-        "course_creator",
+        "guest",
+        "blog_admin",
+        "blog_author",
+        "lms_admin",
     }
 
     assert {r.value for r in UserRole} == expected
+
+
+def test_user_role_hierarchy():
+    """Test role hierarchy ordering"""
+    from core.services.auth.role_hierarchy import RoleHierarchy
+    from core.services.auth.models import UserRole
+    
+    # Test that higher level roles have precedence
+    admin_level = RoleHierarchy.get_hierarchy_level(UserRole.ADMIN)
+    user_level = RoleHierarchy.get_hierarchy_level(UserRole.USER)
+    
+    assert admin_level > user_level
+    
+    # Test primary role selection
+    roles = [UserRole.USER, UserRole.INSTRUCTOR, UserRole.ADMIN]
+    primary = RoleHierarchy.get_primary_role(roles)
+    assert primary == UserRole.ADMIN

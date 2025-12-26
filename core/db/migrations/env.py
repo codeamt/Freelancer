@@ -7,7 +7,7 @@ import os
 import sys
 
 # Add app directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 # Import Base and all models
 from core.db.base_class import Base

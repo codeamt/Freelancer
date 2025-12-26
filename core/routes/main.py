@@ -2,6 +2,9 @@ from fasthtml.common import *
 from core.ui.layout import Layout
 from core.ui.pages import HomePage, AboutPage, ContactPage, ExamplePage, TestPage, DocsPage
 from core.services.auth.helpers import get_current_user
+from core.ui.components.role_based_components import RoleBasedDashboard, RoleBasedNav
+from core.services.auth.role_hierarchy import RoleHierarchy
+from core.ui.pages.role_ui_demo import RoleUIDemoPage
 
 router_main = APIRouter()
 
@@ -13,6 +16,32 @@ async def home_page(request: Request):
     user = await get_current_user(request, auth_service)
     home_page = HomePage()
     return home_page.render(request=request)
+
+@router_main.get("/dashboard")
+async def dashboard_page(request: Request):
+    """Role-based dashboard that adapts to user roles"""
+    auth_service = request.app.state.auth_service
+    user = await get_current_user(request, auth_service)
+    
+    if not user:
+        return RedirectResponse("/auth?redirect=/dashboard", status_code=303)
+    
+    user_roles = getattr(user, 'roles', [])
+    
+    return Title("Dashboard"), Main(
+        Header(RoleBasedNav.render(user_roles)),
+        Container(
+            H1("Dashboard"),
+            P(f"Welcome, {user.email}!"),
+            RoleBasedDashboard.render(user_roles)
+        )
+    )
+
+@router_main.get("/role-ui-demo")
+async def role_ui_demo_page(request: Request):
+    """Demo page showing role-based UI components"""
+    demo_page = RoleUIDemoPage()
+    return demo_page.render(request)
 
 @router_main.get("/docs")
 def docs_page(request: Request):

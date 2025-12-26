@@ -99,6 +99,7 @@ class UserRepository(PostgresRepository[User]):
         email: str,
         password: str,
         role: str = "user",
+        roles: Optional[List[str]] = None,
         profile_data: Optional[Dict] = None,
         transaction_manager: Optional[TransactionManager] = None
     ) -> int:
@@ -108,6 +109,10 @@ class UserRepository(PostgresRepository[User]):
         Uses inherited transaction support from BaseRepository.
         """
         tm = transaction_manager
+        
+        # Handle roles parameter
+        if roles is None:
+            roles = [role]
         
         # Validate required fields
         self._validate_required_fields(
@@ -127,7 +132,9 @@ class UserRepository(PostgresRepository[User]):
         user_data = self._add_timestamps({
             'email': email,
             'password_hash': password_hash,
-            'role': role
+            'role': role,  # Legacy field for backward compatibility
+            'roles': roles,  # New multi-role field
+            'role_version': 1  # For JWT revocation
         })
         
         # Insert into Postgres directly
@@ -156,7 +163,7 @@ class UserRepository(PostgresRepository[User]):
             self._get_cache_key(email, prefix='email')
         )
         
-        self._log_operation('create', user_id, f"email={email}")
+        self._log_operation('create', user_id, f"email={email}, roles={roles}")
         return user_id
     
     async def get_user_by_id(
@@ -272,7 +279,7 @@ class UserRepository(PostgresRepository[User]):
         pg_updates = {}
         mongo_updates = {}
         
-        pg_fields = {'email', 'role'}
+        pg_fields = {'email', 'role', 'roles', 'role_version'}
         for key, value in updates.items():
             if key in pg_fields:
                 pg_updates[key] = value

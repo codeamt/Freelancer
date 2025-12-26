@@ -5,6 +5,7 @@ from .main import router_main
 from .auth import router_auth
 from .admin_sites import router_admin_sites
 from .admin_users import router_admin_users
+from .admin_roles import router_admin_roles
 from .profile import router_profile
 from .editor import router_editor
 from .settings import router_settings
@@ -16,6 +17,7 @@ __all__ = [
     'router_auth',
     'router_admin_sites',
     'router_admin_users',
+    'router_admin_roles',
     'router_profile',
     'router_editor',
     'router_settings',

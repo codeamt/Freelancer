@@ -3,7 +3,8 @@ from fasthtml.common import *
 from monsterui.all import *
 from starlette.responses import RedirectResponse
 from core.services.auth.providers.oauth import OAuthProvider
-from core.services.auth.models import LoginRequest
+from core.services.auth.models import LoginRequest, UserRole
+from core.ui.pages.oauth_role_selection import OAuthRoleSelectionPage, OAuthRoleErrorPage
 from core.utils.logger import get_logger
 import os
 
@@ -111,21 +112,16 @@ async def handle_oauth_login(request: Request, user_data: dict, provider: str):
         existing_user = await user_service.get_user_by_email(email)
         
         if not existing_user:
-            # Create new user with OAuth
-            user_id = await user_service.create_user(
-                email=email,
-                password=f"oauth_{provider}_{user_data.get('id')}",  # OAuth users don't use password
-                role="user",
-                profile_data={
-                    "username": user_data.get("name", email.split("@")[0]),
-                    "avatar_url": user_data.get("picture", ""),
-                    "oauth_provider": provider,
-                    "oauth_id": user_data.get("id")
-                }
-            )
-            logger.info(f"Created new user via {provider} OAuth: {email}")
+            # Store OAuth data in session for role selection
+            request.session["oauth_data"] = {
+                "provider": provider,
+                "user_data": user_data
+            }
+            
+            # Redirect to role selection page
+            return RedirectResponse("/auth/oauth/role-selection", status_code=303)
         
-        # Login the user - create LoginRequest for OAuth
+        # Login existing user - create LoginRequest for OAuth
         login_request = LoginRequest(
             username=email,
             password=f"oauth_{provider}_{user_data.get('id')}",
@@ -148,3 +144,93 @@ async def handle_oauth_login(request: Request, user_data: dict, provider: str):
         logger.error(f"OAuth login handling error: {e}")
     
     return RedirectResponse("/auth?tab=login&error=Failed+to+create+account", status_code=303)
+
+
+@router_oauth.get("/auth/oauth/role-selection")
+async def oauth_role_selection(request: Request):
+    """Show role selection page for new OAuth users"""
+    # Get OAuth data from session
+    oauth_data = request.session.get("oauth_data")
+    
+    if not oauth_data:
+        return RedirectResponse("/auth?tab=login&error=Session+expired", status_code=303)
+    
+    provider = oauth_data.get("provider")
+    user_data = oauth_data.get("user_data", {})
+    
+    return OAuthRoleSelectionPage(user_data, provider)
+
+
+@router_oauth.post("/auth/oauth/complete")
+async def oauth_complete_signup(request: Request):
+    """Complete OAuth signup with selected role"""
+    user_service = request.app.state.user_service
+    auth_service = request.app.state.auth_service
+    
+    # Get OAuth data from session
+    oauth_data = request.session.get("oauth_data")
+    
+    if not oauth_data:
+        return OAuthRoleErrorPage("Session expired. Please try again.", "")
+    
+    try:
+        # Get form data
+        form_data = await request.form()
+        selected_role = form_data.get("selected_roles")
+        agree_terms = form_data.get("agree_terms")
+        
+        if not agree_terms:
+            return OAuthRoleErrorPage("You must agree to the Terms of Service.", oauth_data.get("provider", ""))
+        
+        # Validate role
+        try:
+            role = UserRole(selected_role)
+        except ValueError:
+            return OAuthRoleErrorPage("Invalid role selected.", oauth_data.get("provider", ""))
+        
+        # Create user with selected role
+        provider = oauth_data.get("provider")
+        user_data = oauth_data.get("user_data", {})
+        
+        user_id = await user_service.create_user(
+            email=user_data.get("email"),
+            password=f"oauth_{provider}_{user_data.get('id')}",
+            roles=[role],  # Use selected role
+            profile_data={
+                "username": user_data.get("name", user_data.get("email", "").split("@")[0]),
+                "avatar_url": user_data.get("picture", ""),
+                "oauth_provider": provider,
+                "oauth_id": user_data.get("id")
+            }
+        )
+        
+        logger.info(f"Created new user via {provider} OAuth with role {role}: {user_data.get('email')}")
+        
+        # Clear session data
+        request.session.pop("oauth_data", None)
+        
+        # Login the user
+        login_request = LoginRequest(
+            username=user_data.get("email"),
+            password=f"oauth_{provider}_{user_data.get('id')}",
+            remember_me=True
+        )
+        result = await auth_service.login(login_request)
+        
+        if result:
+            response = RedirectResponse("/", status_code=303)
+            response.set_cookie(
+                "auth_token",
+                result.access_token,
+                httponly=True,
+                secure=os.getenv("ENVIRONMENT") == "production",
+                samesite="lax",
+                max_age=result.expires_in
+            )
+            return response
+        
+    except Exception as e:
+        logger.error(f"OAuth signup completion error: {e}")
+        return OAuthRoleErrorPage("Failed to complete signup. Please try again.", oauth_data.get("provider", ""))
+    
+    return RedirectResponse("/auth?tab=login&error=Signup+failed", status_code=303)

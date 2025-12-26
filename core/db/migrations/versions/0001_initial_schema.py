@@ -29,7 +29,7 @@ def upgrade() -> None:
         sa.Column('uploaded_at', sa.DateTime(), server_default=sa.func.now()),
     )
 
-    op.create_001_initial_schema.pytable(
+    op.create_table(
         'products',
         sa.Column('id', sa.String(), primary_key=True),
         sa.Column('name', sa.String(), nullable=False),
