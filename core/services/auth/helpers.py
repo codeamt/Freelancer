@@ -139,11 +139,14 @@ async def get_current_user(request: Request, auth_service: AuthService = None) -
         if not auth_service:
             auth_service = AuthService()
         
-        user_id = auth_service.jwt.verify(token).get("user_id") if auth_service.jwt.verify(token) else None
+        # Use async verification to check blacklist
+        payload = await auth_service.jwt.verify(token)
         
-        if user_id:
-            user = await auth_service.get_user_by_id(str(user_id))
-            return user
+        if payload:
+            user_id = payload.get("user_id")
+            if user_id:
+                user = await auth_service.get_user_by_id(str(user_id))
+                return user
         
         return None
         

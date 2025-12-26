@@ -7,10 +7,10 @@ from .admin_sites import router_admin_sites
 from .admin_users import router_admin_users
 from .admin_roles import router_admin_roles
 from .profile import router_profile
-from .editor import router_editor
+from .cart import router_cart
+from .device_management import router as router_device_management
 from .settings import router_settings
 from .oauth import router_oauth
-from .cart import router_cart
 
 __all__ = [
     'router_main',
@@ -23,4 +23,5 @@ __all__ = [
     'router_settings',
     'router_oauth',
     'router_cart',  # cart router
+    'router_device_management',  # device management router
 ]

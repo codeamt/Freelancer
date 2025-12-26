@@ -21,13 +21,19 @@ from core.exceptions import (
     AuthenticationError
 )
 from core.services.auth.models import (
+    UserRole,
+    UserStatus,
     LoginRequest,
     LoginResponse,
-    TokenRefreshRequest,
-    TokenRefreshResponse,
-    TokenPayload,
-    User
+    RegisterRequest,
+    AuthResponse,
+    PasswordChangeRequest,
+    PasswordResetRequest,
+    RoleChangeRequest,
+    UserResponse
 )
+from core.services.auth.jwt_blacklist import get_blacklist_service
+from core.services.auth.device_manager import DeviceManager
 
 logger = get_logger(__name__)
 
@@ -63,6 +69,12 @@ class AuthService:
         self.jwt = jwt_provider or JWTProvider()
         self._user_cache = {}
         self._role_cache = {}
+        
+        # Initialize device manager if we have a postgres connection
+        if user_repository and hasattr(user_repository, 'postgres'):
+            self.device_manager = DeviceManager(user_repository.postgres)
+        else:
+            self.device_manager = None
     
     # ========================================================================
     # Authentication
@@ -147,9 +159,23 @@ class AuthService:
         Args:
             token: JWT token to revoke
         """
-        # Revoke session in Redis
-        await self.user_repo.revoke_session(token)
-        logger.info("User logged out")
+        try:
+            # Add token to blacklist
+            from core.services.auth.jwt_blacklist import get_blacklist_service
+            blacklist = get_blacklist_service()
+            success = await blacklist.add_to_blacklist(token, reason="logout")
+            
+            if success:
+                # Also revoke session in Redis (for backward compatibility)
+                await self.user_repo.revoke_session(token)
+                logger.info("User logged out - token blacklisted")
+            else:
+                logger.warning("Failed to blacklist token during logout")
+                
+        except Exception as e:
+            logger.error(f"Error during logout: {e}")
+            # Still attempt to revoke session
+            await self.user_repo.revoke_session(token)
     
     async def logout_all(self, user_id: int):
         """
@@ -158,8 +184,20 @@ class AuthService:
         Args:
             user_id: User ID
         """
-        await self.user_repo.revoke_all_sessions(user_id)
-        logger.info(f"User {user_id} logged out from all devices")
+        try:
+            # Blacklist all tokens for user
+            from core.services.auth.jwt_blacklist import get_blacklist_service
+            blacklist = get_blacklist_service()
+            await blacklist.blacklist_user_tokens(user_id, reason="logout_all")
+            
+            # Also revoke all sessions in Redis (for backward compatibility)
+            await self.user_repo.revoke_all_sessions(user_id)
+            logger.info(f"User {user_id} logged out from all devices")
+            
+        except Exception as e:
+            logger.error(f"Error during logout all: {e}")
+            # Still attempt to revoke sessions
+            await self.user_repo.revoke_all_sessions(user_id)
     
     async def refresh_token(self, request: TokenRefreshRequest) -> TokenRefreshResponse:
         """
@@ -714,6 +752,128 @@ class AuthService:
                 "success": False,
                 "error": str(e)
             }
+    
+    # ========================================================================
+    # Refresh Token & Device Management
+    # ========================================================================
+    
+    async def login_with_device(
+        self,
+        request: LoginRequest,
+        user_agent: str,
+        ip_address: str,
+        remember_me: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Login with device tracking and refresh tokens.
+        
+        Returns:
+            Dict with access_token, refresh_token, device_info
+        """
+        # First authenticate user
+        login_response = await self.login(request)
+        
+        if not self.device_manager:
+            # Fallback to simple login without device tracking
+            return {
+                "access_token": login_response.access_token,
+                "refresh_token": None,
+                "device_info": None
+            }
+        
+        # Parse device info
+        device_info = self.device_manager.parse_device_info(user_agent, ip_address)
+        
+        # Register device
+        device_result = await self.device_manager.register_device(
+            login_response.user_id,
+            device_info,
+            trust_device=remember_me
+        )
+        
+        # Create refresh token
+        refresh_token_id = await self.device_manager.create_refresh_token(
+            login_response.user_id,
+            device_info,
+            expires_days=30 if remember_me else 7
+        )
+        
+        # Create new access token with shorter expiration
+        token_data = {
+            "user_id": login_response.user_id,
+            "email": login_response.email,
+            "role": login_response.role,
+            "roles": login_response.roles,
+            "type": "access"
+        }
+        access_token = self.jwt.create_access_token(token_data)
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token_id,
+            "device_info": {
+                "device_id": device_info.device_id,
+                "device_name": device_info.device_name,
+                "is_new": device_result.get("is_new", False)
+            }
+        }
+    
+    async def refresh_token(self, refresh_token_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Refresh an access token using a refresh token.
+        
+        Returns:
+            Dict with new access_token or None if invalid
+        """
+        if not self.device_manager:
+            return None
+        
+        # Validate refresh token
+        token_data = await self.device_manager.validate_refresh_token(refresh_token_id)
+        
+        if not token_data:
+            return None
+        
+        # Create new access token
+        token_payload = {
+            "user_id": token_data["user_id"],
+            "email": token_data["email"],
+            "role": token_data["role"],
+            "roles": token_data["roles"],
+            "type": "access"
+        }
+        
+        access_token = self.jwt.create_access_token(token_payload)
+        
+        return {
+            "access_token": access_token,
+            "user_id": token_data["user_id"],
+            "device_id": token_data["device_id"]
+        }
+    
+    async def revoke_device(self, user_id: int, device_id: str) -> bool:
+        """Revoke all tokens for a specific device"""
+        if not self.device_manager:
+            return False
+        return await self.device_manager.revoke_device_tokens(user_id, device_id) > 0
+    
+    async def get_user_devices(self, user_id: int) -> List[Dict[str, Any]]:
+        """Get all devices for a user"""
+        if not self.device_manager:
+            return []
+        return await self.device_manager.get_user_devices(user_id)
+    
+    async def trust_device(self, user_id: int, device_id: str) -> bool:
+        """Mark a device as trusted"""
+        if not self.device_manager:
+            return False
+        return await self.device_manager.trust_device(user_id, device_id)
+    
+    async def untrust_device(self, user_id: int, device_id: str) -> bool:
+        """Unmark a device as trusted"""
+        if not self.device_manager:
+            return False
+        return await self.device_manager.untrust_device(user_id, device_id)
 
 
 class AnonymousUser:

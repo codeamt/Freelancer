@@ -2,15 +2,16 @@ from core.utils.logger import get_logger
 
 from core.routes import (
     router_main,
+    router_auth,
+    router_oauth,
     router_editor,
     router_admin_sites,
     router_admin_users,
     router_admin_roles,
-    router_auth,
     router_settings,
     router_profile,
-    router_oauth,
     router_cart,
+    router_device_management,
 )
 
 from core.addon_loader import get_addon_loader, get_enabled_addons, get_addon_route
@@ -32,9 +33,10 @@ def mount_core_routes(app) -> None:
     router_settings.to_app(app)
     router_profile.to_app(app)
     router_cart.to_app(app)
+    router_device_management.to_app(app)
 
     logger.info(
-        "✓ Core routes mounted (main, auth, oauth, editor, admin_sites, admin_users, admin_roles, settings, profile, cart)"
+        "✓ Core routes mounted (main, auth, oauth, editor, admin_sites, admin_users, admin_roles, settings, profile, cart, device_management)"
     )
 
 

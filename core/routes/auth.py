@@ -68,32 +68,73 @@ async def register_redirect(request: Request, redirect: str = None):
 
 @router_auth.post("/auth/login")
 async def login(request: Request):
-    """Handle login"""
+    """Handle login with device tracking"""
     auth_service = request.app.state.auth_service
     
     # Use sanitized form data from security middleware
     form = getattr(request.state, 'sanitized_form', {})
     email = form.get("email")
     password = form.get("password")
+    remember_me = form.get("remember_me") == "on"
     redirect_url = form.get("redirect") or "/"
     
     from core.services.auth.auth_service import LoginRequest
     try:
-        result = await auth_service.login(LoginRequest(username=email, password=password))
-    except Exception:
-        result = None
-    
-    if result:
-        response = RedirectResponse(redirect_url, status_code=303)
-        response.set_cookie(
-            "auth_token",
-            result.access_token,
-            httponly=True,
-            secure=os.getenv("ENVIRONMENT") == "production",
-            samesite="lax",
-            max_age=86400  # 24 hours
-        )
-        return response
+        # Get device info
+        user_agent = request.headers.get("User-Agent", "")
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        
+        # Try device-aware login first
+        if hasattr(auth_service, 'login_with_device'):
+            login_result = await auth_service.login_with_device(
+                LoginRequest(username=email, password=password),
+                user_agent=user_agent,
+                ip_address=client_ip,
+                remember_me=remember_me
+            )
+            
+            if login_result and login_result.get("access_token"):
+                response = RedirectResponse(redirect_url, status_code=303)
+                response.set_cookie(
+                    "auth_token",
+                    login_result["access_token"],
+                    httponly=True,
+                    secure=os.getenv("ENVIRONMENT") == "production",
+                    samesite="lax",
+                    max_age=86400  # 24 hours
+                )
+                
+                # Set refresh token cookie if available
+                if login_result.get("refresh_token"):
+                    response.set_cookie(
+                        "refresh_token",
+                        login_result["refresh_token"],
+                        httponly=True,
+                        secure=os.getenv("ENVIRONMENT") == "production",
+                        samesite="lax",
+                        max_age=86400 * 30  # 30 days
+                    )
+                
+                return response
+        else:
+            # Fallback to regular login
+            result = await auth_service.login(LoginRequest(username=email, password=password))
+            
+            if result:
+                response = RedirectResponse(redirect_url, status_code=303)
+                response.set_cookie(
+                    "auth_token",
+                    result.access_token,
+                    httponly=True,
+                    secure=os.getenv("ENVIRONMENT") == "production",
+                    samesite="lax",
+                    max_age=86400  # 24 hours
+                )
+                return response
+                
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        pass
     
     # Login failed - redirect back to auth page with error
     return RedirectResponse(f"/auth?tab=login&error=Invalid+credentials" + (f"&redirect={redirect_url}" if redirect_url != "/" else ""), status_code=303)
@@ -323,4 +364,209 @@ async def web_admin_dashboard(request: Request):
         user=user_dict,
         show_auth=True,
         demo=demo
+    )
+
+
+# Refresh Token Endpoints
+
+@router_auth.post("/auth/refresh")
+async def refresh_token(request: Request):
+    """Refresh access token using refresh token"""
+    auth_service = request.app.state.auth_service
+    
+    # Get refresh token from request body
+    try:
+        import json
+        body = json.loads(await request.body())
+        refresh_token = body.get("refresh_token")
+    except:
+        # Fallback to form data
+        form = getattr(request.state, 'sanitized_form', {})
+        refresh_token = form.get("refresh_token")
+    
+    if not refresh_token:
+        return Response(
+            json.dumps({"error": "Refresh token required"}),
+            status_code=400,
+            media_type="application/json"
+        )
+    
+    # Validate refresh token and get new access token
+    result = await auth_service.refresh_token(refresh_token)
+    
+    if not result:
+        return Response(
+            json.dumps({"error": "Invalid or expired refresh token"}),
+            status_code=401,
+            media_type="application/json"
+        )
+    
+    return Response(
+        json.dumps({
+            "access_token": result["access_token"],
+            "token_type": "Bearer"
+        }),
+        media_type="application/json"
+    )
+
+
+@router_auth.post("/auth/device/revoke")
+async def revoke_device(request: Request):
+    """Revoke all tokens for a specific device"""
+    auth_service = request.app.state.auth_service
+    current_user = await get_current_user(request)
+    
+    if not current_user:
+        return Response(
+            json.dumps({"error": "Authentication required"}),
+            status_code=401,
+            media_type="application/json"
+        )
+    
+    # Get device_id from request
+    try:
+        import json
+        body = json.loads(await request.body())
+        device_id = body.get("device_id")
+    except:
+        # Fallback to form data
+        form = getattr(request.state, 'sanitized_form', {})
+        device_id = form.get("device_id")
+    
+    if not device_id:
+        return Response(
+            json.dumps({"error": "Device ID required"}),
+            status_code=400,
+            media_type="application/json"
+        )
+    
+    # Revoke device tokens
+    success = await auth_service.revoke_device(current_user.id, device_id)
+    
+    if success:
+        return Response(
+            json.dumps({"success": True, "message": "Device revoked successfully"}),
+            media_type="application/json"
+        )
+    else:
+        return Response(
+            json.dumps({"error": "Failed to revoke device"}),
+            status_code=500,
+            media_type="application/json"
+        )
+
+
+@router_auth.get("/auth/devices")
+async def list_devices(request: Request):
+    """List all devices for the current user"""
+    auth_service = request.app.state.auth_service
+    current_user = await get_current_user(request)
+    
+    if not current_user:
+        return Response(
+            json.dumps({"error": "Authentication required"}),
+            status_code=401,
+            media_type="application/json"
+        )
+    
+    # Get user devices
+    devices = await auth_service.get_user_devices(current_user.id)
+    
+    return Response(
+        json.dumps({"devices": devices}),
+        media_type="application/json"
+    )
+
+
+@router_auth.post("/auth/devices/{device_id}/trust")
+async def trust_device(request: Request, device_id: str):
+    """Mark a device as trusted"""
+    auth_service = request.app.state.auth_service
+    current_user = await get_current_user(request)
+    
+    if not current_user:
+        return Response(
+            json.dumps({"error": "Authentication required"}),
+            status_code=401,
+            media_type="application/json"
+        )
+    
+    # Trust device
+    success = await auth_service.trust_device(current_user.id, device_id)
+    
+    if success:
+        return Response(
+            json.dumps({"success": True, "message": "Device marked as trusted"}),
+            media_type="application/json"
+        )
+    else:
+        return Response(
+            json.dumps({"error": "Failed to trust device"}),
+            status_code=500,
+            media_type="application/json"
+        )
+
+
+@router_auth.delete("/auth/devices/{device_id}/trust")
+async def untrust_device(request: Request, device_id: str):
+    """Unmark a device as trusted"""
+    auth_service = request.app.state.auth_service
+    current_user = await get_current_user(request)
+    
+    if not current_user:
+        return Response(
+            json.dumps({"error": "Authentication required"}),
+            status_code=401,
+            media_type="application/json"
+        )
+    
+    # Untrust device
+    success = await auth_service.untrust_device(current_user.id, device_id)
+    
+    if success:
+        return Response(
+            json.dumps({"success": True, "message": "Device unmarked as trusted"}),
+            media_type="application/json"
+        )
+    else:
+        return Response(
+            json.dumps({"error": "Failed to untrust device"}),
+            status_code=500,
+            media_type="application/json"
+        )
+
+
+@router_auth.get("/auth/token/expiry")
+async def check_token_expiry(request: Request):
+    """Check if the current token is expiring soon"""
+    auth_token = request.cookies.get("auth_token")
+    
+    if not auth_token:
+        return Response(
+            json.dumps({"error": "No token found"}),
+            status_code=401,
+            media_type="application/json"
+        )
+    
+    # Check token expiration
+    jwt_provider = auth_service.jwt if hasattr(auth_service, 'jwt') else JWTProvider()
+    
+    if jwt_provider.is_token_expiring_soon(auth_token, minutes_threshold=5):
+        return Response(
+            json.dumps({
+                "expiring_soon": True,
+                "message": "Token expires in less than 5 minutes"
+            }),
+            media_type="application/json"
+        )
+    
+    # Get actual expiration time
+    exp_time = jwt_provider.get_token_expiration(auth_token)
+    
+    return Response(
+        json.dumps({
+            "expiring_soon": False,
+            "expires_at": exp_time.isoformat() if exp_time else None
+        }),
+        media_type="application/json"
     )
