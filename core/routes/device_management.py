@@ -5,10 +5,10 @@ Device Management Routes
 from fasthtml.common import *
 from monsterui.all import *
 
-router = Router()
+router = APIRouter()
 
 # Import auth helpers
-from core.routes.auth import get_current_user
+from core.services.auth.helpers import get_current_user
 
 
 @router.get("/profile/devices")

@@ -8,7 +8,7 @@ APP_DIR = Path(__file__).resolve().parents[1] / "app"
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
-os.environ.setdefault("ENVIRONMENT", "development")
+os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-please-change-000000000000000000000000")
 os.environ.setdefault("APP_MEDIA_KEY", "test-media-key-please-change-000000000000000000000000")
 
@@ -66,6 +66,37 @@ def sample_admin_user():
     return MockAdminUser()
 
 
+@pytest.fixture
+def mock_device_info():
+    """Create mock device info"""
+    return {
+        'device_id': 'device-123',
+        'device_name': 'Chrome on Windows',
+        'device_type': 'desktop',
+        'platform': 'Windows',
+        'browser': 'Chrome',
+        'ip_address': '192.168.1.1',
+        'first_seen_at': '2023-12-26 12:00:00',
+        'last_seen_at': '2023-12-26 12:00:00',
+        'is_active': True,
+        'is_trusted': False,
+        'active_sessions': 1
+    }
+
+
+@pytest.fixture
+def mock_postgres_adapter():
+    """Create a mock PostgreSQL adapter"""
+    from unittest.mock import MagicMock, AsyncMock
+    
+    adapter = MagicMock()
+    adapter.execute = AsyncMock()
+    adapter.fetch_one = AsyncMock()
+    adapter.fetch_all = AsyncMock()
+    adapter.acquire = AsyncMock()
+    return adapter
+
+
 def pytest_configure(config):
     """Configure custom markers"""
     config.addinivalue_line(
@@ -82,4 +113,13 @@ def pytest_configure(config):
     )
     config.addinivalue_line(
         "markers", "oauth: mark test as OAuth related"
+    )
+    config.addinivalue_line(
+        "markers", "device: mark test as device management related"
+    )
+    config.addinivalue_line(
+        "markers", "jwt: mark test as JWT related"
+    )
+    config.addinivalue_line(
+        "markers", "migration: mark test as migration related"
     )

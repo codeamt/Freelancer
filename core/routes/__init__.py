@@ -19,7 +19,6 @@ __all__ = [
     'router_admin_users',
     'router_admin_roles',
     'router_profile',
-    'router_editor',
     'router_settings',
     'router_oauth',
     'router_cart',  # cart router

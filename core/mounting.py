@@ -4,7 +4,6 @@ from core.routes import (
     router_main,
     router_auth,
     router_oauth,
-    router_editor,
     router_admin_sites,
     router_admin_users,
     router_admin_roles,
@@ -26,7 +25,6 @@ def mount_core_routes(app) -> None:
     router_main.to_app(app)
     router_auth.to_app(app)
     router_oauth.to_app(app)
-    router_editor.to_app(app)
     router_admin_sites.to_app(app)
     router_admin_users.to_app(app)
     router_admin_roles.to_app(app)
@@ -36,7 +34,7 @@ def mount_core_routes(app) -> None:
     router_device_management.to_app(app)
 
     logger.info(
-        "✓ Core routes mounted (main, auth, oauth, editor, admin_sites, admin_users, admin_roles, settings, profile, cart, device_management)"
+        "✓ Core routes mounted (main, auth, oauth, admin_sites, admin_users, admin_roles, settings, profile, cart, device_management)"
     )
 
 

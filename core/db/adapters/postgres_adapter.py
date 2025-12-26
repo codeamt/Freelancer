@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 import asyncpg
 from contextlib import asynccontextmanager
 from core.utils.logger import get_logger
+from core.db.config import get_database_config
 
 logger = get_logger(__name__)
 
@@ -14,29 +15,56 @@ class PostgresAdapter:
     Use for: Structured data, ACID transactions, complex queries, referential integrity
     """
     
-    def __init__(self, connection_string: str, min_size: int = 10, max_size: int = 20):
-        self.connection_string = connection_string
-        self.min_size = min_size
-        self.max_size = max_size
+    def __init__(self, connection_string: str = None, min_size: int = None, max_size: int = None, read_only: bool = False):
+        # Get configuration
+        config = get_database_config()
+        
+        # Use provided values or config defaults
+        self.connection_string = connection_string or config.connection_string
+        self.min_size = min_size or config.min_size
+        self.max_size = max_size or config.max_size
+        self.read_only = read_only
+        
+        # For read replicas, use read replica connection string
+        if read_only and config.get_read_replica_string():
+            self.connection_string = config.get_read_replica_string()
+        
         self.pool: Optional[asyncpg.Pool] = None
         self._transaction_sessions: Dict[str, asyncpg.Connection] = {}
         
     async def connect(self):
-        """Initialize connection pool"""
+        """Initialize connection pool with optimized settings"""
         if not self.pool:
+            config = get_database_config()
+            pool_config = config.get_pool_config()
+            
+            # Update pool config with instance settings
+            pool_config.update({
+                "min_size": self.min_size,
+                "max_size": self.max_size,
+            })
+            
+            # Add read-only settings if applicable
+            if self.read_only:
+                pool_config["server_settings"] = {
+                    **pool_config.get("server_settings", {}),
+                    "default_transaction_read_only": "on"
+                }
+            
             self.pool = await asyncpg.create_pool(
                 self.connection_string,
-                min_size=self.min_size,
-                max_size=self.max_size,
-                command_timeout=60
+                **pool_config
             )
-            logger.info(f"PostgreSQL pool created (size: {self.min_size}-{self.max_size})")
+            
+            pool_type = "read replica" if self.read_only else "primary"
+            logger.info(f"PostgreSQL {pool_type} pool created (size: {self.min_size}-{self.max_size})")
             
     async def disconnect(self):
         """Close connection pool"""
         if self.pool:
             await self.pool.close()
             self.pool = None
+            logger.info("PostgreSQL pool closed")
             
     @asynccontextmanager
     async def acquire(self):

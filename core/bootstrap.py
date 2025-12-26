@@ -11,6 +11,7 @@ from core.utils.logger import get_logger
 from core.db.adapters import PostgresAdapter, MongoDBAdapter, RedisAdapter
 from core.db.repositories import UserRepository
 from core.db import initialize_session_manager, get_pool_manager
+from core.db.config import configure_database
 
 from core.middleware.redis_session import RedisSessionMiddleware
 
@@ -20,7 +21,9 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
 
     logger = get_logger(__name__)
 
-    postgres_url = os.getenv("POSTGRES_URL", "postgresql://postgres:postgres@localhost:5432/app_db")
+    # Configure database
+    db_config = configure_database()
+    
     mongo_url = os.getenv("MONGO_URL", "mongodb://root:example@localhost:27017")
     mongo_db = os.getenv("MONGO_DB", "app_db")
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
@@ -39,7 +42,15 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
 
     logger.info("Initializing database adapters...")
 
-    postgres = PostgresAdapter(connection_string=postgres_url, min_size=10, max_size=20)
+    # Initialize PostgreSQL with configuration
+    postgres = PostgresAdapter()  # Will use config defaults
+    
+    # Initialize read replica adapter if configured
+    postgres_readonly = None
+    if db_config.read_replica_host:
+        postgres_readonly = PostgresAdapter(read_only=True)
+        logger.info("✓ Read replica adapter configured")
+    
     mongodb = MongoDBAdapter(connection_string=mongo_url, database=mongo_db)
     redis = RedisAdapter(connection_string=redis_url)
 

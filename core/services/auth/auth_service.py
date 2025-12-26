@@ -4,7 +4,7 @@ Authentication Service
 Handles authentication, authorization, and session management.
 Delegates user data access to UserRepository.
 """
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 from datetime import datetime, timedelta
 import os
 import uuid
@@ -25,12 +25,11 @@ from core.services.auth.models import (
     UserStatus,
     LoginRequest,
     LoginResponse,
-    RegisterRequest,
-    AuthResponse,
     PasswordChangeRequest,
     PasswordResetRequest,
-    RoleChangeRequest,
-    UserResponse
+    TokenRefreshRequest,
+    TokenRefreshResponse,
+    TokenPayload
 )
 from core.services.auth.jwt_blacklist import get_blacklist_service
 from core.services.auth.device_manager import DeviceManager
