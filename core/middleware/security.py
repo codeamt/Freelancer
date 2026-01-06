@@ -14,7 +14,7 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import Response, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from core.ui.utils.security import sanitize_html, sanitize_sql_input
+from core.utils.security import sanitize_html, sanitize_sql_input
 from core.utils.logger import get_logger
 
 # JWT configuration - JWT_SECRET MUST be set via environment variable

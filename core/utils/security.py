@@ -12,6 +12,8 @@ import re
 import json
 import base64
 import os
+import uuid
+import hashlib
 from typing import Any, Union, Optional, Dict, List
 from datetime import datetime
 from cryptography.fernet import Fernet
@@ -527,6 +529,81 @@ class EncryptedField:
         self.encrypted_value = encrypted_value
         self.decrypted_value = None
         self.is_encrypted = True
+
+# =============================================================================
+# General Helper Utilities
+# =============================================================================
+
+def generate_id(prefix: str = "") -> str:
+    """Generate a unique ID with optional prefix"""
+    return f"{prefix}{uuid.uuid4().hex[:8]}"
+
+def hash_data(data: str) -> str:
+    """Hash data using SHA-256"""
+    return hashlib.sha256(data.encode()).hexdigest()
+
+def utc_now_str() -> str:
+    """Get current UTC time as ISO string"""
+    return datetime.utcnow().isoformat()
+
+
+# =============================================================================
+# UI Security Utilities
+# =============================================================================
+
+class SecurityWrapper:
+    """
+    Provides component-level sanitization for FastHTML render trees, theme tokens,
+    and general-purpose input filtering.
+    """
+
+    def __init__(self, theme_context):
+        self.theme_context = theme_context
+
+    def safe_theme_tokens(self):
+        """Sanitize theme tokens to prevent CSS injection"""
+        colors = self.theme_context.tokens.get("color", {})
+        aesthetic = self.theme_context.aesthetic
+        safe_colors = {k: sanitize_css_value(v) for k, v in colors.items()}
+        safe_aesthetic = {k: sanitize_css_value(v) for k, v in aesthetic.items()}
+        return safe_colors, safe_aesthetic
+
+    def safe_component(self, component: Any) -> Any:
+        """Recursively sanitize text and input-bearing FastHTML components."""
+        try:
+            from fasthtml.common import FT, Div
+            
+            if isinstance(component, FT) and hasattr(component, 'text'):
+                component.text = sanitize_html(component.text)
+                return component
+            elif isinstance(component, Div) and hasattr(component, "children"):
+                component.children = [self.safe_component(c) for c in component.children]
+                return component
+            elif hasattr(component, "props"):
+                for key, value in vars(component).items():
+                    if isinstance(value, str):
+                        setattr(component, key, sanitize_html(value))
+                return component
+            elif isinstance(component, list):
+                return [self.safe_component(c) for c in component]
+            else:
+                return component
+        except Exception:
+            # Fail closed — never propagate unsafe structures
+            from fasthtml.common import FT
+            return FT("[unsafe content removed]")
+
+    def safe_input(self, form_value: Union[str, None], as_sql: bool = False) -> str:
+        """Sanitize form input values"""
+        if not form_value:
+            return ""
+        val = sanitize_html(form_value)
+        return sanitize_sql_input(val) if as_sql else val
+
+    def render_safe(self, component: Any) -> Any:
+        """Apply sanitization before rendering to prevent HTML/CSS injection."""
+        return self.safe_component(component)
+
 
 # =============================================================================
 # Backward Compatibility
