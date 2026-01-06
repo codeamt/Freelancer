@@ -95,10 +95,10 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     auth_service = AuthService(user_repository=user_repository, jwt_provider=jwt_provider)
     user_service = UserService(user_repository=user_repository)
 
-    from core.services.cart import CartService
+    from core.services.cart_service import CartService
     from core.services.product_service import ProductService
-    from core.services.order import OrderService
-    from core.services.payment import PaymentService
+    from core.services.order_service import OrderService
+    from core.services.payment_service import PaymentService
 
     cart_service = CartService()
     product_service = ProductService()

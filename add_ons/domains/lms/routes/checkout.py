@@ -113,7 +113,7 @@ async def process_course_checkout(request: Request, course_id: str):
             )
         
         # Create order for course enrollment
-        from core.services.order import OrderItem
+        from core.services.order_service import OrderItem
         order_item = OrderItem(
             product_id=course_id,
             product_name=course.name,

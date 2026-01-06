@@ -5,6 +5,7 @@ Provides a unified interface for payment operations across all domains.
 Supports Stripe with extensibility for other providers.
 """
 import os
+from abc import ABC, abstractmethod
 from typing import Optional, Dict, List, Literal
 from decimal import Decimal
 import stripe
@@ -16,6 +17,29 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 
 PaymentProvider = Literal["stripe"]
 PaymentType = Literal["one_time", "subscription", "pay_per_view"]
+
+
+class StripeWebhookHandler(ABC):
+    """Base class for Stripe webhook handlers."""
+    
+    def __init__(self, webhook_secret: str):
+        self.webhook_secret = webhook_secret
+      
+    def verify_and_parse(self, payload: bytes, signature: str):
+        """Generic webhook verification"""
+        return stripe.Webhook.construct_event(
+            payload, signature, self.webhook_secret
+        )
+      
+    @abstractmethod
+    async def handle_payment_succeeded(self, event):
+        """Domain-specific logic"""
+        pass
+      
+    @abstractmethod
+    async def handle_payment_failed(self, event):
+        """Domain-specific logic"""
+        pass
 
 
 class PaymentService:

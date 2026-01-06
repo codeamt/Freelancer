@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException
 from starlette.responses import RedirectResponse, JSONResponse
 from typing import Optional
 from decimal import Decimal
-from core.services.cart import CartService
+from core.services.cart_service import CartService
 from core.services.auth import get_current_user_from_context
 from core.utils.logger import get_logger
 

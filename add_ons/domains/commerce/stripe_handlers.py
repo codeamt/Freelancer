@@ -5,7 +5,7 @@ Handles Stripe webhook events for e-commerce.
 Uses core StripeClient for Stripe API operations (refunds, etc.).
 """
 
-from core.services.payment import StripeWebhookHandler
+from core.services.payment_service import StripeWebhookHandler
 from core.integrations.stripe import StripeClient
 from core.utils.logger import get_logger
 

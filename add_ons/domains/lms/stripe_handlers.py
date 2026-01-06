@@ -4,7 +4,7 @@ LMS Domain - Stripe Event Handlers
 Handles Stripe webhook events for Learning Management System.
 Focuses on course purchases and subscriptions.
 """
-from core.services.payment import StripeWebhookHandler
+from core.services.payment_service import StripeWebhookHandler
 from core.services import OrderService
 from core.integrations.stripe import StripeClient
 from core.utils.logger import get_logger

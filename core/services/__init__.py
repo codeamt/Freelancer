@@ -8,16 +8,16 @@
 
 from .admin import AdminService, require_admin, is_admin, has_role
 from .search_service import SearchService
-from .cart import CartService, Cart, CartItem
+from .cart_service import CartService, Cart, CartItem, RedisCartService
 from .product_service import ProductService, Product
-from .order import OrderService, Order, OrderItem, OrderStatus
+from .order_service import OrderService, Order, OrderItem, OrderStatus
 from .db_service import DBService, get_db_service
 
 # Import auth from core.services.auth (universal auth service)
 from core.services.auth import AuthService, get_current_user, require_role, require_permission
 
 # Import payment service
-from core.services.payment import PaymentService
+from core.services.payment_service import PaymentService, StripeWebhookHandler
 
 # Import integrations
 from core.integrations.stripe import StripeClient
@@ -48,6 +48,7 @@ __all__ = [
     'CartService',
     'Cart',
     'CartItem',
+    'RedisCartService',
     'ProductService',
     'Product',
     'OrderService',
@@ -57,6 +58,7 @@ __all__ = [
     'DBService',
     'get_db_service',
     'PaymentService',
+    'StripeWebhookHandler',
     'StripeClient',
     'Web3Client',
     'HuggingFaceClient',

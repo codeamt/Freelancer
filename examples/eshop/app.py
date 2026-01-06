@@ -24,7 +24,7 @@ from add_ons.domains.commerce.repositories import ProductRepository
 from add_ons.domains.commerce.data import SAMPLE_PRODUCTS, get_product_by_id, get_products_by_category, get_all_categories
 
 # Cart service from core infrastructure
-from core.services.cart import CartService
+from core.services.cart_service import CartService
 
 # E-Shop UI
 from .ui import EShopLoginPage, EShopRegisterPage, CartItem, ProductCard, CartSummary, SocialLinks, NewsletterModal, EShopSubNav, EnhancedSearchInput
