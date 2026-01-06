@@ -7,7 +7,7 @@ Architecture:
 """
 
 from fasthtml.common import *
-from core.services.editor import OmniviewEditorService, get_editor_capabilities
+from core.services.editor_service import OmniviewEditorService, get_editor_capabilities
 from core.services.auth.decorators import require_permission
 from core.state.persistence import get_persister
 

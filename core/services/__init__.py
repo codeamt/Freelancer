@@ -7,9 +7,9 @@
 # from add_ons.services.analytics import AnalyticsService
 
 from .admin import AdminService, require_admin, is_admin, has_role
-from .search import SearchService
+from .search_service import SearchService
 from .cart import CartService, Cart, CartItem
-from .product import ProductService, Product
+from .product_service import ProductService, Product
 from .order import OrderService, Order, OrderItem, OrderStatus
 from .db_service import DBService, get_db_service
 

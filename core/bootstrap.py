@@ -96,7 +96,7 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     user_service = UserService(user_repository=user_repository)
 
     from core.services.cart import CartService
-    from core.services.product import ProductService
+    from core.services.product_service import ProductService
     from core.services.order import OrderService
     from core.services.payment import PaymentService
 
