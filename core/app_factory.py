@@ -72,13 +72,13 @@ def create_app(
             ),
         ],
         live=environment == "development",
-        static_path="app/core/ui/static",
+        static_path="app/core/static",
         **kwargs
     )
 
-    # Serve JS/CSS assets under /static/* from app/core/ui/static
-    app.static_route_exts(prefix='/static/js/', static_path='app/core/ui/static/js', exts='js')
-    app.static_route_exts(prefix='/static/css/', static_path='app/core/ui/static/css', exts='css')
+    # Serve JS/CSS assets under /static/* from app/core/static
+    app.static_route_exts(prefix='/static/js/', static_path='app/core/static/js', exts='js')
+    app.static_route_exts(prefix='/static/css/', static_path='app/core/static/css', exts='css')
     
     # Initialize database adapters
     logger.info("Initializing database adapters...")

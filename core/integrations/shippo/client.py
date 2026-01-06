@@ -28,9 +28,9 @@ class Address:
     name: str
     street1: str
     city: str
-    state: Optional[str] = None
     zip: str
     country: str
+    state: Optional[str] = None
     street2: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None

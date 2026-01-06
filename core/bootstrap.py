@@ -5,7 +5,7 @@ import os
 import secrets
 from core.db.config import configure_database
 from core.db.adapters.postgres_adapter import PostgresAdapter
-from core.services.encryption import initialize_encryption
+from core.utils.security import initialize_encryption
 from core.utils.logger import get_logger
 
 from core.db.adapters import PostgresAdapter, MongoDBAdapter, RedisAdapter
@@ -16,6 +16,7 @@ from core.db.config import configure_database
 
 from core.middleware.redis_session import RedisSessionMiddleware
 from core.config.validation import validate_config
+from core.integrations.registry import validate_integrations
 
 
 def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
@@ -29,6 +30,20 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     # Initialize encryption
     initialize_encryption()
     logger.info("✓ Encryption service initialized")
+    
+    # Validate integrations
+    integration_validation = validate_integrations()
+    valid_integrations = [name for name, result in integration_validation.items() if result['valid']]
+    invalid_integrations = [name for name, result in integration_validation.items() if not result['valid']]
+    
+    if valid_integrations:
+        logger.info(f"✓ Validated integrations: {', '.join(valid_integrations)}")
+    
+    if invalid_integrations:
+        logger.warning(f"⚠ Invalid integrations: {', '.join(invalid_integrations)}")
+        for name in invalid_integrations:
+            errors = integration_validation[name]['errors']
+            logger.warning(f"  {name}: {', '.join(errors)}")
     
     mongo_url = os.getenv("MONGO_URL", "mongodb://root:example@localhost:27017")
     mongo_db = os.getenv("MONGO_DB", "app_db")
@@ -103,11 +118,11 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
             ),
         ],
         live=environment == "development",
-        static_path="app/core/ui/static",
+        static_path="app/core/static",
     )
 
-    app.static_route(ext='.js', prefix='/static/js/', static_path='app/core/ui/static/js')
-    app.static_route(ext='.css', prefix='/static/css/', static_path='app/core/ui/static/css')
+    app.static_route(ext='.js', prefix='/static/js/', static_path='app/core/static/js')
+    app.static_route(ext='.css', prefix='/static/css/', static_path='app/core/static/css')
 
     app.state.auth_service = auth_service
     app.state.user_service = user_service

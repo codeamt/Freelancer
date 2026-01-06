@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from enum import Enum
 
 from core.services.auth.models import UserRole, UserStatus
-from core.services.encryption import encrypt_field, decrypt_field, EncryptedField
+from core.utils.security import encrypt_field, decrypt_field, EncryptedField
 
 
 class EncryptedUserModel(BaseModel):

@@ -14,7 +14,7 @@ from core.services.auth.models_encrypted import (
     EncryptedUserUpdate,
     SENSITIVE_USER_FIELDS
 )
-from core.services.encryption import get_encryption_service
+from core.utils.security import get_encryption_service
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
