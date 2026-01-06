@@ -99,11 +99,13 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     from core.services.product_service import ProductService
     from core.services.order_service import OrderService
     from core.services.payment_service import PaymentService
+    from core.services.audit_service import get_audit_service
 
     cart_service = CartService()
     product_service = ProductService()
     order_service = OrderService()
     payment_service = PaymentService()
+    audit_service = get_audit_service()
 
     logger.info("✓ Services initialized")
 
@@ -133,6 +135,7 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     app.state.product_service = product_service
     app.state.order_service = order_service
     app.state.payment_service = payment_service
+    app.state.audit_service = audit_service
 
     app.state.postgres = postgres
     app.state.mongodb = mongodb

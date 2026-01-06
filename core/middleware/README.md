@@ -4,6 +4,72 @@ Comprehensive middleware layer for security, sessions, and request handling.
 
 ---
 
+## 🔄 Middleware Execution Order
+
+The middleware stack is applied in the following order (from outermost to innermost):
+
+### **1. Auth Context Middleware** (`auth_context.py`)
+**Position**: Outermost (first to process requests)
+**Purpose**: Inject user context into request state for downstream middleware and routes
+
+**Features**:
+- User authentication context injection
+- Role-based access control
+- Request user tracking
+- Session user association
+
+**Execution**: First in the chain, processes all incoming requests
+
+---
+
+### **2. Security Middleware** (`security.py`)
+**Position**: Second in security stack
+**Components**:
+- **SecurityMiddleware**: Main security orchestrator
+- **RateLimitMiddleware**: Rate limiting by IP
+- **SecurityHeaders**: HTTP security headers
+
+**Execution Order**:
+1. **SecurityMiddleware** - Main security orchestrator
+2. **RateLimitMiddleware** - Rate limiting (60 req/min per IP)
+3. **SecurityHeaders** - HTTP security headers
+
+**Features**:
+- Input sanitization
+- Rate limiting
+- Security headers
+- CSRF protection (disabled - needs HTMX token integration)
+
+---
+
+### **3. Session Management** (Conditional)
+**Position**: Innermost (last to process requests)
+**Priority**: Redis > Cookie fallback
+
+**Redis Session Middleware** (`redis_session.py`)
+- **When**: Redis is configured and available
+- **Features**: Distributed session storage, TTL-based cleanup
+- **Cookie**: `session_id`, 7-day TTL, secure in production
+
+**Cookie Session Middleware** (`cookie_session.py`)
+- **When**: Redis not available or fails
+- **Features**: Local cookie-based sessions, secure in production
+- **Cookie**: `session`, secure in production
+
+---
+
+## 📋 Current Middleware Stack
+
+```python
+app.add_middleware(AuthContextMiddleware)        # User context injection
+app.add_middleware(SecurityMiddleware)            # Main security orchestrator
+app.add_middleware(RateLimitMiddleware)            # Rate limiting
+app.add_middleware(SecurityHeaders)                 # Security headers
+# Redis or Cookie session middleware (conditional)
+```
+
+---
+
 ## 📦 Available Middlewares
 
 ### **1. Security Middlewares** (`security.py`)

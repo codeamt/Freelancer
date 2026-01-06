@@ -19,6 +19,15 @@ from core.services.auth import AuthService, get_current_user, require_role, requ
 # Import payment service
 from core.services.payment_service import PaymentService, StripeWebhookHandler
 
+# Import audit service
+from core.services.audit_service import (
+    AuditService,
+    get_audit_service,
+    log_audit_event,
+    AuditEventType,
+    AuditSeverity,
+)
+
 # Import integrations
 from core.integrations.stripe import StripeClient
 from core.integrations.web3 import Web3Client
@@ -59,6 +68,11 @@ __all__ = [
     'get_db_service',
     'PaymentService',
     'StripeWebhookHandler',
+    'AuditService',
+    'get_audit_service',
+    'log_audit_event',
+    'AuditEventType',
+    'AuditSeverity',
     'StripeClient',
     'Web3Client',
     'HuggingFaceClient',
