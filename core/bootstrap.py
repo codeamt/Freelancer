@@ -153,21 +153,24 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     logger.info("✓ Services attached to app.state")
     logger.info(f"  → Demo mode: {demo}")
 
-    logger.info("Applying smart security middleware...")
+    logger.info("Applying security middleware...")
 
     try:
         from core.middleware.auth_context import AuthContextMiddleware
-        from core.middleware.smart_security import SmartSecurityMiddleware
+        from core.middleware.security import SecurityMiddleware
 
         app.add_middleware(AuthContextMiddleware)
-        app.add_middleware(SmartSecurityMiddleware)
+        app.add_middleware(SecurityMiddleware)
 
-        logger.info("✓ Smart security middleware applied")
+        logger.info("✓ Security middleware applied")
         logger.info("  → Auth endpoint rate limiting: enabled")
         logger.info("  → Smart input sanitization: enabled")
         logger.info("  → CSS/MonsterUI: preserved")
         logger.info("  → Dangerous input sanitized")
         logger.info("  → Field-aware protection")
+        logger.info("  → CSP policy: enabled (CSS-friendly)")
+        logger.info("  → XSS protection: enabled")
+        logger.info("  → Security headers: comprehensive")
     except Exception as e:
         logger.warning(f"⚠️ Failed to apply smart security middleware: {e}")
 

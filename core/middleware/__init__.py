@@ -1,13 +1,7 @@
 from .redis_session import RedisSessionMiddleware
-from .minimal_security import MinimalSecurityMiddleware, apply_minimal_security
-from .unified_security import (
-    UnifiedSecurityMiddleware,
-    SecurityHeaders,
-    CSRFMiddleware,
-    apply_security,
-    issue_jwt,
-    verify_jwt,
-)
+from .security import SecurityMiddleware, apply_security
+from .csrf_protection import CSRFProtection
+from .auth_context import AuthContextMiddleware
 import os
 
 
@@ -21,14 +15,10 @@ session_middleware = RedisSessionMiddleware
 
 __all__ = [
     "RedisSessionMiddleware",
-    "MinimalSecurityMiddleware",
-    "UnifiedSecurityMiddleware",
-    "SecurityHeaders", 
-    "CSRFMiddleware",
+    "SecurityMiddleware",
+    "CSRFProtection",
+    "AuthContextMiddleware",
     "apply_security",
-    "apply_minimal_security",
     "apply_security_legacy",
-    "issue_jwt",
-    "verify_jwt",
     "session_middleware",
 ]

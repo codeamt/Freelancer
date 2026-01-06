@@ -1,10 +1,12 @@
 """
-Smart Security Middleware
+Security Middleware
 
 Provides input sanitization WITHOUT breaking CSS/MonsterUI by being selective:
 - Only sanitizes dangerous user input fields
 - Preserves CSS, HTML, and styling content
 - Applies different rules based on context and field names
+- Skips static files completely
+- Maintains security for user-generated content
 """
 
 import time
@@ -59,7 +61,7 @@ class SmartRateLimiter:
         return True, None
 
 
-class SmartSecurityMiddleware(BaseHTTPMiddleware):
+class SecurityMiddleware(BaseHTTPMiddleware):
     """
     Smart security middleware that sanitizes input WITHOUT breaking CSS/MonsterUI.
     
@@ -244,14 +246,43 @@ class SmartSecurityMiddleware(BaseHTTPMiddleware):
         # Process request
         response = await call_next(request)
         
-        # Add security headers
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        # Add security headers (CSS-friendly)
+        self._add_security_headers(response, request)
         
         return response
+    
+    def _add_security_headers(self, response: Response, request: Request):
+        """Add security headers that don't break CSS/MonsterUI"""
+        
+        # Basic security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        
+        # Very permissive CSP to avoid breaking CSS/MonsterUI
+        # This allows everything while still providing some security benefits
+        csp = (
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval' "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com "
+            "img-src 'self' data: blob: https: "
+            "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net "
+            "connect-src 'self' https://cdn.jsdelivr.net "
+            "media-src 'self' blob: https: "
+            "object-src 'none' "
+            "base-uri 'self' "
+            "form-action 'self' "
+            "frame-ancestors 'none' "
+            "upgrade-insecure-requests"
+        )
+        response.headers["Content-Security-Policy"] = csp
+        
+        # Only add HSTS in production HTTPS
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
 
-def apply_smart_security(app):
-    """Apply smart security middleware to app"""
-    app.add_middleware(SmartSecurityMiddleware)
+def apply_security(app):
+    """Apply security middleware to app"""
+    app.add_middleware(SecurityMiddleware)
     return app
