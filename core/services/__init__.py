@@ -37,6 +37,17 @@ from core.services.user_profile_service import (
     AccountStatus,
 )
 
+# Import notification service
+from core.services.notification_service import (
+    NotificationService,
+    get_notification_service,
+    Notification,
+    NotificationType,
+    NotificationPriority,
+    NotificationStatus,
+    NotificationCategory,
+)
+
 # Import integrations
 from core.integrations.stripe import StripeClient
 from core.integrations.web3 import Web3Client
@@ -87,6 +98,13 @@ __all__ = [
     'UserProfile',
     'UserPreferences',
     'AccountStatus',
+    'NotificationService',
+    'get_notification_service',
+    'Notification',
+    'NotificationType',
+    'NotificationPriority',
+    'NotificationStatus',
+    'NotificationCategory',
     'StripeClient',
     'Web3Client',
     'HuggingFaceClient',
