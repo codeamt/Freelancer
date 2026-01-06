@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from core.db.config import configure_database
 
 from core.middleware.redis_session import RedisSessionMiddleware
+from core.config.validation import validate_config
 
 
 def create_app(*, demo: bool) -> tuple[FastHTML, dict]:

@@ -21,13 +21,16 @@ from core.db.adapters import PostgresAdapter, MongoDBAdapter, RedisAdapter
 
 # Commerce domain imports
 from add_ons.domains.commerce.repositories import ProductRepository
-from add_ons.domains.commerce.data import SAMPLE_PRODUCTS, get_product_by_id
+from add_ons.domains.commerce.data import SAMPLE_PRODUCTS, get_product_by_id, get_products_by_category, get_all_categories
 
 # Cart service from core infrastructure
 from core.services.cart import CartService
 
 # E-Shop UI
-from .ui import EShopLoginPage, EShopRegisterPage, CartItem, ProductCard, CartSummary
+from .ui import EShopLoginPage, EShopRegisterPage, CartItem, ProductCard, CartSummary, SocialLinks, NewsletterModal, EShopSubNav
+
+# Core marketing components
+from core.ui.components.marketing import NewsletterSignup
 
 logger = get_logger(__name__)
 
@@ -65,7 +68,7 @@ def create_eshop_app(
     cart_service = CartService()
     
     # Create app with theme
-    app = FastHTML(hdrs=[*Theme.slate.headers()])
+    app = FastHTML(hdrs=[*Theme.stone.headers(mode="dark")])
     
     # Store demo flag in app state
     app.state.demo = demo
@@ -102,31 +105,232 @@ def create_eshop_app(
     # ========================================================================
     
     @app.get("/")
-    async def home(request: Request):
-        """Shop homepage."""
+    async def home(request: Request, search: str = "", category: str = "all"):
+        """Shop homepage with dark theme, hero banner, and filtering."""
         user = await get_user_with_context(request)
         
+        # Get cart count (simplified for demo)
+        cart_count = 0  # In real app, this would come from cart service
+        
+        # Filter products based on search and category
+        filtered_products = SAMPLE_PRODUCTS
+        
+        if category != "all":
+            filtered_products = [p for p in filtered_products if p["category"] == category]
+        
+        if search:
+            search_lower = search.lower()
+            filtered_products = [p for p in filtered_products 
+                              if search_lower in p["name"].lower() 
+                              or search_lower in p["description"].lower()
+                              or search_lower in p["category"].lower()]
+        
+        categories = get_all_categories()
+        
         content = Div(
-            # Header
-            Div(
-                H1("E-Shop Demo", cls="text-4xl font-bold mb-4"),
-                P(
-                    "Browse our curated selection of products",
-                    cls="text-xl text-gray-500 mb-8"
+            # E-Shop Sub Navigation
+            EShopSubNav(user, BASE, cart_count),
+            
+            # Newsletter Modal (shows on page load)
+            NewsletterModal(BASE),
+            
+            # Hero Section with Dark Theme
+            Section(
+                Div(
+                    Div(
+                        H1("Premium E-Shop", cls="text-5xl md:text-6xl font-bold text-white mb-4"),
+                        P(
+                            "Discover our curated selection of high-quality products",
+                            cls="text-xl md:text-2xl text-gray-200 mb-8 max-w-2xl"
+                        ),
+                        Div(
+                            A(
+                                "Shop Now",
+                                href=f"{BASE}/#products",
+                                cls="btn btn-primary btn-lg text-lg px-8 py-4 bg-blue-600 hover:bg-blue-700 border-none"
+                            ),
+                            A(
+                                "Learn More",
+                                href=f"{BASE}/about",
+                                cls="btn btn-outline btn-lg text-lg px-8 py-4 ml-4 text-white border-white hover:bg-white hover:text-gray-900"
+                            ),
+                            cls="flex flex-col sm:flex-row gap-4"
+                        ),
+                        cls="z-10 text-center"
+                    ),
+                    cls="relative z-10 flex flex-col justify-center items-center h-full min-h-[600px]"
                 ),
-                cls="text-center mb-12"
+                # Hero background with overlay
+                Div(
+                    style=f"""
+                    background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
+                                    url('https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=1920&h=1080&fit=crop');
+                    background-size: cover;
+                    background-position: center;
+                    background-attachment: fixed;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    z-index: 0;
+                    """
+                ),
+                cls="relative bg-black"
             ),
             
-            # Products Grid
-            Div(
-                *[ProductCard(product, user, BASE) for product in SAMPLE_PRODUCTS],
-                cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            # Features Section (Dark Theme)
+            Section(
+                Div(
+                    Div(
+                        H2("Why Choose Our Products?", cls="text-4xl font-bold text-white mb-12 text-center"),
+                        Div(
+                            Div(
+                                Div(
+                                    Div(
+                                        UkIcon("shield", width="48", height="48", cls="text-blue-400 mb-4 block"),
+                                        cls="flex justify-center"
+                                    ),
+                                    H3("Professional Grade", cls="text-xl font-semibold text-white mb-2 text-center"),
+                                    P("Commercial-quality leather care trusted by professionals", cls="text-gray-300 text-center"),
+                                    cls="text-center"
+                                ),
+                                cls="col-span-1"
+                            ),
+                            Div(
+                                Div(
+                                    Div(
+                                        UkIcon("droplet", width="48", height="48", cls="text-blue-400 mb-4 block"),
+                                        cls="flex justify-center"
+                                    ),
+                                    H3("Deep Conditioning", cls="text-xl font-semibold text-white mb-2 text-center"),
+                                    P("Restores and protects all types of leather goods", cls="text-gray-300 text-center"),
+                                    cls="text-center"
+                                ),
+                                cls="col-span-1"
+                            ),
+                            Div(
+                                Div(
+                                    Div(
+                                        UkIcon("award", width="48", height="48", cls="text-blue-400 mb-4 block"),
+                                        cls="flex justify-center"
+                                    ),
+                                    H3("Made in USA", cls="text-xl font-semibold text-white mb-2 text-center"),
+                                    P("Proudly crafted with premium ingredients", cls="text-gray-300 text-center"),
+                                    cls="text-center"
+                                ),
+                                cls="col-span-1"
+                            ),
+                            cls="grid grid-cols-1 md:grid-cols-3 gap-8"
+                        ),
+                        cls="container mx-auto px-4 py-16"
+                    ),
+                    cls="bg-black"
+                ),
+                id="features"
             ),
             
-            cls="container mx-auto px-4 py-8"
+            # Products Section with Search and Filtering (Dark Theme)
+            Section(
+                Div(
+                    H2("Our Products", cls="text-4xl font-bold text-white mb-12 text-center"),
+                    
+                    # Search and Filter Controls
+                    Div(
+                        Form(
+                            Div(
+                                Div(
+                                    Input(
+                                        type="text",
+                                        name="search",
+                                        placeholder="Search products...",
+                                        value=search,
+                                        cls="input input-bordered bg-gray-800 text-white border-gray-600 placeholder-gray-400 w-full",
+                                        hx_get=f"{BASE}/",
+                                        hx_target="section",
+                                        hx_include="[name='category']",
+                                        hx_trigger="input changed delay:300ms"
+                                    ),
+                                    cls="w-full md:w-1/2"
+                                ),
+                                Div(
+                                    Select(
+                                        Option("All Categories", value="all", selected=(category == "all")),
+                                        *[Option(cat.capitalize(), value=cat, selected=(category == cat)) for cat in sorted(categories)],
+                                        name="category",
+                                        cls="select select-bordered bg-gray-800 text-white border-gray-600 w-full",
+                                        hx_get=f"{BASE}/",
+                                        hx_target="section",
+                                        hx_include="[name='search']",
+                                        hx_trigger="change"
+                                    ),
+                                    cls="w-full md:w-1/4 md:ml-2"
+                                ),
+                                Div(
+                                    P(f"Showing {len(filtered_products)} products", cls="text-gray-300 self-center"),
+                                    cls="w-full md:w-1/4 md:ml-2 text-center"
+                                ),
+                                cls="flex flex-col md:flex-row gap-4 items-center mb-8"
+                            ),
+                            cls="w-full"
+                        ),
+                        
+                        # Active filters display
+                        (Div(
+                            Span("Active filters:", cls="text-gray-400 mr-2"),
+                            (Span(search, cls="badge badge-primary mr-2") if search else None),
+                            (Span(category.capitalize(), cls="badge badge-secondary") if category != "all" else None),
+                            A("Clear all", href=f"{BASE}/", cls="link link-primary ml-4 text-sm"),
+                            cls="flex items-center justify-center mb-6"
+                        ) if search or category != "all" else None),
+                        
+                        cls="container mx-auto px-4"
+                    ),
+                    
+                    # Products Grid
+                    Div(
+                        *[ProductCard(product, user, BASE) for product in filtered_products],
+                        cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                    ) if filtered_products else Div(
+                        H3("No products found", cls="text-2xl font-semibold text-white mb-4"),
+                        P("Try adjusting your search or filters", cls="text-gray-300 mb-6"),
+                        A("Clear filters", href=f"{BASE}/", cls="btn btn-primary"),
+                        cls="text-center py-12"
+                    ),
+                    
+                    cls="container mx-auto px-4 py-16"
+                ),
+                id="products",
+                cls="bg-black"
+            ),
+            
+            # Newsletter Section
+            Section(
+                NewsletterSignup(
+                    title="Stay in the Loop",
+                    subtitle="Get exclusive offers and be the first to know about new products",
+                    placeholder="Enter your email address",
+                    button_text="Subscribe",
+                    action_url=f"{BASE}/newsletter/subscribe",
+                    description="Join our community of savvy shoppers and never miss a deal!",
+                    theme="dark"
+                ),
+                cls="bg-gray-900 border-t border-gray-800"
+            ),
+            
+            # Social Links Section
+            Section(
+                Div(
+                    SocialLinks(),
+                    cls="container mx-auto px-4 py-8"
+                ),
+                cls="bg-black border-t border-gray-800"
+            ),
+            
+            cls="w-full"
         )
         
-        return Layout(content, title="E-Shop | Demo", current_path=f"{BASE}/", user=user, show_auth=True, demo=demo)
+        return Layout(content, title="Premium E-Shop | Demo", current_path=f"{BASE}/", user=user, show_auth=True, demo=demo)
     
     @app.get("/product/{product_id}")
     async def product_detail(request: Request, product_id: int):
@@ -628,6 +832,33 @@ def create_eshop_app(
             return EShopRegisterPage(base_path=BASE, error=str(e))
         
         return EShopRegisterPage(base_path=BASE, error="Registration failed")
+    
+    @app.post("/newsletter/subscribe")
+    async def newsletter_subscribe(request: Request):
+        """Handle newsletter subscription."""
+        form = await request.form()
+        email = form.get("email")
+        
+        if not email:
+            return Div(
+                P("Please enter a valid email address", cls="text-error"),
+                cls="alert alert-error"
+            )
+        
+        # Here you would typically save to database or send to email service
+        logger.info(f"Newsletter subscription: {email}")
+        
+        return Div(
+            H4("🎉 Welcome to the club!", cls="text-success text-lg font-semibold mb-2"),
+            P(f"Check {email} for your 15% discount code!", cls="text-gray-300 mb-4"),
+            P("Thank you for joining our newsletter.", cls="text-gray-400 text-sm"),
+            Button(
+                "Start Shopping",
+                onclick="this.closest('dialog').close()",
+                cls="btn btn-primary btn-sm mt-4"
+            ),
+            cls="text-center"
+        )
     
     @app.post("/auth/logout")
     async def logout(request: Request):
