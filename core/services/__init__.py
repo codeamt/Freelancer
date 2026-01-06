@@ -48,6 +48,24 @@ from core.services.notification_service import (
     NotificationCategory,
 )
 
+# GDPR functionality moved to core.gdpr modules
+# Use core.gdpr.consent_manager, core.gdpr.data_subject_rights, etc.
+
+# Import service registry
+from core.services.registry import (
+    ServiceRegistry,
+    get_service_registry,
+    register_service,
+    get_service,
+    register_service_instance,
+    service,
+    singleton_service,
+    get_audit_service as registry_get_audit_service,
+    get_notification_service as registry_get_notification_service,
+    get_profile_service as registry_get_profile_service,
+    get_db_service as registry_get_db_service,
+)
+
 # Import integrations
 from core.integrations.stripe import StripeClient
 from core.integrations.web3 import Web3Client
@@ -108,6 +126,18 @@ __all__ = [
     'StripeClient',
     'Web3Client',
     'HuggingFaceClient',
+    # Service Registry
+    'ServiceRegistry',
+    'get_service_registry',
+    'register_service',
+    'get_service',
+    'register_service_instance',
+    'service',
+    'singleton_service',
+    'registry_get_audit_service',
+    'registry_get_notification_service',
+    'registry_get_profile_service',
+    'registry_get_db_service',
 ]
 
 if has_user_service:

@@ -63,6 +63,23 @@ class AuditEventType(Enum):
     SECURITY_RATE_LIMIT_EXCEEDED = "security.rate_limit.exceeded"
     SECURITY_SUSPICIOUS_ACTIVITY = "security.suspicious.activity"
     SECURITY_ACCESS_DENIED = "security.access.denied"
+    
+    # GDPR-specific events (merged from core/gdpr/audit_logger.py)
+    GDPR_CONSENT_GRANTED = "gdpr.consent.granted"
+    GDPR_CONSENT_WITHDRAWN = "gdpr.consent.withdrawn"
+    GDPR_DATA_ACCESSED = "gdpr.data.accessed"
+    GDPR_DATA_MODIFIED = "gdpr.data.modified"
+    GDPR_DATA_DELETED = "gdpr.data.deleted"
+    GDPR_DATA_EXPORTED = "gdpr.data.exported"
+    GDPR_DATA_PORTED = "gdpr.data.ported"
+    GDPR_DATA_ANONYMIZED = "gdpr.data.anonymized"
+    GDPR_DSAR_REQUESTED = "gdpr.dsar.requested"
+    GDPR_DSAR_COMPLETED = "gdpr.dsar.completed"
+    GDPR_RETENTION_APPLIED = "gdpr.retention.applied"
+    GDPR_LEGAL_HOLD_PLACED = "gdpr.legal_hold.placed"
+    GDPR_LEGAL_HOLD_RELEASED = "gdpr.legal_hold.released"
+    GDPR_BREACH_OCCURRED = "gdpr.breach.occurred"
+    GDPR_POLICY_UPDATED = "gdpr.policy.updated"
 
 
 class AuditSeverity(Enum):
@@ -120,17 +137,61 @@ class AuditService:
     - User and session tracking
     - IP and user agent logging
     - Searchable audit trail
+    - Database persistence (PostgreSQL)
+    - GDPR-specific event handling
     """
     
-    def __init__(self, storage_backend: str = "database"):
+    def __init__(self, storage_backend: str = "database", postgres_adapter=None):
         """
         Initialize audit service.
         
         Args:
             storage_backend: Where to store audit logs (database, file, both)
+            postgres_adapter: PostgreSQL adapter for database persistence
         """
         self.storage_backend = storage_backend
+        self.postgres = postgres_adapter
         self.audit_logs: List[AuditEvent] = []  # In-memory cache
+        
+        # Initialize database tables if adapter provided
+        if self.postgres:
+            self._ensure_tables()
+    
+    async def _ensure_tables(self):
+        """Ensure audit tables exist in database"""
+        await self.postgres.execute("""
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id SERIAL PRIMARY KEY,
+                event_type VARCHAR(100) NOT NULL,
+                severity VARCHAR(20) NOT NULL DEFAULT 'info',
+                user_id VARCHAR(255),
+                user_email VARCHAR(255),
+                ip_address INET,
+                user_agent TEXT,
+                resource_type VARCHAR(100),
+                resource_id VARCHAR(255),
+                action TEXT NOT NULL,
+                details JSONB DEFAULT '{}',
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                session_id VARCHAR(255),
+                request_id VARCHAR(255)
+            )
+        """)
+        
+        await self.postgres.execute("""
+            CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp 
+            ON audit_log(timestamp DESC)
+        """)
+        
+        await self.postgres.execute("""
+            CREATE INDEX IF NOT EXISTS idx_audit_log_user_id 
+            ON audit_log(user_id, timestamp)
+        """)
+        
+        await self.postgres.execute("""
+            CREATE INDEX IF NOT EXISTS idx_audit_log_event_type 
+            ON audit_log(event_type, timestamp)
+        """)
         
     def log_event(
         self,
@@ -184,7 +245,27 @@ class AuditService:
         )
         
         # Store event
-        self._store_event(event)
+        if self.postgres:
+            # Async storage - need to handle this properly
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If we're in an async context, create a task
+                    asyncio.create_task(self._store_event(event))
+                else:
+                    # If we're in sync context, run the coroutine
+                    loop.run_until_complete(self._store_event(event))
+            except RuntimeError:
+                # No event loop, use sync fallback
+                self.audit_logs.append(event)
+        else:
+            # Sync fallback for in-memory only
+            self.audit_logs.append(event)
+            
+            # Keep only last 1000 events in memory
+            if len(self.audit_logs) > 1000:
+                self.audit_logs = self.audit_logs[-1000:]
         
         # Log to application logger
         log_message = self._format_log_message(event)
@@ -199,7 +280,7 @@ class AuditService:
         
         return event
     
-    def _store_event(self, event: AuditEvent):
+    async def _store_event(self, event: AuditEvent):
         """Store audit event to configured backend"""
         # Add to in-memory cache
         self.audit_logs.append(event)
@@ -208,9 +289,28 @@ class AuditService:
         if len(self.audit_logs) > 1000:
             self.audit_logs = self.audit_logs[-1000:]
         
-        # TODO: Store to database
-        # This will be implemented when database models are ready
-        # For now, events are logged to application logger
+        # Store to database if available
+        if self.postgres:
+            await self.postgres.execute("""
+                INSERT INTO audit_log 
+                (event_type, severity, user_id, user_email, ip_address, user_agent,
+                 resource_type, resource_id, action, details, timestamp, session_id, request_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            """, 
+                event.event_type.value,
+                event.severity.value,
+                event.user_id,
+                event.user_email,
+                event.ip_address,
+                event.user_agent,
+                event.resource_type,
+                event.resource_id,
+                event.action,
+                json.dumps(event.details),
+                event.timestamp,
+                event.session_id,
+                event.request_id
+            )
     
     def _format_log_message(self, event: AuditEvent) -> str:
         """Format audit event for logging"""
@@ -549,6 +649,154 @@ class AuditService:
             or e.severity in [AuditSeverity.WARNING, AuditSeverity.ERROR, AuditSeverity.CRITICAL]
         ]
         return security_events[-limit:]
+    
+    # GDPR-specific methods (merged from core/gdpr/audit_logger.py)
+    
+    def log_gdpr_consent(self, user_id: str, consent_type: str, 
+                        action: str, metadata: Dict = None):
+        """Log GDPR consent event"""
+        event_type = (
+            AuditEventType.GDPR_CONSENT_GRANTED if action == "granted"
+            else AuditEventType.GDPR_CONSENT_WITHDRAWN
+        )
+        
+        return self.log_event(
+            event_type=event_type,
+            action=f"User {action} {consent_type} consent",
+            user_id=user_id,
+            details={
+                "consent_type": consent_type,
+                "action": action,
+                "metadata": metadata or {}
+            },
+            severity=AuditSeverity.INFO
+        )
+    
+    def log_gdpr_data_access(self, user_id: str, accessed_by: str,
+                            data_types: List[str], purpose: str = None):
+        """Log GDPR data access"""
+        return self.log_event(
+            event_type=AuditEventType.GDPR_DATA_ACCESSED,
+            action=f"GDPR data accessed for user {user_id}",
+            user_id=accessed_by,
+            resource_type="user_data",
+            resource_id=user_id,
+            details={
+                "data_subject_id": user_id,
+                "data_types": data_types,
+                "purpose": purpose
+            },
+            severity=AuditSeverity.INFO
+        )
+    
+    def log_gdpr_data_modification(self, user_id: str, modified_by: str,
+                                  changes: Dict[str, Any]):
+        """Log GDPR data modification"""
+        return self.log_event(
+            event_type=AuditEventType.GDPR_DATA_MODIFIED,
+            action=f"GDPR data modified for user {user_id}",
+            user_id=modified_by,
+            resource_type="user_data",
+            resource_id=user_id,
+            details={
+                "data_subject_id": user_id,
+                "modified_by": modified_by,
+                "changes": changes
+            },
+            severity=AuditSeverity.WARNING
+        )
+    
+    def log_gdpr_data_deletion(self, user_id: str, deleted_by: str,
+                              data_types: List[str], reason: str = None):
+        """Log GDPR data deletion"""
+        return self.log_event(
+            event_type=AuditEventType.GDPR_DATA_DELETED,
+            action=f"GDPR data deleted for user {user_id}",
+            user_id=deleted_by,
+            resource_type="user_data",
+            resource_id=user_id,
+            details={
+                "data_subject_id": user_id,
+                "deleted_by": deleted_by,
+                "data_types": data_types,
+                "reason": reason
+            },
+            severity=AuditSeverity.WARNING
+        )
+    
+    def log_gdpr_data_export(self, user_id: str, exported_by: str,
+                            format: str, record_count: int):
+        """Log GDPR data export"""
+        return self.log_event(
+            event_type=AuditEventType.GDPR_DATA_EXPORTED,
+            action=f"GDPR data exported for user {user_id}",
+            user_id=exported_by,
+            resource_type="user_data",
+            resource_id=user_id,
+            details={
+                "data_subject_id": user_id,
+                "exported_by": exported_by,
+                "format": format,
+                "record_count": record_count
+            },
+            severity=AuditSeverity.INFO
+        )
+    
+    def log_gdpr_data_anonymization(self, user_id: str, anonymized_by: str,
+                                   details: Dict = None):
+        """Log GDPR data anonymization"""
+        return self.log_event(
+            event_type=AuditEventType.GDPR_DATA_ANONYMIZED,
+            action=f"GDPR data anonymized for user {user_id}",
+            user_id=anonymized_by,
+            resource_type="user_data",
+            resource_id=user_id,
+            details={
+                "data_subject_id": user_id,
+                "anonymized_by": anonymized_by,
+                **(details or {})
+            },
+            severity=AuditSeverity.WARNING
+        )
+    
+    def log_gdpr_dsar(self, user_id: str, request_type: str, 
+                      status: str, details: Dict = None):
+        """Log GDPR DSAR request"""
+        event_type = (
+            AuditEventType.GDPR_DSAR_REQUESTED if status == "requested"
+            else AuditEventType.GDPR_DSAR_COMPLETED
+        )
+        
+        return self.log_event(
+            event_type=event_type,
+            action=f"GDPR DSAR {status} for user {user_id}",
+            user_id=user_id,
+            resource_type="dsar",
+            details={
+                "data_subject_id": user_id,
+                "request_type": request_type,
+                "status": status,
+                **(details or {})
+            },
+            severity=AuditSeverity.WARNING
+        )
+    
+    def log_gdpr_breach(self, breach_id: str, affected_users: int, 
+                        data_types: List[str], description: str):
+        """Log GDPR data breach"""
+        return self.log_event(
+            event_type=AuditEventType.GDPR_BREACH_OCCURRED,
+            action=f"GDPR data breach: {breach_id}",
+            resource_type="breach",
+            resource_id=breach_id,
+            details={
+                "breach_id": breach_id,
+                "affected_users": affected_users,
+                "data_types": data_types,
+                "description": description
+            },
+            severity=AuditSeverity.CRITICAL
+        )
 
 
 # Global audit service instance

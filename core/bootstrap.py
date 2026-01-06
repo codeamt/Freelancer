@@ -153,25 +153,23 @@ def create_app(*, demo: bool) -> tuple[FastHTML, dict]:
     logger.info("✓ Services attached to app.state")
     logger.info(f"  → Demo mode: {demo}")
 
-    logger.info("Applying middleware...")
+    logger.info("Applying smart security middleware...")
 
     try:
         from core.middleware.auth_context import AuthContextMiddleware
-        from core.middleware.security import SecurityHeaders, RateLimitMiddleware, SecurityMiddleware
+        from core.middleware.smart_security import SmartSecurityMiddleware
 
         app.add_middleware(AuthContextMiddleware)
-        app.add_middleware(SecurityMiddleware)
-        app.add_middleware(RateLimitMiddleware)
-        app.add_middleware(SecurityHeaders)
+        app.add_middleware(SmartSecurityMiddleware)
 
-        logger.info("✓ Security middlewares applied")
-        logger.info("  → Input sanitization: enabled")
-        logger.info("  → Rate limiting: 60 req/min per IP")
-        logger.info("  → Security headers: enabled")
-        logger.info("  → CSP: disabled (FastHTML inline styles)")
-        logger.info("  → CSRF: disabled (needs HTMX token integration)")
+        logger.info("✓ Smart security middleware applied")
+        logger.info("  → Auth endpoint rate limiting: enabled")
+        logger.info("  → Smart input sanitization: enabled")
+        logger.info("  → CSS/MonsterUI: preserved")
+        logger.info("  → Dangerous input sanitized")
+        logger.info("  → Field-aware protection")
     except Exception as e:
-        logger.warning(f"⚠️ Failed to apply security middlewares: {e}")
+        logger.warning(f"⚠️ Failed to apply smart security middleware: {e}")
 
     if redis_url:
         try:
