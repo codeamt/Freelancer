@@ -6,7 +6,7 @@ Logs authentication events, admin actions, sensitive data access, and system cha
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from enum import Enum
 from dataclasses import dataclass, asdict
@@ -178,7 +178,7 @@ class AuditService:
             resource_id=resource_id,
             action=action,
             details=details or {},
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             session_id=session_id,
             request_id=request_id,
         )
@@ -448,12 +448,16 @@ class AuditService:
         details: Optional[Dict[str, Any]] = None,
     ):
         """Log security breach attempt"""
+        event_details = {"attack_type": attack_type}
+        if details:
+            event_details.update(details)
+        
         return self.log_event(
             event_type=AuditEventType.SECURITY_BREACH_ATTEMPT,
             action=f"Security breach attempt detected: {attack_type}",
             ip_address=ip_address,
             user_agent=user_agent,
-            details=details or {"attack_type": attack_type},
+            details=event_details,
             severity=AuditSeverity.CRITICAL,
         )
     

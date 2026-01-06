@@ -28,6 +28,15 @@ from core.services.audit_service import (
     AuditSeverity,
 )
 
+# Import user profile service
+from core.services.user_profile_service import (
+    UserProfileService,
+    get_profile_service,
+    UserProfile,
+    UserPreferences,
+    AccountStatus,
+)
+
 # Import integrations
 from core.integrations.stripe import StripeClient
 from core.integrations.web3 import Web3Client
@@ -73,6 +82,11 @@ __all__ = [
     'log_audit_event',
     'AuditEventType',
     'AuditSeverity',
+    'UserProfileService',
+    'get_profile_service',
+    'UserProfile',
+    'UserPreferences',
+    'AccountStatus',
     'StripeClient',
     'Web3Client',
     'HuggingFaceClient',
