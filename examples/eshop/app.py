@@ -27,7 +27,7 @@ from add_ons.domains.commerce.data import SAMPLE_PRODUCTS, get_product_by_id, ge
 from core.services.cart import CartService
 
 # E-Shop UI
-from .ui import EShopLoginPage, EShopRegisterPage, CartItem, ProductCard, CartSummary, SocialLinks, NewsletterModal, EShopSubNav
+from .ui import EShopLoginPage, EShopRegisterPage, CartItem, ProductCard, CartSummary, SocialLinks, NewsletterModal, EShopSubNav, EnhancedSearchInput
 
 # Core marketing components
 from core.ui.components.marketing import NewsletterSignup
@@ -134,90 +134,169 @@ def create_eshop_app(
             # Newsletter Modal (shows on page load)
             NewsletterModal(BASE),
             
-            # Hero Section with Dark Theme
+            # Hero Section with Enhanced Design
             Section(
                 Div(
                     Div(
-                        H1("Premium E-Shop", cls="text-5xl md:text-6xl font-bold text-white mb-4"),
-                        P(
-                            "Discover our curated selection of high-quality products",
-                            cls="text-xl md:text-2xl text-gray-200 mb-8 max-w-2xl"
-                        ),
                         Div(
-                            A(
-                                "Shop Now",
-                                href=f"{BASE}/#products",
-                                cls="btn btn-primary btn-lg text-lg px-8 py-4 bg-blue-600 hover:bg-blue-700 border-none"
+                            # Hero headline with gradient effect
+                            Div(
+                                H1(
+                                    Span("Premium", cls="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400"),
+                                    Span(" E-Shop", cls="text-white"),
+                                    cls="text-5xl md:text-7xl font-bold mb-6 text-center"
+                                ),
+                                # Enhanced subtitle with better typography
+                                Div(
+                                    P(
+                                        "Discover our curated selection of high-quality products",
+                                        cls="text-xl md:text-2xl text-gray-200 mb-4 leading-relaxed"
+                                    ),
+                                    P(
+                                        Span("crafted for excellence", cls="text-blue-400 font-semibold text-xl md:text-2xl"),
+                                        cls="text-center"
+                                    ),
+                                    cls="text-center"
+                                ),
+                                
+                                # Stats bar with enhanced design
+                                Div(
+                                    Div(
+                                        Div(
+                                            Div(
+                                                Span("10K+", cls="text-3xl font-bold text-blue-400 block"),
+                                                P("Happy Customers", cls="text-sm text-gray-400 mt-1"),
+                                                cls="text-center"
+                                            ),
+                                            cls="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-4"
+                                        ),
+                                        Div(
+                                            Div(
+                                                Span("50+", cls="text-3xl font-bold text-purple-400 block"),
+                                                P("Premium Products", cls="text-sm text-gray-400 mt-1"),
+                                                cls="text-center"
+                                            ),
+                                            cls="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-4"
+                                        ),
+                                        Div(
+                                            Div(
+                                                Span("4.9★", cls="text-3xl font-bold text-green-400 block"),
+                                                P("Average Rating", cls="text-sm text-gray-400 mt-1"),
+                                                cls="text-center"
+                                            ),
+                                            cls="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-4"
+                                        ),
+                                        cls="grid grid-cols-3 gap-4 max-w-md mx-auto mb-8"
+                                    ),
+                                    cls="bg-gray-900 bg-opacity-30 backdrop-blur-sm rounded-xl p-6 border border-gray-700"
+                                ),
+                                
+                                # Enhanced CTA buttons with better styling
+                                Div(
+                                    A(
+                                        Div(
+                                            Span("Shop Now", cls="font-semibold text-lg"),
+                                            UkIcon("arrow-right", width="20", height="20", cls="ml-2"),
+                                            cls="flex items-center justify-center"
+                                        ),
+                                        href=f"{BASE}/#products",
+                                        cls="btn btn-primary btn-lg px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 border-none shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 rounded-lg min-w-[160px]"
+                                    ),
+                                    A(
+                                        Div(
+                                            Span("Learn More", cls="font-semibold text-lg"),
+                                            UkIcon("info", width="20", height="20", cls="ml-2"),
+                                            cls="flex items-center justify-center"
+                                        ),
+                                        href=f"{BASE}/about",
+                                        cls="btn btn-outline btn-lg px-8 py-4 text-white border-2 border-white hover:bg-white hover:text-gray-900 transition-all duration-300 rounded-lg min-w-[160px]"
+                                    ),
+                                    cls="flex flex-col sm:flex-row gap-4 justify-center"
+                                ),
+                                
+                                cls="z-10 text-center"
                             ),
-                            A(
-                                "Learn More",
-                                href=f"{BASE}/about",
-                                cls="btn btn-outline btn-lg text-lg px-8 py-4 ml-4 text-white border-white hover:bg-white hover:text-gray-900"
-                            ),
-                            cls="flex flex-col sm:flex-row gap-4"
+                            cls="relative z-10 flex flex-col justify-center items-center h-full min-h-[700px] px-4"
                         ),
-                        cls="z-10 text-center"
+                        # Enhanced hero background with gradient overlay
+                        Div(
+                            style=f"""
+                            background-image: linear-gradient(135deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0.85) 100%), 
+                                            url('https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=1920&h=1080&fit=crop');
+                            background-size: cover;
+                            background-position: center;
+                            background-attachment: fixed;
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            z-index: 0;
+                            """
+                        ),
+                        cls="relative bg-black"
                     ),
-                    cls="relative z-10 flex flex-col justify-center items-center h-full min-h-[600px]"
+                    cls="relative overflow-hidden"
                 ),
-                # Hero background with overlay
-                Div(
-                    style=f"""
-                    background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
-                                    url('https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=1920&h=1080&fit=crop');
-                    background-size: cover;
-                    background-position: center;
-                    background-attachment: fixed;
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    z-index: 0;
-                    """
-                ),
-                cls="relative bg-black"
+                cls="relative"
             ),
             
-            # Features Section (Dark Theme)
+            # Features Section with Enhanced Design
             Section(
                 Div(
                     Div(
-                        H2("Why Choose Our Products?", cls="text-4xl font-bold text-white mb-12 text-center"),
+                        # Enhanced section header
                         Div(
+                            H2("Why Choose Our Products?", cls="text-4xl md:text-5xl font-bold text-white mb-4 text-center"),
+                            P("Experience the difference with our premium collection", cls="text-xl text-gray-300 mb-12 text-center max-w-3xl mx-auto"),
+                            cls="text-center"
+                        ),
+                        Div(
+                            # Feature 1 with enhanced design
                             Div(
                                 Div(
                                     Div(
-                                        UkIcon("shield", width="48", height="48", cls="text-blue-400 mb-4 block"),
-                                        cls="flex justify-center"
+                                        Div(
+                                            UkIcon("shield-check", width="56", height="56", cls="text-blue-400 mb-4"),
+                                            cls="flex justify-center"
+                                        ),
+                                        H3("Professional Grade", cls="text-xl font-semibold text-white mb-3 text-center"),
+                                        P("Commercial-quality products trusted by professionals worldwide", cls="text-gray-300 text-center leading-relaxed"),
+                                        cls="text-center"
                                     ),
-                                    H3("Professional Grade", cls="text-xl font-semibold text-white mb-2 text-center"),
-                                    P("Commercial-quality leather care trusted by professionals", cls="text-gray-300 text-center"),
-                                    cls="text-center"
+                                    cls="col-span-1 bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-xl p-6 border border-gray-700 hover:border-blue-500 transition-all duration-300"
                                 ),
                                 cls="col-span-1"
                             ),
+                            # Feature 2 with enhanced design
                             Div(
                                 Div(
                                     Div(
-                                        UkIcon("droplet", width="48", height="48", cls="text-blue-400 mb-4 block"),
-                                        cls="flex justify-center"
+                                        Div(
+                                            UkIcon("droplet", width="56", height="56", cls="text-purple-400 mb-4"),
+                                            cls="flex justify-center"
+                                        ),
+                                        H3("Premium Quality", cls="text-xl font-semibold text-white mb-3 text-center"),
+                                        P("Carefully selected materials and exceptional craftsmanship", cls="text-gray-300 text-center leading-relaxed"),
+                                        cls="text-center"
                                     ),
-                                    H3("Deep Conditioning", cls="text-xl font-semibold text-white mb-2 text-center"),
-                                    P("Restores and protects all types of leather goods", cls="text-gray-300 text-center"),
-                                    cls="text-center"
+                                    cls="col-span-1 bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-xl p-6 border border-gray-700 hover:border-purple-500 transition-all duration-300"
                                 ),
                                 cls="col-span-1"
                             ),
+                            # Feature 3 with enhanced design
                             Div(
                                 Div(
                                     Div(
-                                        UkIcon("award", width="48", height="48", cls="text-blue-400 mb-4 block"),
-                                        cls="flex justify-center"
+                                        Div(
+                                            UkIcon("award", width="56", height="56", cls="text-green-400 mb-4"),
+                                            cls="flex justify-center"
+                                        ),
+                                        H3("Satisfaction Guaranteed", cls="text-xl font-semibold text-white mb-3 text-center"),
+                                        P("30-day return policy and dedicated customer support", cls="text-gray-300 text-center leading-relaxed"),
+                                        cls="text-center"
                                     ),
-                                    H3("Made in USA", cls="text-xl font-semibold text-white mb-2 text-center"),
-                                    P("Proudly crafted with premium ingredients", cls="text-gray-300 text-center"),
-                                    cls="text-center"
+                                    cls="col-span-1 bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-xl p-6 border border-gray-700 hover:border-green-500 transition-all duration-300"
                                 ),
                                 cls="col-span-1"
                             ),
@@ -225,83 +304,88 @@ def create_eshop_app(
                         ),
                         cls="container mx-auto px-4 py-16"
                     ),
-                    cls="bg-black"
+                    cls="bg-black relative"
                 ),
                 id="features"
             ),
             
-            # Products Section with Search and Filtering (Dark Theme)
+            # Products Section with Enhanced Design
             Section(
                 Div(
-                    H2("Our Products", cls="text-4xl font-bold text-white mb-12 text-center"),
-                    
-                    # Search and Filter Controls
+                    # Enhanced section header
                     Div(
-                        Form(
-                            Div(
-                                Div(
-                                    Input(
-                                        type="text",
-                                        name="search",
-                                        placeholder="Search products...",
-                                        value=search,
-                                        cls="input input-bordered bg-gray-800 text-white border-gray-600 placeholder-gray-400 w-full",
-                                        hx_get=f"{BASE}/",
-                                        hx_target="section",
-                                        hx_include="[name='category']",
-                                        hx_trigger="input changed delay:300ms"
-                                    ),
-                                    cls="w-full md:w-1/2"
-                                ),
-                                Div(
-                                    Select(
-                                        Option("All Categories", value="all", selected=(category == "all")),
-                                        *[Option(cat.capitalize(), value=cat, selected=(category == cat)) for cat in sorted(categories)],
-                                        name="category",
-                                        cls="select select-bordered bg-gray-800 text-white border-gray-600 w-full",
-                                        hx_get=f"{BASE}/",
-                                        hx_target="section",
-                                        hx_include="[name='search']",
-                                        hx_trigger="change"
-                                    ),
-                                    cls="w-full md:w-1/4 md:ml-2"
-                                ),
-                                Div(
-                                    P(f"Showing {len(filtered_products)} products", cls="text-gray-300 self-center"),
-                                    cls="w-full md:w-1/4 md:ml-2 text-center"
-                                ),
-                                cls="flex flex-col md:flex-row gap-4 items-center mb-8"
-                            ),
-                            cls="w-full"
-                        ),
-                        
-                        # Active filters display
-                        (Div(
-                            Span("Active filters:", cls="text-gray-400 mr-2"),
-                            (Span(search, cls="badge badge-primary mr-2") if search else None),
-                            (Span(category.capitalize(), cls="badge badge-secondary") if category != "all" else None),
-                            A("Clear all", href=f"{BASE}/", cls="link link-primary ml-4 text-sm"),
-                            cls="flex items-center justify-center mb-6"
-                        ) if search or category != "all" else None),
-                        
-                        cls="container mx-auto px-4"
+                        H2("Our Products", cls="text-4xl md:text-5xl font-bold text-white mb-4 text-center"),
+                        P("Browse our carefully curated collection of premium items", cls="text-xl text-gray-300 mb-12 text-center max-w-3xl mx-auto"),
+                        cls="text-center"
                     ),
                     
-                    # Products Grid
+                    # Enhanced Search and Filter Controls
+                    Div(
+                        Div(
+                            Div(
+                                EnhancedSearchInput(BASE, search),
+                                cls="w-full md:w-1/2"
+                            ),
+                            Div(
+                                Select(
+                                    Option("All Categories", value="all", selected=(category == "all")),
+                                    *[Option(cat.capitalize(), value=cat, selected=(category == cat)) for cat in sorted(categories)],
+                                    name="category",
+                                    cls="select select-bordered bg-gray-800 text-white border-gray-600 w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer",
+                                    hx_get=f"{BASE}/",
+                                    hx_target="section",
+                                    hx_include="[name='search']",
+                                    hx_trigger="change"
+                                ),
+                                cls="w-full md:w-1/4 md:ml-2 relative z-50"
+                            ),
+                            Div(
+                                Div(
+                                    Span(f"{len(filtered_products)} products", cls="text-gray-300 font-semibold"),
+                                    P("Showing latest items", cls="text-xs text-gray-500"),
+                                    cls="text-center"
+                                ),
+                                cls="w-full md:w-1/4 md:ml-2"
+                            ),
+                            cls="flex flex-col md:flex-row gap-4 items-center mb-8"
+                        ),
+                        cls="bg-gray-800 bg-opacity-30 backdrop-blur-sm rounded-lg p-6 mb-8"
+                    ),
+                    
+                    # Active filters display
+                    (Div(
+                        Div(
+                            Span("Active filters:", cls="text-gray-400 mr-2"),
+                            (Span(f"Search: {search}", cls="badge badge-primary mr-2") if search else None),
+                            (Span(f"Category: {category.capitalize()}", cls="badge badge-secondary") if category != "all" else None),
+                            A("Clear all", href=f"{BASE}/", cls="link link-primary ml-4 text-sm hover:text-blue-400 transition-colors"),
+                            cls="flex items-center justify-center"
+                        ),
+                        cls="bg-gray-800 bg-opacity-30 backdrop-blur-sm rounded-lg p-4 mb-6"
+                    ) if search or category != "all" else None),
+                    
+                    # Enhanced Products Grid
                     Div(
                         *[ProductCard(product, user, BASE) for product in filtered_products],
-                        cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                        cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
                     ) if filtered_products else Div(
-                        H3("No products found", cls="text-2xl font-semibold text-white mb-4"),
-                        P("Try adjusting your search or filters", cls="text-gray-300 mb-6"),
-                        A("Clear filters", href=f"{BASE}/", cls="btn btn-primary"),
+                        Div(
+                            Div(
+                                UkIcon("search", width="64", height="64", cls="text-gray-500 mb-4"),
+                                H3("No products found", cls="text-2xl font-semibold text-white mb-4"),
+                                P("Try adjusting your search or filters to find what you're looking for", cls="text-gray-300 mb-6"),
+                                A("🔄 Clear filters", href=f"{BASE}/", cls="btn btn-primary bg-blue-600 hover:bg-blue-700 px-6 py-3"),
+                                cls="text-center"
+                            ),
+                            cls="bg-gray-800 bg-opacity-30 backdrop-blur-sm rounded-lg p-12"
+                        ),
                         cls="text-center py-12"
                     ),
                     
                     cls="container mx-auto px-4 py-16"
                 ),
                 id="products",
-                cls="bg-black"
+                cls="bg-black relative"
             ),
             
             # Newsletter Section
@@ -331,6 +415,38 @@ def create_eshop_app(
         )
         
         return Layout(content, title="Premium E-Shop | Demo", current_path=f"{BASE}/", user=user, show_auth=True, demo=demo)
+    
+    @app.get("/search/suggestions")
+    async def search_suggestions(request: Request, q: str = ""):
+        """Return search suggestions for auto-complete."""
+        if not q or len(q) < 2:
+            return {"suggestions": []}
+        
+        q_lower = q.lower()
+        suggestions = []
+        
+        # Search in product names, descriptions, and categories
+        for product in SAMPLE_PRODUCTS:
+            # Name matches
+            if q_lower in product["name"].lower():
+                suggestions.append({
+                    "text": product["name"],
+                    "type": "product",
+                    "id": product["id"],
+                    "category": product["category"]
+                })
+            
+            # Category matches
+            if q_lower in product["category"].lower() and product["category"].lower() not in [s["text"] for s in suggestions if s["type"] == "category"]:
+                suggestions.append({
+                    "text": product["category"],
+                    "type": "category",
+                    "id": None
+                })
+        
+        # Limit to 8 suggestions
+        suggestions = suggestions[:8]
+        return {"suggestions": suggestions}
     
     @app.get("/product/{product_id}")
     async def product_detail(request: Request, product_id: int):

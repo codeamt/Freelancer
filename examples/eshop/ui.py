@@ -366,38 +366,169 @@ def SocialLinks():
     )
 
 def ProductCard(product: dict, user, base_path: str):
-    """Product card component with dark theme."""
+    """Enhanced product card component with dark theme and polish."""
     # Handle free products
     if product["price"] == 0.0:
         price_display = Span("Free (with signup)", cls="text-2xl font-bold text-green-400")
+        price_badge = Span("FREE", cls="badge badge-success bg-green-600 text-white text-xs px-2 py-1")
     else:
         price_display = Span(
             f"${product['price']}",
             cls="text-2xl font-bold text-blue-400"
         )
+        price_badge = None
     
     return Div(
         A(
             Div(
-                Img(
-                    src=product["image"],
-                    alt=product["name"],
-                    cls="w-full h-48 object-cover"
-                ),
+                # Product image with overlay effect
                 Div(
-                    H3(product["name"], cls="text-lg font-semibold mb-2 text-white"),
-                    P(product["description"], cls="text-sm text-gray-300 mb-4"),
-                    Div(
-                        price_display,
-                        Span(product["category"], cls="badge badge-outline bg-gray-700 text-gray-300 border-gray-600"),
-                        cls="flex justify-between items-center"
+                    Img(
+                        src=product["image"],
+                        alt=product["name"],
+                        cls="w-full h-48 object-cover transition-transform duration-300 hover:scale-105"
                     ),
+                    # Quick view overlay
+                    Div(
+                        Span("Quick View", cls="text-white text-sm font-semibold"),
+                        cls="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center opacity-0 hover:opacity-100"
+                    ),
+                    cls="relative overflow-hidden rounded-t-lg"
+                ),
+                
+                # Product info
+                Div(
+                    # Category badge
+                    Div(
+                        Span(product["category"], cls="badge badge-outline bg-gray-800 text-gray-300 border-gray-600 text-xs px-2 py-1"),
+                        cls="mb-2"
+                    ),
+                    
+                    # Product name
+                    H3(product["name"], cls="text-lg font-semibold text-white mb-2 line-clamp-2 hover:text-blue-400 transition-colors"),
+                    
+                    # Description
+                    P(product["description"], cls="text-sm text-gray-400 mb-4 line-clamp-2"),
+                    
+                    # Price and actions
+                    Div(
+                        Div(
+                            price_display,
+                            price_badge,
+                            cls="flex items-center gap-2"
+                        ),
+                        Button(
+                            UkIcon("shopping-cart", width="16", height="16"),
+                            cls="btn btn-sm btn-circle bg-blue-600 hover:bg-blue-700 border-none text-white ml-auto"
+                        ),
+                        cls="flex items-center justify-between"
+                    ),
+                    
                     cls="p-4"
                 ),
-                cls="card bg-gray-900 shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-700 hover:border-blue-500"
+                
+                # Enhanced card styling
+                cls="card bg-gray-900 shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-800 hover:border-blue-500 rounded-lg overflow-hidden group"
             ),
-            href=f"{base_path}/product/{product['id']}"
+            href=f"{base_path}/product/{product['id']}",
+            cls="block transform transition-transform duration-200 hover:scale-105"
         )
+    )
+
+
+def EnhancedSearchInput(base_path: str = "/eshop-example", current_search: str = ""):
+    """Enhanced search input with auto-complete functionality."""
+    return Div(
+        # Search input container
+        Div(
+            Input(
+                type="text",
+                name="search",
+                placeholder="Search products...",
+                value=current_search,
+                id="searchInput",
+                cls="input input-bordered bg-gray-800 text-white border-gray-600 placeholder-gray-400 w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500",
+                hx_get=f"{base_path}/",
+                hx_target="section",
+                hx_include="[name='category']",
+                hx_trigger="input changed delay:300ms"
+            ),
+            # Auto-complete dropdown
+            Div(
+                id="searchSuggestions",
+                cls="absolute top-full left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg mt-1 shadow-lg z-50 hidden"
+            ),
+            cls="relative w-full"
+        ),
+        
+        # JavaScript for auto-complete
+        Script("""
+        let searchTimeout;
+        const searchInput = document.getElementById('searchInput');
+        const suggestionsDiv = document.getElementById('searchSuggestions');
+        
+        if (searchInput && suggestionsDiv) {
+            searchInput.addEventListener('input', function(e) {
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+                
+                if (query.length < 2) {
+                    suggestionsDiv.classList.add('hidden');
+                    return;
+                }
+                
+                searchTimeout = setTimeout(() => {
+                    fetch(`""" + base_path + """/search/suggestions?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.suggestions && data.suggestions.length > 0) {
+                                suggestionsDiv.innerHTML = data.suggestions.map(s => `
+                                    <div class="px-4 py-3 hover:bg-gray-700 cursor-pointer transition-colors" 
+                                         onclick="selectSuggestion('${s.text}', '${s.type}', ${s.id || 'null'})">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-white">${s.text}</span>
+                                            <span class="text-xs px-2 py-1 rounded ${s.type === 'product' ? 'bg-blue-600' : 'bg-purple-600'} text-white">
+                                                ${s.type === 'product' ? 'Product' : 'Category'}
+                                            </span>
+                                        </div>
+                                        ${s.category ? `<div class="text-xs text-gray-400 mt-1">${s.category}</div>` : ''}
+                                    </div>
+                                `).join('');
+                                suggestionsDiv.classList.remove('hidden');
+                            } else {
+                                suggestionsDiv.classList.add('hidden');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Search suggestions error:', error);
+                            suggestionsDiv.classList.add('hidden');
+                        });
+                }, 300);
+            });
+            
+            // Close suggestions when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                    suggestionsDiv.classList.add('hidden');
+                }
+            });
+        }
+        
+        function selectSuggestion(text, type, id) {
+            searchInput.value = text;
+            suggestionsDiv.classList.add('hidden');
+            
+            // Trigger search by updating the URL
+            const url = new URL(window.location);
+            url.searchParams.set('search', text);
+            if (type === 'category') {
+                url.searchParams.set('category', text.toLowerCase());
+            }
+            window.location.href = url.toString();
+        }
+        """),
+        
+        cls="w-full"
     )
 
 
