@@ -30,11 +30,11 @@ from datetime import datetime
 from core.state.state import State
 from core.workflows.admin import SiteWorkflowManager
 from core.workflows.preview import PreviewPublishManager
-from core.ui.theme.editor import ThemeEditorManager
+from core.ui.theme.hybrid_theme_manager import HybridThemeManager
 from core.ui.state.factory import EnhancedComponentLibrary, SectionRenderer
 from core.services.settings import (
-    get_theme_settings_single_site,
-    set_setting_single_site,
+    get_theme_settings_optimized,
+    set_setting_optimized,
     set_setting_with_version,
     enhanced_settings
 )
@@ -112,18 +112,18 @@ class OmniviewEditorService:
     - Auto-save
     """
     
-    def __init__(self, persister):
+    def __init__(self, persister=None):
         """
         Initialize omniview editor.
         
         Args:
-            persister: State persistence backend
+            persister: State persistence backend (optional, hybrid settings used for theme)
         """
         self.persister = persister
         
         # Core managers
         self.site_manager = SiteWorkflowManager(persister=persister)
-        self.theme_manager = ThemeEditorManager(persister=persister)
+        self.theme_manager = HybridThemeManager()  # Replaced ThemeEditorManager
         self.preview_manager = PreviewPublishManager(persister=persister)
         self.component_library = EnhancedComponentLibrary()
         
@@ -158,7 +158,7 @@ class OmniviewEditorService:
             return {"success": False, "error": site_result.get("error")}
         
         # Load theme using hybrid settings (persistent storage)
-        theme_state = await get_theme_settings_single_site(user_roles, {"user_id": user_id})
+        theme_state = await get_theme_settings_optimized(user_roles, {"user_id": user_id})
         
         # Get available components
         component_templates = self.component_library.get_all_templates()
@@ -406,13 +406,11 @@ class OmniviewEditorService:
         if not session:
             return {"success": False, "error": "Invalid session"}
         
-        # Use hybrid settings for persistence
-        result = await set_setting_with_version(
-            key="theme.colors",
-            value=colors,
+        # Use hybrid theme manager for persistence
+        result = await self.theme_manager.update_theme_colors(
+            colors=colors,
             user_roles=user_roles,
-            context={"user_id": session.user_id},
-            change_reason=f"Theme colors updated in editor by {session.user_id}"
+            user_id=session.user_id
         )
         
         if result["success"]:
@@ -427,6 +425,41 @@ class OmniviewEditorService:
                 "preview": preview,
                 "persisted": True,
                 "cache_optimized": True
+            }
+        
+        return result
+    
+    async def apply_theme_preset(
+        self,
+        session_id: str,
+        preset_name: str,
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Apply theme preset using hybrid theme manager (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        # Apply preset using hybrid theme manager
+        result = await self.theme_manager.apply_preset(
+            preset=preset_name,
+            preserve_custom_css=True,
+            user_roles=user_roles,
+            user_id=session.user_id
+        )
+        
+        if result["success"]:
+            session.has_unsaved_changes = True
+            
+            # Generate preview with new theme
+            preview = await self._generate_preview(session)
+            
+            return {
+                "success": True,
+                "preset": preset_name,
+                "version_id": result.get("version_id"),
+                "preview": preview,
+                "persisted": True
             }
         
         return result
@@ -475,19 +508,18 @@ class OmniviewEditorService:
         version_id: str,
         user_roles: List[str] = ["admin"]
     ) -> Dict[str, Any]:
-        """Rollback theme to previous version using hybrid settings (optimized for single-site)"""
+        """Rollback theme to previous version using hybrid theme manager (optimized for single-site)"""
         session = self.editor_state.get_session(session_id)
         if not session:
             return {"success": False, "error": "Invalid session"}
         
         try:
-            # Perform rollback using hybrid settings
-            rollback_result = await enhanced_settings.rollback_setting(
-                key="theme.colors",
+            # Use hybrid theme manager for rollback
+            rollback_result = await self.theme_manager.rollback_theme(
+                component="colors",
                 version_id=version_id,
                 user_roles=user_roles,
-                context={"user_id": session.user_id},
-                change_reason=f"Theme rollback in editor by {session.user_id}"
+                user_id=session.user_id
             )
             
             if rollback_result["success"]:

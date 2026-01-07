@@ -59,11 +59,11 @@ from .hybrid import (
     set_setting_hybrid,
     get_theme_settings,
     # Single-Site Optimized
-    SingleSiteSettingsManager,
-    single_site_settings,
-    get_setting_single_site,
-    set_setting_single_site,
-    get_theme_settings_single_site
+    OptimizedSettingsManager,
+    optimized_settings,
+    get_setting_optimized,
+    set_setting_optimized,
+    get_theme_settings_optimized
 )
 
 from .enhancements import (
@@ -142,11 +142,11 @@ __all__ = [
     "get_theme_settings",
     
     # Single-Site Optimized
-    "SingleSiteSettingsManager",
-    "single_site_settings",
-    "get_setting_single_site",
-    "set_setting_single_site",
-    "get_theme_settings_single_site",
+    "OptimizedSettingsManager",
+    "optimized_settings",
+    "get_setting_optimized",
+    "set_setting_optimized",
+    "get_theme_settings_optimized",
     
     # Enhanced Settings
     "EnhancedSettingsService",

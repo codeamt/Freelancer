@@ -780,7 +780,7 @@ async def get_theme_settings(
 # Single-Site Optimized Settings Manager
 # ============================================================================
 
-class SingleSiteSettingsManager(HybridSettingsManager):
+class OptimizedSettingsManager(HybridSettingsManager):
     """
     Optimized settings manager for single-site applications.
     
@@ -956,44 +956,44 @@ class SingleSiteSettingsManager(HybridSettingsManager):
 
 
 # ============================================================================
-# Global Single-Site Instance
+# Global Optimized Instance
 # ============================================================================
 
-single_site_settings = SingleSiteSettingsManager()
+optimized_settings = OptimizedSettingsManager()
 
 
 # ============================================================================
-# Single-Site Convenience Functions
+# Optimized Convenience Functions
 # ============================================================================
 
-async def get_setting_single_site(
+async def get_setting_optimized(
     key: str,
     user_roles: List[str],
     user_id: Optional[str] = None,
     use_cache: bool = True
 ) -> Dict[str, Any]:
-    """Get setting using optimized single-site system"""
+    """Get setting using optimized system"""
     context = {"user_id": user_id} if user_id else None
-    return await single_site_settings.get_setting(key, user_roles, context, use_cache)
+    return await optimized_settings.get_setting(key, user_roles, context, use_cache)
 
 
-async def set_setting_single_site(
+async def set_setting_optimized(
     key: str,
     value: Any,
     user_roles: List[str],
     user_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Set setting using optimized single-site system"""
+    """Set setting using optimized system"""
     context = {"user_id": user_id} if user_id else None
-    return await single_site_settings.set_setting(key, value, user_roles, context)
+    return await optimized_settings.set_setting(key, value, user_roles, context)
 
 
-async def get_theme_settings_single_site(
+async def get_theme_settings_optimized(
     user_roles: List[str],
     user_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Get theme settings using optimized single-site system"""
-    return await single_site_settings.get_theme_settings_optimized(user_roles, user_id)
+    """Get theme settings using optimized system"""
+    return await optimized_settings.get_theme_settings_optimized(user_roles, user_id)
 
 
 __all__ = [
@@ -1005,9 +1005,9 @@ __all__ = [
     "set_setting_hybrid",
     "get_theme_settings",
     # Single-Site Optimized
-    "SingleSiteSettingsManager",
-    "single_site_settings",
-    "get_setting_single_site",
-    "set_setting_single_site",
-    "get_theme_settings_single_site"
+    "OptimizedSettingsManager",
+    "optimized_settings",
+    "get_setting_optimized",
+    "set_setting_optimized",
+    "get_theme_settings_optimized",
 ]
