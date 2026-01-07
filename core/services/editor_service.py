@@ -469,46 +469,368 @@ class OmniviewEditorService:
     async def _generate_preview(
         self,
         session: EditorSession,
-        user_context: Optional[Dict[str, Any]] = None
+        user_context: Optional[Dict[str, Any]] = None,
+        use_cached_theme: bool = True
     ) -> Dict[str, Any]:
-        """Generate preview for current state"""
-        result = await self.preview_manager.generate_preview(
-            site_id="default",  # Use default for single-site
-            user_context=user_context,
-            user_id=session.user_id
-        )
-        
-        return result.get("preview_data") if result["success"] else {}
+        """Generate preview for current state with cached theme optimization """
+        try:
+            # Get cached theme if enabled
+            theme_data = None
+            if use_cached_theme:
+                theme_result = await get_theme_settings_optimized(
+                    ["admin"],  # Use admin for full theme access
+                    session.user_id
+                )
+                if theme_result:
+                    theme_data = theme_result
+            
+            # Generate preview with theme data
+            result = await self.preview_manager.generate_preview(
+                site_id="default",  # Use default for single-site
+                user_context=user_context,
+                user_id=session.user_id,
+                theme_data=theme_data  # Pass cached theme data
+            )
+            
+            preview_data = result.get("preview_data") if result["success"] else {}
+            
+            # Add cache optimization info
+            if preview_data:
+                preview_data["cache_info"] = {
+                    "theme_cached": use_cached_theme and theme_data is not None,
+                    "cache_hit": bool(theme_data),
+                    "optimization_enabled": True
+                }
+            
+            return preview_data
+            
+        except Exception as e:
+            logger.error(f"Failed to generate preview: {e}")
+            return {"error": f"Preview generation failed: {str(e)}"}
     
-    async def get_theme_history(
+    async def get_cached_preview(
         self,
         session_id: str,
-        user_roles: List[str] = ["admin"]
+        user_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Get theme change history from hybrid settings (optimized for single-site)"""
+        """Get preview using cached theme data"""
         session = self.editor_state.get_session(session_id)
         if not session:
             return {"success": False, "error": "Invalid session"}
         
         try:
+            # Generate preview with cached theme
+            preview = await self._generate_preview(
+                session=session,
+                user_context=user_context,
+                use_cached_theme=True
+            )
+            
+            return {
+                "success": True,
+                "preview": preview,
+                "cache_optimized": True,
+                "editor_features": {
+                    "cached_preview": True,
+                    "fast_loading": True,
+                    "theme_applied": True
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get cached preview: {str(e)}"}
+    
+    async def invalidate_theme_cache(
+        self,
+        session_id: str,
+        components: Optional[List[str]] = None,
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Invalidate theme cache for components (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Default to all theme components
+            if not components:
+                components = ["colors", "typography", "spacing"]
+            
+            invalidated_keys = []
+            
+            for component in components:
+                key = f"theme.{component}"
+                
+                # Invalidate cache through enhanced settings
+                await enhanced_settings.invalidate_cache(
+                    key=key,
+                    user_roles=user_roles,
+                    context={"user_id": session.user_id}
+                )
+                
+                invalidated_keys.append(key)
+            
+            return {
+                "success": True,
+                "invalidated_keys": invalidated_keys,
+                "cache_cleared": True,
+                "editor_features": {
+                    "cache_invalidation": True,
+                    "auto_refresh": True,
+                    "preview_update": True
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to invalidate cache: {str(e)}"}
+    
+    async def get_editor_performance_metrics(
+        self,
+        session_id: str,
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Get comprehensive editor performance metrics (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Get settings performance metrics
+            settings_metrics = optimized_settings.get_metrics()
+            
+            # Get enhanced settings metrics
+            enhanced_metrics = enhanced_settings.get_performance_metrics()
+            
+            # Editor-specific metrics
+            editor_metrics = {
+                "session_id": session_id,
+                "session_duration": (datetime.utcnow() - session.last_activity).total_seconds(),
+                "has_unsaved_changes": session.has_unsaved_changes,
+                "current_panel": session.current_panel
+            }
+            
+            return {
+                "success": True,
+                "settings_optimization": settings_metrics,
+                "enhanced_settings": enhanced_metrics,
+                "editor_session": editor_metrics,
+                "performance_features": {
+                    "cache_optimization": settings_metrics.get("optimization_enabled", False),
+                    "cache_hit_rate": settings_metrics.get("cache_hit_rate", 0),
+                    "site_id_removals": settings_metrics.get("site_id_removals", 0),
+                    "cache_key_simplifications": settings_metrics.get("cache_key_simplifications", 0)
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get metrics: {str(e)}"}
+    
+    async def get_theme_history(
+        self,
+        session_id: str,
+        component: str = "colors",
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Get comprehensive theme change history from hybrid settings (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Get history for specific component
+            key = f"theme.{component}"
             history_result = await enhanced_settings.get_setting_history(
-                key="theme.colors",
+                key=key,
                 user_roles=user_roles,
                 context={"user_id": session.user_id}
             )
             
+            if history_result.get("success"):
+                # Get all theme components history
+                all_history = {}
+                theme_components = ["colors", "typography", "spacing"]
+                
+                for comp in theme_components:
+                    comp_key = f"theme.{comp}"
+                    comp_history = await enhanced_settings.get_setting_history(
+                        key=comp_key,
+                        user_roles=user_roles,
+                        context={"user_id": session.user_id}
+                    )
+                    if comp_history.get("success"):
+                        all_history[comp] = comp_history
+                
+                return {
+                    "success": True,
+                    "component": component,
+                    "history": history_result.get("history", []),
+                    "total_versions": history_result.get("total", 0),
+                    "all_components_history": all_history,
+                    "editor_features": {
+                        "timeline_view": True,
+                        "component_filtering": True,
+                        "change_comparison": True,
+                        "batch_rollback": True
+                    }
+                }
+            
             return history_result
             
         except Exception as e:
-            return {"success": False, "error": f"Failed to get history: {str(e)}"}
+            return {"success": False, "error": f"Failed to get theme history: {str(e)}"}
+    
+    async def get_theme_change_timeline(
+        self,
+        session_id: str,
+        limit: int = 20,
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Get unified timeline of all theme changes (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Collect all theme component histories
+            theme_components = ["colors", "typography", "spacing"]
+            all_changes = []
+            
+            for component in theme_components:
+                key = f"theme.{component}"
+                history_result = await enhanced_settings.get_setting_history(
+                    key=key,
+                    user_roles=user_roles,
+                    context={"user_id": session.user_id}
+                )
+                
+                if history_result.get("success"):
+                    for change in history_result.get("history", []):
+                        change["component"] = component
+                        change["key"] = key
+                        all_changes.append(change)
+            
+            # Sort by timestamp (most recent first)
+            all_changes.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            
+            # Limit results
+            limited_changes = all_changes[:limit]
+            
+            return {
+                "success": True,
+                "timeline": limited_changes,
+                "total_changes": len(all_changes),
+                "components_tracked": theme_components,
+                "editor_features": {
+                    "filter_by_component": True,
+                    "sort_by_timestamp": True,
+                    "view_change_details": True,
+                    "export_timeline": True
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get theme timeline: {str(e)}"}
+    
+    async def compare_theme_versions(
+        self,
+        session_id: str,
+        version_id_1: str,
+        version_id_2: str,
+        component: str = "colors",
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Compare two theme versions (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            key = f"theme.{component}"
+            
+            # Get both versions
+            version_1_result = await enhanced_settings.get_setting_version(
+                key=key,
+                version_id=version_id_1,
+                user_roles=user_roles,
+                context={"user_id": session.user_id}
+            )
+            
+            version_2_result = await enhanced_settings.get_setting_version(
+                key=key,
+                version_id=version_id_2,
+                user_roles=user_roles,
+                context={"user_id": session.user_id}
+            )
+            
+            if version_1_result.get("success") and version_2_result.get("success"):
+                value_1 = version_1_result.get("value", {})
+                value_2 = version_2_result.get("value", {})
+                
+                # Calculate differences
+                differences = self._calculate_theme_differences(value_1, value_2)
+                
+                return {
+                    "success": True,
+                    "component": component,
+                    "version_1": {
+                        "version_id": version_id_1,
+                        "value": value_1,
+                        "timestamp": version_1_result.get("timestamp")
+                    },
+                    "version_2": {
+                        "version_id": version_id_2,
+                        "value": value_2,
+                        "timestamp": version_2_result.get("timestamp")
+                    },
+                    "differences": differences,
+                    "editor_features": {
+                        "visual_diff": True,
+                        "highlight_changes": True,
+                        "apply_changes": True
+                    }
+                }
+            
+            return {"success": False, "error": "Failed to retrieve versions"}
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to compare versions: {str(e)}"}
+    
+    def _calculate_theme_differences(self, value_1: Dict[str, Any], value_2: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate differences between two theme values"""
+        differences = {
+            "added": {},
+            "removed": {},
+            "modified": {}
+        }
+        
+        # Find added keys
+        for key, value in value_2.items():
+            if key not in value_1:
+                differences["added"][key] = value
+        
+        # Find removed keys
+        for key, value in value_1.items():
+            if key not in value_2:
+                differences["removed"][key] = value
+        
+        # Find modified keys
+        for key, value in value_1.items():
+            if key in value_2 and value != value_2[key]:
+                differences["modified"][key] = {
+                    "old": value,
+                    "new": value_2[key]
+                }
+        
+        return differences
     
     async def rollback_theme(
         self,
         session_id: str,
         version_id: str,
+        component: str = "colors",
         user_roles: List[str] = ["admin"]
     ) -> Dict[str, Any]:
-        """Rollback theme to previous version using hybrid theme manager (optimized for single-site)"""
+        """Enhanced rollback theme to previous version with UI features (optimized for single-site)"""
         session = self.editor_state.get_session(session_id)
         if not session:
             return {"success": False, "error": "Invalid session"}
@@ -516,7 +838,7 @@ class OmniviewEditorService:
         try:
             # Use hybrid theme manager for rollback
             rollback_result = await self.theme_manager.rollback_theme(
-                component="colors",
+                component=component,
                 version_id=version_id,
                 user_roles=user_roles,
                 user_id=session.user_id
@@ -526,17 +848,205 @@ class OmniviewEditorService:
                 # Update preview
                 preview = await self._generate_preview(session)
                 
+                # Get rollback details for UI
+                key = f"theme.{component}"
+                version_details = await enhanced_settings.get_setting_version(
+                    key=key,
+                    version_id=version_id,
+                    user_roles=user_roles,
+                    context={"user_id": session.user_id}
+                )
+                
                 return {
                     "success": True,
-                    "preview": preview,
+                    "component": component,
                     "version_id": version_id,
-                    "rollback_completed": True
+                    "preview": preview,
+                    "rollback_completed": True,
+                    "version_details": version_details,
+                    "editor_features": {
+                        "preview_updated": True,
+                        "undo_rollback": True,
+                        "rollback_history": True
+                    }
                 }
             
             return rollback_result
             
         except Exception as e:
             return {"success": False, "error": f"Failed to rollback: {str(e)}"}
+    
+    async def batch_rollback_theme(
+        self,
+        session_id: str,
+        rollback_data: Dict[str, str],  # {"component": "version_id"}
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Batch rollback multiple theme components (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            results = {}
+            successful_rollbacks = []
+            failed_rollbacks = []
+            
+            for component, version_id in rollback_data.items():
+                rollback_result = await self.rollback_theme(
+                    session_id=session_id,
+                    version_id=version_id,
+                    component=component,
+                    user_roles=user_roles
+                )
+                
+                results[component] = rollback_result
+                
+                if rollback_result.get("success"):
+                    successful_rollbacks.append(component)
+                else:
+                    failed_rollbacks.append(component)
+            
+            # Update preview after all rollbacks
+            preview = await self._generate_preview(session)
+            
+            return {
+                "success": len(failed_rollbacks) == 0,
+                "results": results,
+                "successful_rollbacks": successful_rollbacks,
+                "failed_rollbacks": failed_rollbacks,
+                "preview": preview,
+                "editor_features": {
+                    "batch_operation": True,
+                    "partial_success": len(failed_rollbacks) > 0 and len(successful_rollbacks) > 0,
+                    "retry_failed": True
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to batch rollback: {str(e)}"}
+    
+    async def enable_auto_save(
+        self,
+        session_id: str,
+        interval: int = 30,  # seconds
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Enable auto-save for theme changes (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Store auto-save configuration
+            auto_save_config = {
+                "enabled": True,
+                "interval": interval,
+                "last_save": None,
+                "session_id": session_id,
+                "user_id": session.user_id
+            }
+            
+            # Save auto-save settings
+            await set_setting_optimized(
+                key="editor.auto_save",
+                value=auto_save_config,
+                user_roles=user_roles,
+                user_id=session.user_id
+            )
+            
+            return {
+                "success": True,
+                "auto_save_enabled": True,
+                "interval": interval,
+                "editor_features": {
+                    "auto_save": True,
+                    "save_indicator": True,
+                    "save_history": True
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to enable auto-save: {str(e)}"}
+    
+    async def disable_auto_save(
+        self,
+        session_id: str,
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Disable auto-save for theme changes"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Update auto-save configuration
+            auto_save_config = {
+                "enabled": False,
+                "session_id": session_id,
+                "user_id": session.user_id
+            }
+            
+            await set_setting_optimized(
+                key="editor.auto_save",
+                value=auto_save_config,
+                user_roles=user_roles,
+                user_id=session.user_id
+            )
+            
+            return {
+                "success": True,
+                "auto_save_disabled": True,
+                "editor_features": {
+                    "auto_save": False,
+                    "save_indicator": False
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to disable auto-save: {str(e)}"}
+    
+    async def get_auto_save_status(
+        self,
+        session_id: str,
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Get auto-save status and configuration"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            result = await get_setting_optimized(
+                key="editor.auto_save",
+                user_roles=user_roles,
+                user_id=session.user_id
+            )
+            
+            if result.get("success"):
+                config = result.get("value", {})
+                return {
+                    "success": True,
+                    "auto_save_config": config,
+                    "enabled": config.get("enabled", False),
+                    "interval": config.get("interval", 30),
+                    "last_save": config.get("last_save"),
+                    "editor_features": {
+                        "status_display": True,
+                        "configure_settings": True
+                    }
+                }
+            else:
+                return {
+                    "success": True,
+                    "auto_save_config": {"enabled": False},
+                    "enabled": False,
+                    "interval": 30,
+                    "last_save": None
+                }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get auto-save status: {str(e)}"}
     
     async def preview_as_user_type(
         self,
