@@ -49,6 +49,28 @@ from .session import (
     session_manager
 )
 
+# Import hybrid and enhanced settings
+from .hybrid import (
+    HybridSettingsManager,
+    hybrid_settings,
+    SettingValue,
+    SettingSource,
+    get_setting_hybrid,
+    set_setting_hybrid,
+    get_theme_settings
+)
+
+from .enhancements import (
+    EnhancedSettingsService,
+    enhanced_settings,
+    SettingVersion,
+    ValidationResult,
+    ValidationRule,
+    get_setting_cached,
+    set_setting_with_version,
+    get_setting_history
+)
+
 
 def register_addon_settings(addon_id: str, settings: list):
     """
@@ -103,6 +125,25 @@ __all__ = [
     "SessionConfig",
     "CookieConfig",
     "session_manager",
+    
+    # Hybrid Settings
+    "HybridSettingsManager",
+    "hybrid_settings",
+    "SettingValue",
+    "SettingSource",
+    "get_setting_hybrid",
+    "set_setting_hybrid",
+    "get_theme_settings",
+    
+    # Enhanced Settings
+    "EnhancedSettingsService",
+    "enhanced_settings",
+    "SettingVersion",
+    "ValidationResult",
+    "ValidationRule",
+    "get_setting_cached",
+    "set_setting_with_version",
+    "get_setting_history",
     
     # Utilities
     "register_addon_settings",
