@@ -489,9 +489,9 @@ class HybridSettingsManager:
     ) -> Optional[SettingValue]:
         """Get computed setting derived from other settings"""
         
-        # Define computed settings
+        # Define computed settings (optimized for single-site)
         computed_settings = {
-            "site.theme.combined": self._compute_combined_theme,
+            "theme.combined": self._compute_combined_theme,
             "user.preferences.all": self._compute_user_preferences,
             "platform.feature_flags": self._compute_feature_flags
         }
@@ -572,7 +572,7 @@ class HybridSettingsManager:
         frequent_keys = [
             "auth.session_timeout",
             "auth.jwt_expiry",
-            "site.theme.colors",
+            "theme.colors",
             "user.theme",
             "platform.debug_mode"
         ]
@@ -651,12 +651,12 @@ class HybridSettingsManager:
         user_roles: List[str],
         context: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Compute combined theme (site + user override)"""
-        site_theme = await self.get_setting("site.theme.colors", user_roles, context)
+        """Compute combined theme (platform + user override)"""
+        platform_theme = await self.get_setting("theme.colors", user_roles, context)
         user_theme = await self.get_setting("user.theme.override", user_roles, context)
         
-        # Merge user preferences with site theme
-        combined = site_theme.get("value", {})
+        # Merge user preferences with platform theme
+        combined = platform_theme.get("value", {})
         if user_theme.get("success"):
             combined.update(user_theme.get("value", {}))
         
@@ -764,11 +764,11 @@ async def get_theme_settings(
     user_roles: List[str],
     context: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    """Get all theme-related settings"""
+    """Get all theme-related settings (optimized for single-site)"""
     theme_keys = [
-        "site.theme.colors",
-        "site.theme.typography",
-        "site.theme.spacing",
+        "theme.colors",
+        "theme.typography",
+        "theme.spacing",
         "user.theme",
         "user.theme.override"
     ]

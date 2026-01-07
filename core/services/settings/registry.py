@@ -387,46 +387,122 @@ class SettingsRegistry:
         ))
         
         # ====================================================================
-        # Site Settings
+        # Platform Settings (Optimized for Single-Site)
         # ====================================================================
         
         self.register(SettingDefinition(
-            key="site.analytics.google_id",
+            key="analytics.google_id",
             name="Google Analytics ID",
             description="Google Analytics tracking ID",
             type=SettingType.STRING,
-            scope=SettingScope.SITE,
+            scope=SettingScope.PLATFORM,  # Changed from SITE to PLATFORM for single-site
             sensitivity=SettingSensitivity.INTERNAL,
             category="analytics",
-            read_permission=("site", "read"),
-            write_permission=("site", "update"),
+            read_permission=("analytics", "read"),
+            write_permission=("analytics", "update"),
             placeholder="UA-XXXXXXXXX-X"
         ))
         
         self.register(SettingDefinition(
-            key="site.seo.title",
+            key="seo.title",
             name="Default Site Title",
             description="Default title for SEO",
             type=SettingType.STRING,
-            scope=SettingScope.SITE,
+            scope=SettingScope.PLATFORM,  # Changed from SITE to PLATFORM for single-site
             sensitivity=SettingSensitivity.PUBLIC,
             category="seo",
-            read_permission=("site", "read"),
-            write_permission=("site", "update"),
+            read_permission=("seo", "read"),
+            write_permission=("seo", "update"),
             placeholder="My Awesome Site"
         ))
         
         self.register(SettingDefinition(
-            key="site.seo.description",
+            key="seo.description",
             name="Default Meta Description",
             description="Default meta description for SEO",
             type=SettingType.STRING,
-            scope=SettingScope.SITE,
+            scope=SettingScope.PLATFORM,  # Changed from SITE to PLATFORM for single-site
             sensitivity=SettingSensitivity.PUBLIC,
             category="seo",
-            read_permission=("site", "read"),
-            write_permission=("site", "update"),
+            read_permission=("seo", "read"),
+            write_permission=("seo", "update"),
             placeholder="A brief description of your site"
+        ))
+        
+        # ====================================================================
+        # Theme Settings (Optimized for Single-Site)
+        # ====================================================================
+        
+        self.register(SettingDefinition(
+            key="theme.colors",
+            name="Theme Colors",
+            description="Color scheme for the application theme",
+            type=SettingType.JSON,
+            scope=SettingScope.PLATFORM,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default={
+                "primary": "#3b82f6",
+                "secondary": "#8b5cf6", 
+                "accent": "#ec4899",
+                "neutral": "#6b7280",
+                "base_100": "#ffffff",
+                "base_200": "#f3f4f6",
+                "base_300": "#e5e7eb",
+                "info": "#3abff8",
+                "success": "#36d399",
+                "warning": "#fbbd23",
+                "error": "#f87272"
+            },
+            category="theme",
+            read_permission=("theme", "read"),
+            write_permission=("theme", "update"),
+            ui_component="json",
+            help_text="JSON object with theme color definitions"
+        ))
+        
+        self.register(SettingDefinition(
+            key="theme.typography",
+            name="Theme Typography",
+            description="Typography settings for the application theme",
+            type=SettingType.JSON,
+            scope=SettingScope.PLATFORM,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default={
+                "font_family_primary": "Inter, system-ui, sans-serif",
+                "font_family_secondary": "Georgia, serif",
+                "font_family_mono": "Menlo, monospace",
+                "font_size_base": "16px",
+                "font_size_scale": 1.25,
+                "line_height_base": 1.6,
+                "line_height_heading": 1.2
+            },
+            category="theme",
+            read_permission=("theme", "read"),
+            write_permission=("theme", "update"),
+            ui_component="json",
+            help_text="JSON object with typography settings"
+        ))
+        
+        self.register(SettingDefinition(
+            key="theme.spacing",
+            name="Theme Spacing",
+            description="Spacing and layout settings for the application theme",
+            type=SettingType.JSON,
+            scope=SettingScope.PLATFORM,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default={
+                "container_max_width": "1280px",
+                "section_padding": "4rem",
+                "element_gap": "1rem",
+                "border_radius_sm": "0.25rem",
+                "border_radius_md": "0.5rem",
+                "border_radius_lg": "1rem"
+            },
+            category="theme",
+            read_permission=("theme", "read"),
+            write_permission=("theme", "update"),
+            ui_component="json",
+            help_text="JSON object with spacing and layout settings"
         ))
         
         # ====================================================================
@@ -446,6 +522,21 @@ class SettingsRegistry:
             options=["light", "dark", "auto"],
             read_permission=("user", "read"),
             write_permission=("user", "update")
+        ))
+        
+        self.register(SettingDefinition(
+            key="user.theme.override",
+            name="Theme Override",
+            description="User's custom theme color overrides",
+            type=SettingType.JSON,
+            scope=SettingScope.USER,
+            sensitivity=SettingSensitivity.PUBLIC,
+            default={},
+            category="preferences",
+            read_permission=("user", "read"),
+            write_permission=("user", "update"),
+            ui_component="json",
+            help_text="JSON object with custom color overrides"
         ))
         
         self.register(SettingDefinition(
