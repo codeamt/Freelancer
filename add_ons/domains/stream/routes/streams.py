@@ -20,8 +20,7 @@ from add_ons.domains.stream.services.video_streaming_service import (
     get_video_file_stream,
     video_streaming_service
 )
-from core.integrations.storage.s3_client import StorageService
-from core.integrations.storage.models import UploadUrlRequest
+from core.integrations.storage import StorageService, UploadUrlRequest
 
 
 logger = get_logger(__name__)
