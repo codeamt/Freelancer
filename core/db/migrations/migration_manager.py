@@ -24,7 +24,7 @@ class MigrationManager:
     
     def __init__(self, postgres: PostgresAdapter, migrations_dir: str = None):
         self.postgres = postgres
-        self.migrations_dir = migrations_dir or Path(__file__).parent.parent.parent / "migrations"
+        self.migrations_dir = migrations_dir or Path(__file__).parent
         self.migrations: Dict[str, Migration] = {}
         self._initialized = False
     
