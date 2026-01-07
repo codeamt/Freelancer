@@ -10,7 +10,9 @@ import hashlib
 import io
 import json
 import time
-from typing import Optional, Dict, List, Union, BinaryIO, Any
+import mimetypes
+import os
+from typing import Optional, Dict, List, Union, BinaryIO, Any, Set
 from datetime import datetime, timedelta
 
 from core.utils.cache import cache
@@ -30,8 +32,145 @@ from core.integrations.storage import (
     StorageError
 )
 from core.utils.logger import get_logger
+from core.exceptions import ValidationError
 
 logger = get_logger(__name__)
+
+
+# File validation configuration
+class FileValidationConfig:
+    """Configuration for file validation rules"""
+    
+    # Default allowed extensions (can be overridden per domain)
+    DEFAULT_ALLOWED_EXTENSIONS = {
+        'image': {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'},
+        'document': {'.pdf', '.doc', '.docx', '.txt', '.rtf', '.odt'},
+        'spreadsheet': {'.xls', '.xlsx', '.csv', '.ods'},
+        'presentation': {'.ppt', '.pptx', '.odp'},
+        'video': {'.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm'},
+        'audio': {'.mp3', '.wav', '.ogg', '.flac', '.aac'},
+        'archive': {'.zip', '.rar', '.7z', '.tar', '.gz'}
+    }
+    
+    # Default file size limits (in bytes)
+    DEFAULT_SIZE_LIMITS = {
+        'image': 10 * 1024 * 1024,      # 10MB
+        'document': 50 * 1024 * 1024,   # 50MB
+        'spreadsheet': 20 * 1024 * 1024, # 20MB
+        'presentation': 100 * 1024 * 1024, # 100MB
+        'video': 500 * 1024 * 1024,    # 500MB
+        'audio': 50 * 1024 * 1024,     # 50MB
+        'archive': 100 * 1024 * 1024,  # 100MB
+        'default': 10 * 1024 * 1024     # 10MB
+    }
+    
+    # Dangerous file extensions to block
+    BLOCKED_EXTENSIONS = {
+        '.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs', '.js', '.jar',
+        '.app', '.deb', '.pkg', '.dmg', '.rpm', '.msi', '.dll', '.so', '.dylib'
+    }
+    
+    # MIME types that should be blocked
+    BLOCKED_MIME_TYPES = {
+        'application/x-executable',
+        'application/x-msdownload',
+        'application/x-msdos-program',
+        'application/x-sh',
+        'application/x-shellscript'
+    }
+
+
+# Quota management
+class FileQuotaManager:
+    """Manages file storage quotas per domain and user"""
+    
+    def __init__(self):
+        # Default quotas (in bytes)
+        self.default_quotas = {
+            'app': {
+                'total_storage': 5 * 1024 * 1024 * 1024,  # 5GB per domain
+                'file_count': 10000,
+                'max_file_size': 100 * 1024 * 1024        # 100MB per file
+            },
+            'user': {
+                'total_storage': 1 * 1024 * 1024 * 1024,  # 1GB per user
+                'file_count': 1000,
+                'max_file_size': 50 * 1024 * 1024         # 50MB per file
+            }
+        }
+        
+        # Domain-specific quotas (can override defaults)
+        self.domain_quotas = {}
+    
+    def get_quota(self, domain: str, level: StorageLevel, user_id: Optional[str] = None) -> Dict[str, int]:
+        """Get quota limits for a specific domain/level/user"""
+        level_key = 'app' if level == StorageLevel.APP else 'user'
+        
+        # Start with default quotas
+        quota = self.default_quotas[level_key].copy()
+        
+        # Apply domain-specific overrides if any
+        if domain in self.domain_quotas and level_key in self.domain_quotas[domain]:
+            quota.update(self.domain_quotas[domain][level_key])
+        
+        return quota
+    
+    async def check_quota(self, domain: str, level: StorageLevel, user_id: Optional[str] = None, 
+                         file_size: int = 0) -> Dict[str, Any]:
+        """Check if upload would exceed quota limits"""
+        quota = self.get_quota(domain, level, user_id)
+        
+        # Get current usage (this would need to be implemented with actual storage stats)
+        current_usage = await self._get_current_usage(domain, level, user_id)
+        
+        # Check file size limit
+        if file_size > quota['max_file_size']:
+            return {
+                'allowed': False,
+                'reason': 'file_size_exceeded',
+                'message': f'File size {file_size} exceeds maximum allowed size {quota["max_file_size"]}'
+            }
+        
+        # Check storage quota
+        if current_usage['total_storage'] + file_size > quota['total_storage']:
+            return {
+                'allowed': False,
+                'reason': 'storage_quota_exceeded',
+                'message': f'Storage quota would be exceeded. Current: {current_usage["total_storage"]}, Limit: {quota["total_storage"]}'
+            }
+        
+        # Check file count quota
+        if current_usage['file_count'] >= quota['file_count']:
+            return {
+                'allowed': False,
+                'reason': 'file_count_exceeded',
+                'message': f'File count quota exceeded. Current: {current_usage["file_count"]}, Limit: {quota["file_count"]}'
+            }
+        
+        return {
+            'allowed': True,
+            'quota_remaining': quota['total_storage'] - current_usage['total_storage'] - file_size,
+            'files_remaining': quota['file_count'] - current_usage['file_count']
+        }
+    
+    async def _get_current_usage(self, domain: str, level: StorageLevel, user_id: Optional[str] = None) -> Dict[str, int]:
+        """Get current storage usage statistics"""
+        # This is a placeholder - would need to be implemented with actual storage tracking
+        # For now, return zero usage
+        return {
+            'total_storage': 0,
+            'file_count': 0
+        }
+    
+    def set_domain_quota(self, domain: str, level: StorageLevel, quota_config: Dict[str, int]) -> None:
+        """Set custom quota for a specific domain"""
+        level_key = 'app' if level == StorageLevel.APP else 'user'
+        
+        if domain not in self.domain_quotas:
+            self.domain_quotas[domain] = {}
+        
+        self.domain_quotas[domain][level_key] = quota_config
+        logger.info(f"Set custom quota for domain {domain} ({level_key}): {quota_config}")
 
 
 class FileManager:
@@ -50,6 +189,8 @@ class FileManager:
         """Initialize FileManager with optional custom storage service"""
         self.storage = storage_service or StorageService()
         self.cache_ttl = 3600  # 1 hour default cache TTL
+        self.validation_config = FileValidationConfig()
+        self.quota_manager = FileQuotaManager()
         
     def _generate_cache_key(self, domain: str, level: StorageLevel, filename: str, user_id: Optional[str] = None) -> str:
         """Generate cache key for file operations"""
@@ -69,6 +210,106 @@ class FileManager:
         else:
             return f"list:{domain}:user:{user_id}:{prefix}"
     
+    def _validate_file(self, filename: str, file_data: Union[bytes, BinaryIO], content_type: str, 
+                      domain: str, allowed_extensions: Optional[Set[str]] = None) -> Dict[str, Any]:
+        """Validate file against security rules and limits"""
+        # Get file size
+        if isinstance(file_data, (bytes, bytearray)):
+            file_size = len(file_data)
+        else:
+            # For file-like objects, get size by seeking to end
+            current_pos = file_data.tell() if hasattr(file_data, 'tell') else 0
+            file_data.seek(0, 2)  # Seek to end
+            file_size = file_data.tell() if hasattr(file_data, 'tell') else 0
+            file_data.seek(current_pos)  # Reset position
+        
+        # Check filename
+        if not filename or '..' in filename or filename.startswith('/'):
+            return {
+                'valid': False,
+                'error': 'INVALID_FILENAME',
+                'message': 'Invalid filename provided'
+            }
+        
+        # Get file extension
+        file_ext = os.path.splitext(filename)[1].lower()
+        
+        # Check blocked extensions
+        if file_ext in self.validation_config.BLOCKED_EXTENSIONS:
+            return {
+                'valid': False,
+                'error': 'BLOCKED_EXTENSION',
+                'message': f'File extension {file_ext} is not allowed'
+            }
+        
+        # Check MIME type
+        if content_type in self.validation_config.BLOCKED_MIME_TYPES:
+            return {
+                'valid': False,
+                'error': 'BLOCKED_MIME_TYPE',
+                'message': f'MIME type {content_type} is not allowed'
+            }
+        
+        # Validate MIME type matches extension
+        expected_mime, _ = mimetypes.guess_type(filename)
+        if expected_mime and content_type != expected_mime:
+            # Allow some flexibility for common types
+            if not (expected_mime.startswith('text/') and content_type.startswith('text/') or
+                   expected_mime.startswith('image/') and content_type.startswith('image/') or
+                   expected_mime.startswith('application/') and content_type.startswith('application/')):
+                logger.warning(f"MIME type mismatch: expected {expected_mime}, got {content_type}")
+        
+        # Check allowed extensions if specified
+        if allowed_extensions and file_ext not in allowed_extensions:
+            return {
+                'valid': False,
+                'error': 'EXTENSION_NOT_ALLOWED',
+                'message': f'File extension {file_ext} is not in allowed list'
+            }
+        
+        # Determine file category and size limit
+        file_category = self._get_file_category(file_ext, content_type)
+        size_limit = self.validation_config.DEFAULT_SIZE_LIMITS.get(file_category, 
+                                                                   self.validation_config.DEFAULT_SIZE_LIMITS['default'])
+        
+        # Check file size
+        if file_size > size_limit:
+            return {
+                'valid': False,
+                'error': 'FILE_TOO_LARGE',
+                'message': f'File size {file_size} exceeds limit {size_limit} for {file_category} files'
+            }
+        
+        return {
+            'valid': True,
+            'file_size': file_size,
+            'file_category': file_category,
+            'file_extension': file_ext
+        }
+    
+    def _get_file_category(self, file_ext: str, content_type: str) -> str:
+        """Determine file category based on extension and MIME type"""
+        # Check by extension first
+        for category, extensions in self.validation_config.DEFAULT_ALLOWED_EXTENSIONS.items():
+            if file_ext in extensions:
+                return category
+        
+        # Check by MIME type
+        if content_type.startswith('image/'):
+            return 'image'
+        elif content_type.startswith('video/'):
+            return 'video'
+        elif content_type.startswith('audio/'):
+            return 'audio'
+        elif content_type.startswith('text/'):
+            return 'document'
+        elif 'pdf' in content_type:
+            return 'document'
+        elif 'zip' in content_type or 'archive' in content_type:
+            return 'archive'
+        
+        return 'default'
+    
     async def upload_file(
         self,
         domain: str,
@@ -80,10 +321,12 @@ class FileManager:
         metadata: Optional[Dict[str, str]] = None,
         compress: bool = False,
         encrypt: bool = True,
-        cache_content: bool = True
+        cache_content: bool = True,
+        allowed_extensions: Optional[Set[str]] = None,
+        skip_validation: bool = False
     ) -> Dict[str, Any]:
         """
-        Upload file with caching support
+        Upload file with caching support, validation, and quota checking
         
         Args:
             domain: Domain name for isolation
@@ -96,19 +339,58 @@ class FileManager:
             compress: Whether to compress the file
             encrypt: Whether to encrypt the file
             cache_content: Whether to cache file content in memory
+            allowed_extensions: Optional set of allowed file extensions
+            skip_validation: Skip validation checks (for system uploads)
             
         Returns:
             Dict with upload result and metadata
         """
         try:
-            # Prepare request
+            # Validate file unless explicitly skipped
+            validation_result = {'valid': True, 'file_size': 0}
+            if not skip_validation:
+                validation_result = self._validate_file(filename, file_data, content_type, domain, allowed_extensions)
+                if not validation_result['valid']:
+                    logger.error(f"File validation failed: {validation_result['message']}")
+                    return {
+                        'success': False,
+                        'error': validation_result['error'],
+                        'message': validation_result['message']
+                    }
+            
+            # Check quota
+            quota_check = await self.quota_manager.check_quota(
+                domain=domain,
+                level=level,
+                user_id=user_id,
+                file_size=validation_result.get('file_size', 0)
+            )
+            
+            if not quota_check['allowed']:
+                logger.error(f"Quota check failed: {quota_check['message']}")
+                return {
+                    'success': False,
+                    'error': quota_check['reason'],
+                    'message': quota_check['message']
+                }
+            
+            # Prepare request with enhanced metadata
+            enhanced_metadata = metadata or {}
+            if not skip_validation:
+                enhanced_metadata.update({
+                    'file_category': validation_result.get('file_category', 'unknown'),
+                    'file_extension': validation_result.get('file_extension', ''),
+                    'validated_at': datetime.utcnow().isoformat(),
+                    'quota_remaining': str(quota_check.get('quota_remaining', 0))
+                })
+            
             request = FileUploadRequest(
                 domain=domain,
                 level=level,
                 filename=filename,
                 content_type=content_type,
                 user_id=user_id,
-                metadata=metadata or {},
+                metadata=enhanced_metadata,
                 compress=compress,
                 encrypt=encrypt
             )
@@ -516,6 +798,72 @@ class FileManager:
             
             logger.info(f"Invalidated list cache for domain: {domain}, level: {level}")
     
+    def get_quota_info(self, domain: str, level: StorageLevel, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get quota information for a domain/level/user
+        
+        Args:
+            domain: Domain name
+            level: Storage level
+            user_id: User ID (required for USER level)
+            
+        Returns:
+            Dict with quota information
+        """
+        quota = self.quota_manager.get_quota(domain, level, user_id)
+        return {
+            'domain': domain,
+            'level': level.value,
+            'user_id': user_id,
+            'total_storage_quota': quota['total_storage'],
+            'file_count_quota': quota['file_count'],
+            'max_file_size': quota['max_file_size'],
+            'total_storage_quota_mb': quota['total_storage'] // (1024 * 1024),
+            'max_file_size_mb': quota['max_file_size'] // (1024 * 1024)
+        }
+    
+    def set_domain_quota(self, domain: str, level: StorageLevel, quota_config: Dict[str, int]) -> None:
+        """
+        Set custom quota for a specific domain
+        
+        Args:
+            domain: Domain name
+            level: Storage level
+            quota_config: Dict with 'total_storage', 'file_count', 'max_file_size'
+        """
+        self.quota_manager.set_domain_quota(domain, level, quota_config)
+    
+    def get_allowed_extensions(self, category: Optional[str] = None) -> Set[str]:
+        """
+        Get allowed file extensions
+        
+        Args:
+            category: Optional file category (image, document, etc.)
+            
+        Returns:
+            Set of allowed extensions
+        """
+        if category and category in self.validation_config.DEFAULT_ALLOWED_EXTENSIONS:
+            return self.validation_config.DEFAULT_ALLOWED_EXTENSIONS[category]
+        
+        # Return all allowed extensions
+        all_extensions = set()
+        for extensions in self.validation_config.DEFAULT_ALLOWED_EXTENSIONS.values():
+            all_extensions.update(extensions)
+        return all_extensions
+    
+    def set_domain_allowed_extensions(self, domain: str, extensions: Set[str]) -> None:
+        """
+        Set custom allowed extensions for a domain
+        
+        Args:
+            domain: Domain name
+            extensions: Set of allowed extensions
+        """
+        # This would need to be stored and used in validation
+        # For now, just log it
+        logger.info(f"Set custom allowed extensions for domain {domain}: {extensions}")
+    
     async def get_file_info_hash(
         self,
         domain: str,
@@ -548,6 +896,29 @@ file_manager = FileManager()
 
 
 # Convenience functions for add-ons
+async def upload_file_with_validation(
+    domain: str,
+    level: StorageLevel,
+    filename: str,
+    file_data: Union[bytes, BinaryIO],
+    content_type: str = "application/octet-stream",
+    user_id: Optional[str] = None,
+    allowed_extensions: Optional[Set[str]] = None,
+    **kwargs
+) -> Dict[str, Any]:
+    """Convenience function for file upload with validation and quota checking"""
+    return await file_manager.upload_file(
+        domain=domain,
+        level=level,
+        filename=filename,
+        file_data=file_data,
+        content_type=content_type,
+        user_id=user_id,
+        allowed_extensions=allowed_extensions,
+        **kwargs
+    )
+
+
 async def upload_file_with_cache(
     domain: str,
     level: StorageLevel,
@@ -557,7 +928,7 @@ async def upload_file_with_cache(
     user_id: Optional[str] = None,
     **kwargs
 ) -> Dict[str, Any]:
-    """Convenience function for file upload with caching"""
+    """Convenience function for file upload with caching (backward compatibility)"""
     return await file_manager.upload_file(
         domain=domain,
         level=level,
@@ -604,7 +975,10 @@ async def get_cached_file_metadata(
 __all__ = [
     'FileManager',
     'file_manager',
+    'upload_file_with_validation',
     'upload_file_with_cache',
     'download_file_with_cache',
-    'get_cached_file_metadata'
+    'get_cached_file_metadata',
+    'FileValidationConfig',
+    'FileQuotaManager'
 ]

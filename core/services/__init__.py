@@ -75,9 +75,12 @@ from core.integrations.huggingface import HuggingFaceClient
 from core.services.file_manager import (
     FileManager,
     file_manager,
+    upload_file_with_validation,
     upload_file_with_cache,
     download_file_with_cache,
-    get_cached_file_metadata
+    get_cached_file_metadata,
+    FileValidationConfig,
+    FileQuotaManager
 )
 
 # Keep UserService from old auth for backwards compatibility (if needed)
@@ -138,9 +141,12 @@ __all__ = [
     # File Manager
     'FileManager',
     'file_manager',
+    'upload_file_with_validation',
     'upload_file_with_cache',
     'download_file_with_cache',
     'get_cached_file_metadata',
+    'FileValidationConfig',
+    'FileQuotaManager',
     # Service Registry
     'ServiceRegistry',
     'get_service_registry',
