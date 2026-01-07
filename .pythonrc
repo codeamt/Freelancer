@@ -1,0 +1,30 @@
+"""
+Python configuration to disable pycache and optimize imports.
+"""
+
+import sys
+import os
+
+# Disable pycache creation
+sys.dont_write_bytecode = True
+
+# Optimize Python path for faster imports
+if 'PYTHONPATH' in os.environ:
+    sys.path.insert(0, os.environ['PYTHONPATH'])
+
+# Remove site-packages duplicates
+original_path = sys.path[:]
+seen = set()
+optimized_path = []
+for path in original_path:
+    if path not in seen:
+        seen.add(path)
+        optimized_path.append(path)
+sys.path = optimized_path
+
+# Set environment variable to prevent pycache
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+
+print("✅ Python configuration loaded:")
+print("   🚫 Pycache disabled")
+print("   ⚡ Import path optimized")

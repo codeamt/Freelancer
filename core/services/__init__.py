@@ -71,6 +71,15 @@ from core.integrations.stripe import StripeClient
 from core.integrations.web3 import Web3Client
 from core.integrations.huggingface import HuggingFaceClient
 
+# Import file manager
+from core.services.file_manager import (
+    FileManager,
+    file_manager,
+    upload_file_with_cache,
+    download_file_with_cache,
+    get_cached_file_metadata
+)
+
 # Keep UserService from old auth for backwards compatibility (if needed)
 try:
     from .auth import UserService
@@ -126,6 +135,12 @@ __all__ = [
     'StripeClient',
     'Web3Client',
     'HuggingFaceClient',
+    # File Manager
+    'FileManager',
+    'file_manager',
+    'upload_file_with_cache',
+    'download_file_with_cache',
+    'get_cached_file_metadata',
     # Service Registry
     'ServiceRegistry',
     'get_service_registry',

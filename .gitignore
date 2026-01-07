@@ -2,15 +2,16 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Prevent creation of bytecode files
-.env
+*.pyo
+*.pyd
+*.pyc
+.Python
 
 # C extensions
 *.so
 
 # Distribution / packaging
-.Python
+.egg
 build/
 develop-eggs/
 dist/
@@ -26,8 +27,28 @@ wheels/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
-*.egg
 MANIFEST
+
+# Pytest and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Prevent creation of bytecode files
+.env
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

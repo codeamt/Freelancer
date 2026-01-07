@@ -208,6 +208,14 @@ class StorageService(BaseStorageService):
         
         self.fernet = Fernet(self.encryption_key.encode())
         logger.info(f"StorageService initialized for bucket: {self.bucket}")
+    
+    def get_module_prefix(self) -> str:
+        """Get the storage prefix for this module"""
+        return "storage"
+    
+    def get_storage_path(self) -> str:
+        """Get the storage path for this module"""
+        return f"{self.get_module_prefix()}/"
 
     def _build_storage_path(self, domain: str, level: StorageLevel, filename: str, user_id: Optional[str] = None) -> str:
         """Build storage path based on isolation level"""
