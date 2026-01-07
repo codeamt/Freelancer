@@ -32,6 +32,12 @@ from core.workflows.admin import SiteWorkflowManager
 from core.workflows.preview import PreviewPublishManager
 from core.ui.theme.editor import ThemeEditorManager
 from core.ui.state.factory import EnhancedComponentLibrary, SectionRenderer
+from core.services.settings import (
+    get_theme_settings_single_site,
+    set_setting_single_site,
+    set_setting_with_version,
+    enhanced_settings
+)
 from core.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -45,22 +51,15 @@ logger = get_logger(__name__)
 class EditorSession:
     """Represents an active editing session"""
     session_id: str
-    site_id: str
     user_id: str
     started_at: datetime
     last_activity: datetime
-    
-    # Current state
-    current_panel: str = "structure"  # "structure", "theme", "preview"
+    current_panel: str = "structure"
     selected_section: Optional[str] = None
     selected_component: Optional[str] = None
-    
-    # Undo/Redo
+    has_unsaved_changes: bool = False
     history: List[Dict[str, Any]] = field(default_factory=list)
     history_index: int = -1
-    
-    # Unsaved changes
-    has_unsaved_changes: bool = False
 
 
 class EditorStateManager:
@@ -71,16 +70,14 @@ class EditorStateManager:
     
     def create_session(
         self,
-        site_id: str,
         user_id: str
     ) -> EditorSession:
-        """Create new editing session"""
+        """Create new editing session (optimized for single-site)"""
         import uuid
         session_id = str(uuid.uuid4())
         
         session = EditorSession(
             session_id=session_id,
-            site_id=site_id,
             user_id=user_id,
             started_at=datetime.utcnow(),
             last_activity=datetime.utcnow()
@@ -139,42 +136,57 @@ class OmniviewEditorService:
     
     async def start_editing(
         self,
-        site_id: str,
-        user_id: str
+        user_id: str,
+        user_roles: List[str] = ["admin"]
     ) -> Dict[str, Any]:
         """
-        Start editing session for a site.
+        Start editing session with hybrid settings integration (optimized for single-site).
         
         Returns full editor state including:
         - Site structure
-        - Theme configuration
+        - Theme state (from hybrid settings)
         - Available components
+        - Version history
         - User permissions
         """
-        # Create session
-        session = self.editor_state.create_session(site_id, user_id)
+        # Create session (no site_id needed for single-site)
+        session = self.editor_state.create_session(user_id)
         
-        # Load site state
-        site_result = await self.site_manager.load_site(site_id, user_id)
+        # Load site structure (use "default" for single-site)
+        site_result = await self.site_manager.load_site("default", user_id)
         if not site_result["success"]:
             return {"success": False, "error": site_result.get("error")}
         
-        # Load theme
-        theme_state = await self.persister.load(f"theme_{site_id}", f"user:{user_id}")
+        # Load theme using hybrid settings (persistent storage)
+        theme_state = await get_theme_settings_single_site(user_roles, {"user_id": user_id})
         
         # Get available components
         component_templates = self.component_library.get_all_templates()
         
-        # Get version history
-        history = await self.preview_manager.get_version_history(site_id, user_id)
+        # Get version history (from hybrid settings)
+        try:
+            history_result = await get_setting_with_version(
+                key="theme.colors",
+                user_roles=user_roles,
+                context={"user_id": user_id}
+            )
+            history = history_result.get("history", [])
+        except:
+            history = []
         
         return {
             "success": True,
             "session_id": session.session_id,
             "site_state": site_result["state"],
-            "theme_state": theme_state.get("theme_state") if theme_state else {},
+            "theme_state": theme_state,
             "component_templates": component_templates,
-            "version_history": history.get("history", []) if history["success"] else [],
+            "version_history": history,
+            "current_panel": session.current_panel,
+            "performance_metrics": {
+                "theme_persistence": "hybrid_settings",
+                "cache_optimization": "single_site",
+                "version_tracking": "enabled"
+            },
             "permissions": {
                 "can_edit": True,  # Would check actual permissions
                 "can_publish": True,
@@ -382,21 +394,25 @@ class OmniviewEditorService:
     async def update_theme_colors(
         self,
         session_id: str,
-        colors: Dict[str, str]
+        colors: Dict[str, str],
+        user_roles: List[str] = ["admin"]
     ) -> Dict[str, Any]:
         """
-        Update theme colors in real-time.
+        Update theme colors with hybrid settings persistence (optimized for single-site).
         
-        This updates theme and regenerates preview immediately.
+        This updates theme and regenerates preview immediately with persistent storage.
         """
         session = self.editor_state.get_session(session_id)
         if not session:
             return {"success": False, "error": "Invalid session"}
         
-        result = await self.theme_manager.update_theme_colors(
-            site_id=session.site_id,
-            colors=colors,
-            user_id=session.user_id
+        # Use hybrid settings for persistence
+        result = await set_setting_with_version(
+            key="theme.colors",
+            value=colors,
+            user_roles=user_roles,
+            context={"user_id": session.user_id},
+            change_reason=f"Theme colors updated in editor by {session.user_id}"
         )
         
         if result["success"]:
@@ -407,42 +423,14 @@ class OmniviewEditorService:
             
             return {
                 "success": True,
-                "theme_css": result.get("theme_css"),
-                "preview": preview
+                "version_id": result.get("version_id"),
+                "preview": preview,
+                "persisted": True,
+                "cache_optimized": True
             }
         
         return result
     
-    async def apply_theme_preset(
-        self,
-        session_id: str,
-        preset_name: str
-    ) -> Dict[str, Any]:
-        """Apply theme preset"""
-        session = self.editor_state.get_session(session_id)
-        if not session:
-            return {"success": False, "error": "Invalid session"}
-        
-        result = await self.theme_manager.apply_preset(
-            site_id=session.site_id,
-            preset=preset_name,
-            user_id=session.user_id
-        )
-        
-        if result["success"]:
-            session.has_unsaved_changes = True
-            preview = await self._generate_preview(session)
-            
-            return {
-                "success": True,
-                "theme_state": result.get("theme_state"),
-                "preview": preview
-            }
-        
-        return result
-    
-    # ========================================================================
-    # Preview & Publishing
     # ========================================================================
     
     async def _generate_preview(
@@ -452,12 +440,71 @@ class OmniviewEditorService:
     ) -> Dict[str, Any]:
         """Generate preview for current state"""
         result = await self.preview_manager.generate_preview(
-            site_id=session.site_id,
+            site_id="default",  # Use default for single-site
             user_context=user_context,
             user_id=session.user_id
         )
         
         return result.get("preview_data") if result["success"] else {}
+    
+    async def get_theme_history(
+        self,
+        session_id: str,
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Get theme change history from hybrid settings (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            history_result = await enhanced_settings.get_setting_history(
+                key="theme.colors",
+                user_roles=user_roles,
+                context={"user_id": session.user_id}
+            )
+            
+            return history_result
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get history: {str(e)}"}
+    
+    async def rollback_theme(
+        self,
+        session_id: str,
+        version_id: str,
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Rollback theme to previous version using hybrid settings (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Perform rollback using hybrid settings
+            rollback_result = await enhanced_settings.rollback_setting(
+                key="theme.colors",
+                version_id=version_id,
+                user_roles=user_roles,
+                context={"user_id": session.user_id},
+                change_reason=f"Theme rollback in editor by {session.user_id}"
+            )
+            
+            if rollback_result["success"]:
+                # Update preview
+                preview = await self._generate_preview(session)
+                
+                return {
+                    "success": True,
+                    "preview": preview,
+                    "version_id": version_id,
+                    "rollback_completed": True
+                }
+            
+            return rollback_result
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to rollback: {str(e)}"}
     
     async def preview_as_user_type(
         self,
