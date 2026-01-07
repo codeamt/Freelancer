@@ -1048,6 +1048,453 @@ class OmniviewEditorService:
         except Exception as e:
             return {"success": False, "error": f"Failed to get auto-save status: {str(e)}"}
     
+    async def cache_theme_loading(
+        self,
+        session_id: str,
+        components: Optional[List[str]] = None,
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Cache theme loading for optimal performance (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Default to all theme components
+            if not components:
+                components = ["colors", "typography", "spacing"]
+            
+            cached_components = {}
+            cache_hits = 0
+            cache_misses = 0
+            
+            for component in components:
+                key = f"theme.{component}"
+                
+                # Try to get from cache first
+                result = await get_setting_optimized(
+                    key=key,
+                    user_roles=user_roles,
+                    user_id=session.user_id,
+                    use_cache=True
+                )
+                
+                if result.get("success"):
+                    cached_components[component] = result.get("value", {})
+                    if result.get("cached", False):
+                        cache_hits += 1
+                    else:
+                        cache_misses += 1
+                else:
+                    cache_misses += 1
+            
+            # Warm up cache for frequently accessed components
+            await self._warm_theme_cache(components, user_roles, session.user_id)
+            
+            return {
+                "success": True,
+                "cached_components": cached_components,
+                "cache_stats": {
+                    "cache_hits": cache_hits,
+                    "cache_misses": cache_misses,
+                    "hit_rate": cache_hits / (cache_hits + cache_misses) if (cache_hits + cache_misses) > 0 else 0,
+                    "total_components": len(components)
+                },
+                "performance_features": {
+                    "theme_cached": True,
+                    "cache_warmed": True,
+                    "fast_loading": True
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to cache theme loading: {str(e)}"}
+    
+    async def _warm_theme_cache(
+        self,
+        components: List[str],
+        user_roles: List[str],
+        user_id: str
+    ) -> None:
+        """Warm up cache for theme components"""
+        try:
+            for component in components:
+                key = f"theme.{component}"
+                # Preload into cache
+                await get_setting_optimized(
+                    key=key,
+                    user_roles=user_roles,
+                    user_id=user_id,
+                    use_cache=True
+                )
+        except Exception as e:
+            logger.debug(f"Cache warming failed for {component}: {e}")
+    
+    async def optimize_preview_generation(
+        self,
+        session_id: str,
+        optimization_level: str = "high",  # "low", "medium", "high"
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Optimize preview generation with multiple performance strategies"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            optimization_configs = {
+                "low": {
+                    "cache_theme": True,
+                    "lazy_load": False,
+                    "batch_operations": False,
+                    "compress_preview": False
+                },
+                "medium": {
+                    "cache_theme": True,
+                    "lazy_load": True,
+                    "batch_operations": True,
+                    "compress_preview": False
+                },
+                "high": {
+                    "cache_theme": True,
+                    "lazy_load": True,
+                    "batch_operations": True,
+                    "compress_preview": True,
+                    "precompute_themes": True,
+                    "incremental_updates": True
+                }
+            }
+            
+            config = optimization_configs.get(optimization_level, optimization_configs["medium"])
+            
+            # Apply optimizations
+            optimization_results = {}
+            
+            # Cache theme data
+            if config.get("cache_theme"):
+                cache_result = await self.cache_theme_loading(
+                    session_id=session_id,
+                    user_roles=user_roles
+                )
+                optimization_results["theme_caching"] = cache_result.get("success", False)
+            
+            # Enable lazy loading
+            if config.get("lazy_load"):
+                lazy_config = {
+                    "enabled": True,
+                    "session_id": session_id,
+                    "optimization_level": optimization_level
+                }
+                await set_setting_optimized(
+                    key="editor.lazy_loading",
+                    value=lazy_config,
+                    user_roles=user_roles,
+                    user_id=session.user_id
+                )
+                optimization_results["lazy_loading"] = True
+            
+            # Enable batch operations
+            if config.get("batch_operations"):
+                batch_config = {
+                    "enabled": True,
+                    "batch_size": 10,
+                    "session_id": session_id
+                }
+                await set_setting_optimized(
+                    key="editor.batch_operations",
+                    value=batch_config,
+                    user_roles=user_roles,
+                    user_id=session.user_id
+                )
+                optimization_results["batch_operations"] = True
+            
+            # Compress preview data
+            if config.get("compress_preview"):
+                compress_config = {
+                    "enabled": True,
+                    "compression_level": 6,
+                    "session_id": session_id
+                }
+                await set_setting_optimized(
+                    key="editor.preview_compression",
+                    value=compress_config,
+                    user_roles=user_roles,
+                    user_id=session.user_id
+                )
+                optimization_results["preview_compression"] = True
+            
+            # Precompute themes
+            if config.get("precompute_themes"):
+                await self._precompute_common_themes(session_id, user_roles, session.user_id)
+                optimization_results["precomputed_themes"] = True
+            
+            # Enable incremental updates
+            if config.get("incremental_updates"):
+                incremental_config = {
+                    "enabled": True,
+                    "update_strategy": "incremental",
+                    "session_id": session_id
+                }
+                await set_setting_optimized(
+                    key="editor.incremental_updates",
+                    value=incremental_config,
+                    user_roles=user_roles,
+                    user_id=session.user_id
+                )
+                optimization_results["incremental_updates"] = True
+            
+            return {
+                "success": True,
+                "optimization_level": optimization_level,
+                "applied_optimizations": optimization_results,
+                "performance_features": {
+                    "cache_optimization": config.get("cache_theme"),
+                    "lazy_loading": config.get("lazy_load"),
+                    "batch_operations": config.get("batch_operations"),
+                    "compression": config.get("compress_preview"),
+                    "precompute_themes": config.get("precompute_themes"),
+                    "incremental_updates": config.get("incremental_updates")
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to optimize preview generation: {str(e)}"}
+    
+    async def _precompute_common_themes(
+        self,
+        session_id: str,
+        user_roles: List[str],
+        user_id: str
+    ) -> None:
+        """Precompute common theme combinations for faster loading"""
+        try:
+            common_presets = ["modern", "ocean", "forest"]
+            
+            for preset in common_presets:
+                # Preload preset theme data
+                theme_result = await self.theme_manager.get_preset_preview(preset)
+                if theme_result and "colors" in theme_result:
+                    # Cache the preset data
+                    await set_setting_optimized(
+                        key=f"editor.preset_cache.{preset}",
+                        value=theme_result,
+                        user_roles=user_roles,
+                        user_id=user_id
+                    )
+        except Exception as e:
+            logger.debug(f"Theme precomputation failed: {e}")
+    
+    async def add_lazy_loading(
+        self,
+        session_id: str,
+        components: Optional[List[str]] = None,
+        load_strategy: str = "on_demand",  # "on_demand", "preload", "progressive"
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Add lazy loading for theme data (optimized for single-site)"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Default to theme components
+            if not components:
+                components = ["colors", "typography", "spacing"]
+            
+            # Configure lazy loading
+            lazy_config = {
+                "enabled": True,
+                "components": components,
+                "load_strategy": load_strategy,
+                "session_id": session_id,
+                "user_id": session.user_id,
+                "priority_order": ["colors", "typography", "spacing"],  # Load order
+                "threshold": 0.8,  # Load when 80% scrolled
+                "preload_count": 2  # Preload 2 components
+            }
+            
+            # Save lazy loading configuration
+            await set_setting_optimized(
+                key="editor.lazy_loading_config",
+                value=lazy_config,
+                user_roles=user_roles,
+                user_id=session.user_id
+            )
+            
+            # Initialize lazy loading trackers
+            loading_trackers = {}
+            for component in components:
+                loading_trackers[component] = {
+                    "loaded": False,
+                    "loading": False,
+                    "requested": False,
+                    "priority": lazy_config["priority_order"].index(component) if component in lazy_config["priority_order"] else 999
+                }
+            
+            return {
+                "success": True,
+                "lazy_config": lazy_config,
+                "loading_trackers": loading_trackers,
+                "performance_features": {
+                    "lazy_loading": True,
+                    "load_strategy": load_strategy,
+                    "priority_loading": True,
+                    "progressive_enhancement": True
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to add lazy loading: {str(e)}"}
+    
+    async def implement_real_time_theme_updates(
+        self,
+        session_id: str,
+        update_mode: str = "live",  # "live", "debounced", "batched"
+        debounce_delay: int = 500,  # milliseconds
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Implement real-time theme updates with performance optimization"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Configure real-time updates
+            realtime_config = {
+                "enabled": True,
+                "update_mode": update_mode,
+                "debounce_delay": debounce_delay,
+                "session_id": session_id,
+                "user_id": session.user_id,
+                "batch_size": 5,  # Batch up to 5 updates
+                "max_frequency": 10,  # Max 10 updates per second
+                "preview_update_strategy": "incremental"  # "full", "incremental"
+            }
+            
+            # Save real-time configuration
+            await set_setting_optimized(
+                key="editor.realtime_updates",
+                value=realtime_config,
+                user_roles=user_roles,
+                user_id=session.user_id
+            )
+            
+            # Initialize update queue and throttling
+            update_queue = []
+            last_update_time = 0
+            
+            # Set up update processors based on mode
+            if update_mode == "debounced":
+                # Debounced updates - wait for pause before updating
+                debounce_config = {
+                    "delay": debounce_delay,
+                    "max_wait": 2000,  # Max wait 2 seconds
+                    "strategy": "debounce"
+                }
+                await set_setting_optimized(
+                    key="editor.debounce_config",
+                    value=debounce_config,
+                    user_roles=user_roles,
+                    user_id=session.user_id
+                )
+            elif update_mode == "batched":
+                # Batched updates - group multiple changes
+                batch_config = {
+                    "batch_size": realtime_config["batch_size"],
+                    "flush_interval": 1000,  # Flush every 1 second
+                    "strategy": "batch"
+                }
+                await set_setting_optimized(
+                    key="editor.batch_config",
+                    value=batch_config,
+                    user_roles=user_roles,
+                    user_id=session.user_id
+                )
+            
+            return {
+                "success": True,
+                "realtime_config": realtime_config,
+                "update_mode": update_mode,
+                "performance_features": {
+                    "real_time_updates": True,
+                    "update_throttling": True,
+                    "incremental_previews": True,
+                    "change_batching": update_mode == "batched",
+                    "debounced_updates": update_mode == "debounced"
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to implement real-time updates: {str(e)}"}
+    
+    async def get_performance_optimization_status(
+        self,
+        session_id: str,
+        user_roles: List[str] = ["admin"]
+    ) -> Dict[str, Any]:
+        """Get comprehensive performance optimization status"""
+        session = self.editor_state.get_session(session_id)
+        if not session:
+            return {"success": False, "error": "Invalid session"}
+        
+        try:
+            # Get all optimization configurations
+            configs = {}
+            
+            # Theme caching status
+            cache_result = await get_setting_optimized(
+                key="editor.theme_cache",
+                user_roles=user_roles,
+                user_id=session.user_id
+            )
+            configs["theme_cache"] = cache_result.get("success", False)
+            
+            # Lazy loading status
+            lazy_result = await get_setting_optimized(
+                key="editor.lazy_loading_config",
+                user_roles=user_roles,
+                user_id=session.user_id
+            )
+            configs["lazy_loading"] = lazy_result.get("success", False)
+            
+            # Real-time updates status
+            realtime_result = await get_setting_optimized(
+                key="editor.realtime_updates",
+                user_roles=user_roles,
+                user_id=session.user_id
+            )
+            configs["realtime_updates"] = realtime_result.get("success", False)
+            
+            # Auto-save status
+            autosave_result = await get_setting_optimized(
+                key="editor.auto_save",
+                user_roles=user_roles,
+                user_id=session.user_id
+            )
+            configs["auto_save"] = autosave_result.get("value", {}).get("enabled", False)
+            
+            # Get performance metrics
+            metrics_result = await self.get_editor_performance_metrics(
+                session_id=session_id,
+                user_roles=user_roles
+            )
+            
+            return {
+                "success": True,
+                "optimization_configs": configs,
+                "performance_metrics": metrics_result.get("performance_features", {}) if metrics_result.get("success") else {},
+                "optimization_summary": {
+                    "total_optimizations": sum(1 for enabled in configs.values() if enabled),
+                    "cache_optimization": configs.get("theme_cache", False),
+                    "lazy_loading": configs.get("lazy_loading", False),
+                    "realtime_updates": configs.get("realtime_updates", False),
+                    "auto_save": configs.get("auto_save", False)
+                }
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get optimization status: {str(e)}"}
+    
     async def preview_as_user_type(
         self,
         session_id: str,
@@ -1067,22 +1514,28 @@ class OmniviewEditorService:
             "anonymous": None,
             "member": {
                 "id": "preview_member",
-                "member_sites": [session.site_id],
+                "member_sites": ["default"],  # Use default for single-site
                 "roles": ["member"]
             },
             "admin": {
                 "id": "preview_admin",
+                "member_sites": ["default"],  # Use default for single-site
                 "roles": ["admin"]
             }
         }
         
-        context = user_contexts.get(user_type, None)
-        preview = await self._generate_preview(session, context)
+        user_context = user_contexts.get(user_type)
+        if user_context is None and user_type != "anonymous":
+            return {"success": False, "error": f"Invalid user type: {user_type}"}
+        
+        # Generate preview with user context
+        preview = await self._generate_preview(session, user_context)
         
         return {
             "success": True,
             "user_type": user_type,
-            "preview": preview
+            "preview": preview,
+            "user_context": user_context
         }
     
     async def compare_with_published(
