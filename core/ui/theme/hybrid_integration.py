@@ -75,22 +75,18 @@ class HybridThemeAction(Action):
     async def run(self, state: State, context=None, **inputs) -> ActionResult:
         """Run theme action with hybrid settings integration"""
         try:
-            # Get user context for permissions
-            user_roles = []
-            user_id = None
-            site_id = None
+            # Extract parameters from context or inputs
+            user_roles = context.get("user_roles", ["admin"]) if context else ["admin"]
+            user_id = context.get("user_id") if context else None
+            site_id = context.get("site_id") if context else None  # Kept for compatibility
             
-            if context and hasattr(context, 'user_context'):
-                user_roles = context.user_context.roles or []
-                user_id = context.user_context.user_id
-                site_id = getattr(context.user_context, 'site_id', 'default')
-            
-            # Default to admin if no context
-            if not user_roles:
-                user_roles = ["admin"]
-            
-            # Execute the specific theme operation
-            result = await self._execute_theme_operation(state, inputs, user_roles, user_id, site_id)
+            result = await self._execute_theme_operation(
+                state=state,
+                inputs=inputs,
+                user_roles=user_roles,
+                user_id=user_id,
+                site_id=site_id  # Pass for compatibility but not used
+            )
             
             return result
             
@@ -98,7 +94,7 @@ class HybridThemeAction(Action):
             logger.error(f"Theme action {self.name} failed: {e}")
             return ActionResult(
                 success=False,
-                error=f"Theme operation failed: {str(e)}"
+                message=f"Theme operation failed: {str(e)}"
             )
     
     async def _execute_theme_operation(
@@ -117,7 +113,7 @@ class UpdateColorSchemeAction(HybridThemeAction):
     """Update color scheme with hybrid settings integration"""
     
     def __init__(self):
-        super().__init__("update_colors", "site.theme.colors")
+        super().__init__("update_colors", "theme.colors")
     
     async def _execute_theme_operation(
         self,
@@ -175,7 +171,7 @@ class LoadThemeAction(HybridThemeAction):
     """Load theme from hybrid settings system"""
     
     def __init__(self):
-        super().__init__("load_theme", "site.theme.colors")
+        super().__init__("load_theme", "theme.colors")
     
     async def _execute_theme_operation(
         self,
@@ -188,15 +184,15 @@ class LoadThemeAction(HybridThemeAction):
         """Load theme from persistent storage"""
         from core.services.settings import get_theme_settings
         
-        # Load all theme settings
-        theme_settings_result = await get_theme_settings(user_roles, {"site_id": site_id})
+        # Load all theme settings (optimized for single-site)
+        theme_settings_result = await get_theme_settings(user_roles, {"user_id": user_id})
         
         theme_state = {}
         
-        # Process each theme setting
+        # Process each theme setting (optimized for single-site)
         for key, result in theme_settings_result.items():
             if result["success"]:
-                theme_state[key.replace("site.theme.", "")] = result["value"]
+                theme_state[key.replace("theme.", "")] = result["value"]
         
         # Update state
         state.set("theme_state", theme_state)
@@ -215,7 +211,7 @@ class ResetThemeAction(HybridThemeAction):
     """Reset theme to default with version tracking"""
     
     def __init__(self):
-        super().__init__("reset_theme", "site.theme.colors")
+        super().__init__("reset_theme", "theme.colors")
     
     async def _execute_theme_operation(
         self,
@@ -266,7 +262,7 @@ class GetThemeHistoryAction(HybridThemeAction):
     """Get theme change history"""
     
     def __init__(self):
-        super().__init__("get_theme_history", "site.theme.colors")
+        super().__init__("get_theme_history", "theme.colors")
     
     async def _execute_theme_operation(
         self,
@@ -305,7 +301,7 @@ class RollbackThemeAction(HybridThemeAction):
     """Rollback theme to previous version"""
     
     def __init__(self):
-        super().__init__("rollback_theme", "site.theme.colors")
+        super().__init__("rollback_theme", "theme.colors")
     
     async def _execute_theme_operation(
         self,
